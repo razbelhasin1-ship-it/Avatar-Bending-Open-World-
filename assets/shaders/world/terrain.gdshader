@@ -44,6 +44,8 @@ uniform float detail_distance = 140.0;
 uniform float detail_strength = 1.0;
 
 varying vec3 world_pos;
+// slope of the ~16 m blurred terrain normal (layer selection), interpolated per vertex
+varying float soft_slope;
 
 // Regional palettes (sRGB), index: 0 water tribe, 1 earth kingdom (+ wilds/ocean), 2 fire nation, 3 air temple
 const vec3 GRASS_D[4] = vec3[4](vec3(0.40, 0.44, 0.35), vec3(0.27, 0.43, 0.15), vec3(0.09, 0.29, 0.13), vec3(0.28, 0.44, 0.26));
@@ -56,7 +58,16 @@ const vec3 PAVE[4] = vec3[4](vec3(0.80, 0.87, 0.94), vec3(0.68, 0.64, 0.55), vec
 
 // Visible surface height: terrain (exact WorldData.get_height formula) + snow trail.
 float surface_height(vec2 xz, float spacing) {
-	float base = has_world ? world_height(xz) : 0.0;
+	float base = 0.0;
+	if (has_world) {
+		// levels with >= 2 m spacing have every vertex on a texel centre, where the bilinear
+		// formula returns the stored texel exactly: one fetch instead of four
+		if (spacing >= 2.0) {
+			base = world_height_texel(ivec2(round((xz - WH_ORIGIN) / WH_TEXEL - 0.5)));
+		} else {
+			base = world_height(xz);
+		}
+	}
 	return base + trail_displacement(xz, spacing);
 }
 
@@ -81,12 +92,17 @@ void vertex() {
 	// real vertex normals (shadow normal-offset bias, lighting before the fragment override);
 	// pre-scaled because the (s, 1, s) model scale is undone by the normal matrix
 	vec3 vn = vec3(0.0, 1.0, 0.0);
+	soft_slope = 0.0;
 	if (has_world) {
 		if (use_normal_map) {
-			vec2 nxz = textureLod(world_normal_map, world_uv(wp.xz), max(log2(s * 0.5), 0.0)).rg * 2.0 - 1.0;
+			vec2 uvn = world_uv(wp.xz);
+			vec2 nxz = textureLod(world_normal_map, uvn, max(log2(s * 0.5), 0.0)).rg * 2.0 - 1.0;
 			vn = vec3(nxz.x, sqrt(max(1.0 - dot(nxz, nxz), 0.0)), nxz.y);
+			vec2 sxz = textureLod(world_normal_map, uvn, max(3.0, log2(s * 0.5))).rg * 2.0 - 1.0;
+			soft_slope = 1.0 - sqrt(max(1.0 - dot(sxz, sxz), 0.0));
 		} else {
 			vn = world_normal(wp.xz);
+			soft_slope = 1.0 - vn.y;
 		}
 	}
 	NORMAL = normalize(vec3(vn.x * s, vn.y, vn.z * s));
@@ -155,11 +171,7 @@ void fragment() {
 	vec3 n = has_world ? terrain_normal(wp.xz, uv, dist) : vec3(0.0, 1.0, 0.0);
 	// layer selection uses a ~16 m blurred slope so terraced talus slopes do not flip between
 	// rock and soil every few metres (contour banding); lighting keeps the sharp normal
-	float slope = 1.0 - n.y;
-	if (has_world && use_normal_map) {
-		vec2 sxz = texture(world_normal_map, uv, 3.0).rg * 2.0 - 1.0;
-		slope = 1.0 - sqrt(max(1.0 - dot(sxz, sxz), 0.0));
-	}
+	float slope = has_world ? soft_slope : 0.0;
 
 	// world-space macro variation ("brush strokes" at several scales)
 	vec4 nz_big = texture(noise_tex, wp.xz * (1.0 / 900.0));
@@ -295,7 +307,7 @@ void fragment() {
 	if (w_road > 0.001) {
 		float paved = smoothstep(0.35, 0.6, gr.r);
 		vec3 dirt = mix(vec3(0.50, 0.40, 0.28), vec3(0.67, 0.56, 0.41), p_rip * 0.6 + macro * 0.4);
-		vec3 flag = pave * mix(0.72, 1.06, p_pave) * (0.92 + 0.12 * macro);
+		vec3 flag = pave * mix(0.82, 1.04, p_pave) * (0.92 + 0.1 * macro);
 		col = mix(col, mix(dirt, flag, paved), w_road);
 		n = normalize(n + vec3(dn_pave.x, 0.0, dn_pave.y) * 0.35 * near * paved * w_road);
 	}
@@ -303,9 +315,9 @@ void fragment() {
 	float w_pave = clamp(gr.g * 0.9 + flags.y * 0.9, 0.0, 1.0);
 	w_pave = smoothstep(0.3, 0.65, w_pave + edge_n * 0.1);
 	if (w_pave > 0.001) {
-		vec3 stone = pave * mix(0.74, 1.06, p_pave) * (0.92 + 0.1 * macro);
+		vec3 stone = pave * mix(0.86, 1.03, p_pave) * (0.93 + 0.09 * macro);
 		col = mix(col, stone, w_pave);
-		n = normalize(n + vec3(dn_pave.x, 0.0, dn_pave.y) * 0.4 * near * w_pave);
+		n = normalize(n + vec3(dn_pave.x, 0.0, dn_pave.y) * 0.22 * near * w_pave);
 	}
 	// ground normal detail (grass / ripples) where not rock
 	vec2 soft_dn = mix(dn_rip, dn_grass, w_lush) * (1.0 - w_rock) * (1.0 - w_pave);

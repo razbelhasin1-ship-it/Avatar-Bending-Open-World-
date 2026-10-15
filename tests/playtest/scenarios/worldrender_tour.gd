@@ -34,6 +34,53 @@ func run(p: Playtest) -> void:
 		var stats := await _measure(p, 20)
 		p.note("%s: %.1f ms/frame, %d draw calls, %d primitives" % [v, stats.x, int(stats.y), int(stats.z)])
 		await p.screenshot("worldrender_%s" % v)
+	if only.is_empty() or only.split(",").has("canal"):
+		await _canal(p, scene, world)
+	if only.is_empty() or only.split(",").has("splash"):
+		await _splash(p, scene, world)
+
+
+## Close view along the Water Tribe's ring canal (middle tier, level 14.2 m).
+func _canal(p: Playtest, scene: Node, world: WorldRenderer) -> void:
+	var ring: Dictionary = {}
+	for c in WorldData.get_canals():
+		if c["id"] == &"nwt_canal_ring":
+			ring = c
+	if not p.check(not ring.is_empty(), "ring canal record"):
+		return
+	var pts: PackedVector2Array = ring["points"]
+	var a := pts[pts.size() / 2 + 3]
+	var b := pts[pts.size() / 2 + 7]
+	var dir := (b - a).normalized()
+	var side := Vector2(-dir.y, dir.x)
+	var level := float(ring["level"])
+	var cam := a - dir * 6.0 + side * 9.0
+	scene.place_camera(Vector3(cam.x, level + 6.5, cam.y), Vector3(b.x, level, b.y), 66.0)
+	world.set_time_of_day(11.0)
+	world.set_weather(&"clear", 0.0)
+	await p.wait(1.5)
+	p.check(WorldData.get_water_height(a.x, a.y) > 10.0, "canal water level from WorldData")
+	await p.screenshot("worldrender_canal")
+
+
+## Bending splashes on the ocean: ripple rings, foam and spray.
+func _splash(p: Playtest, scene: Node, world: WorldRenderer) -> void:
+	scene.set_view("shore")
+	world.set_weather(&"clear", 0.0)
+	await p.wait(0.8)
+	var cam: Camera3D = scene.cam
+	var fwd := -cam.global_basis.z
+	fwd.y = 0.0
+	fwd = fwd.normalized()
+	var ok := 0
+	for k in 3:
+		var pt := cam.global_position + fwd * (14.0 + k * 7.0) + cam.global_basis.x * (k - 1) * 5.0
+		if world.splash(Vector3(pt.x, 0.0, pt.z), 1.2 + k * 0.6):
+			ok += 1
+		await p.wait(0.25)
+	p.check(ok >= 2, "splashes landed on water (%d/3)" % ok)
+	await p.wait(0.5)
+	await p.screenshot("worldrender_splash")
 
 
 ## Average frame time (ms), draw calls and primitives over n frames.

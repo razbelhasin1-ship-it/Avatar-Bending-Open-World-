@@ -21,6 +21,8 @@ uniform float moon_size = 0.05;
 // 0 = new, 0.5 = full, 1 = new again
 uniform float moon_phase = 0.45;
 uniform float stars = 0.0;
+// arctic aurora curtains in the northern sky (0 = off)
+uniform float aurora = 0.0;
 uniform mat3 star_rotation = mat3(1.0);
 uniform float haze = 0.4;
 uniform vec3 haze_color : source_color = vec3(0.8, 0.85, 0.9);
@@ -68,10 +70,29 @@ float star_field(vec3 dir) {
 			acc += smoothstep(0.12 + bright * 0.06, 0.0, r) * (0.35 + bright) * tw;
 		}
 	}
-	// a faint milky band across the sky
+	// a faint milky band across the sky (two planar projections, no polar pinching)
 	float band = exp(-pow(d.y * 3.2 + d.x * 0.6, 2.0) * 2.0);
-	acc += band * 0.06 * texture(cloud_tex, d.xz * 1.7 + 0.3).r;
+	float dust = mix(texture(cloud_tex, d.xy * 1.3 + 0.3).r, texture(cloud_tex, d.zy * 1.3 + 0.7).r, abs(d.x));
+	acc += band * 0.07 * dust;
 	return acc;
+}
+
+// Aurora: folded curtains hanging over the northern horizon, green at the hem fading to violet,
+// with vertical rays drifting slowly.
+vec3 aurora_light(vec3 dir) {
+	if (dir.y <= 0.0) {
+		return vec3(0.0);
+	}
+	float az = atan(dir.x, -dir.z);
+	float north = smoothstep(1.7, 0.4, abs(az));
+	float x = az * 2.6;
+	float fold = sin(x * 2.1 + sky_time * 0.03) * 0.05 + (texture(cloud_tex, vec2(x * 0.11 + sky_time * 0.002, 0.27)).r - 0.5) * 0.16;
+	float h = dir.y - (0.16 + fold);
+	float hem = smoothstep(-0.02, 0.012, h);
+	float curtain = hem * exp(-max(h, 0.0) / 0.2);
+	float rays = texture(cloud_tex, vec2(x * 1.7 + sky_time * 0.006, 0.61)).b * 0.7 + 0.3;
+	vec3 col = mix(vec3(0.15, 0.95, 0.55), vec3(0.50, 0.32, 0.95), smoothstep(0.02, 0.3, h));
+	return col * curtain * rays * north;
 }
 
 // Cloud density and lighting for one view direction (plane projection).
@@ -101,7 +122,7 @@ vec4 clouds(vec3 dir, vec3 light_dir, bool detail) {
 	float ci = 0.0;
 	if (cirrus > 0.0) {
 		vec2 cuv = p * 0.07 + cloud_offset * 0.35 + vec2(0.0, 0.31);
-		ci = smoothstep(0.55, 0.9, texture(cloud_tex, cuv).b) * cirrus * smoothstep(0.02, 0.25, dir.y);
+		ci = smoothstep(0.55, 0.9, texture(cloud_tex, cuv).b) * cirrus * smoothstep(0.08, 0.35, dir.y) * (1.0 - stars * 0.85);
 	}
 	float a = clamp(dens * horizon_fade + ci * (1.0 - dens) * 0.6, 0.0, 1.0);
 	vec3 ccol = mix(cloud_lit * 1.02, col, dens / max(a, 1e-3) * horizon_fade);
@@ -120,6 +141,9 @@ void sky() {
 	vec3 light_dir = sun_visible > 0.01 ? normalize(sun_dir) : normalize(moon_dir);
 	if (!cube && stars > 0.001) {
 		col += vec3(0.92, 0.95, 1.0) * star_field(dir) * stars * smoothstep(-0.02, 0.15, dir.y);
+	}
+	if (aurora > 0.001) {
+		col += aurora_light(dir) * aurora * 0.55;
 	}
 	// moon disc with phase terminator and soft craters
 	if (moon_visible > 0.001) {

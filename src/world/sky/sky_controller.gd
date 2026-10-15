@@ -179,6 +179,7 @@ func apply(state: Dictionary, sun_dir: Vector3, moon_dir: Vector3, moon_phase: f
 	m.set_shader_parameter(&"moon_visible", moon_vis * (1.0 - smoothstep(0.6, 1.0, float(s[&"coverage"])) * 0.9))
 	m.set_shader_parameter(&"moon_phase", moon_phase)
 	m.set_shader_parameter(&"stars", float(s[&"stars"]))
+	m.set_shader_parameter(&"aurora", float(s[&"aurora"]) * (1.0 - smoothstep(0.5, 0.9, float(s[&"coverage"]))))
 	m.set_shader_parameter(&"star_rotation", Basis(Vector3(0.0, cos(deg_to_rad(40.0)), -sin(deg_to_rad(40.0))).normalized(), hour / 24.0 * TAU))
 	m.set_shader_parameter(&"haze", float(s[&"haze"]))
 	m.set_shader_parameter(&"haze_color", fog_col)

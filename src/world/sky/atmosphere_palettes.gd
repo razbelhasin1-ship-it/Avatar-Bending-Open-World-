@@ -10,7 +10,7 @@ extends RefCounted
 
 const KEYS := [&"zenith", &"horizon", &"ground", &"sun", &"sun_energy", &"glow", &"glow_strength",
 		&"ambient", &"ambient_energy", &"fog", &"fog_density", &"cloud_lit", &"cloud_shade", &"coverage",
-		&"haze", &"exposure", &"saturation", &"moon_energy", &"stars", &"fog_height_density"]
+		&"haze", &"exposure", &"saturation", &"moon_energy", &"stars", &"fog_height_density", &"aurora"]
 
 ## Sun elevation (degrees) at which each phase keyframe applies.
 const PHASE_ELEVATION := {&"night": -14.0, &"twilight": -5.0, &"golden": 4.0, &"day": 22.0}
@@ -37,7 +37,7 @@ static func _base() -> Dictionary:
 		&"ambient": Color(0.62, 0.70, 0.84), &"ambient_energy": 0.45, &"fog": Color(0.74, 0.82, 0.90),
 		&"fog_density": 0.00014, &"cloud_lit": Color(1.0, 0.99, 0.96), &"cloud_shade": Color(0.62, 0.68, 0.80),
 		&"coverage": 0.38, &"haze": 0.35, &"exposure": 1.0, &"saturation": 1.05, &"moon_energy": 0.0,
-		&"stars": 0.0, &"fog_height_density": 0.0,
+		&"stars": 0.0, &"fog_height_density": 0.0, &"aurora": 0.0,
 	}
 
 
@@ -71,9 +71,9 @@ static func region_keyframes(region: StringName) -> Dictionary:
 			twilight = _phase(golden, {&"zenith": Color(0.10, 0.16, 0.36), &"horizon": Color(0.62, 0.50, 0.62),
 					&"sun_energy": 0.0, &"glow": Color(0.95, 0.55, 0.50), &"glow_strength": 0.6, &"ambient": Color(0.40, 0.45, 0.66),
 					&"ambient_energy": 0.42, &"fog": Color(0.42, 0.42, 0.56), &"cloud_lit": Color(0.80, 0.56, 0.62),
-					&"cloud_shade": Color(0.25, 0.26, 0.42), &"exposure": 1.15, &"moon_energy": 0.12, &"stars": 0.3})
+					&"cloud_shade": Color(0.25, 0.26, 0.42), &"exposure": 1.15, &"moon_energy": 0.12, &"stars": 0.3, &"aurora": 0.2})
 			night = _phase(_night_base(day), {&"horizon": Color(0.08, 0.15, 0.30), &"ambient": Color(0.25, 0.35, 0.60),
-					&"ambient_energy": 0.4, &"moon_energy": 0.4, &"fog": Color(0.07, 0.11, 0.21)})
+					&"ambient_energy": 0.4, &"moon_energy": 0.4, &"fog": Color(0.07, 0.11, 0.21), &"aurora": 1.0})
 		&"fire_nation":
 			day = _phase(day, {&"zenith": Color(0.30, 0.47, 0.74), &"horizon": Color(0.95, 0.82, 0.64),
 					&"ground": Color(0.40, 0.32, 0.28), &"sun": Color(1.0, 0.91, 0.76), &"sun_energy": 1.35,

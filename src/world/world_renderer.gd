@@ -341,7 +341,7 @@ func _blend_regions(delta: float) -> void:
 
 func _configure_terrain() -> void:
 	var detail := Settings.detail_level()
-	var tile_res: int = [16, 20, 24, 32][detail]
+	var tile_res: int = [16, 20, 22, 32][detail]
 	var spacing: float = [0.25, 0.25, 0.25, 0.125][detail]
 	var key := "%d|%f|%f" % [tile_res, spacing, Settings.view_distance_m()]
 	if key == _config_key:
