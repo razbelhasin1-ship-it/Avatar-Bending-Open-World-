@@ -177,7 +177,7 @@ open_skills (K), open_journal (J). Mouse look is read from `InputEventMouseMotio
 ### World data (`tools/worldgen/`, `assets/world/`, `src/autoload/world_data.gd`)
 Offline Python generator bakes an 8192 × 8192 m world centered on the origin (north = -Z):
 heightmap, biome/splat maps, region map, roads, cities, POIs, spawn points. `WorldData` loads
-them and answers all queries. Data formats are documented in `docs/modules/world_data.md`.
+them and answers all queries. Data formats are documented in `docs/modules/worlddata.md`.
 Layout: Northern Water Tribe in the arctic north; Earth Kingdom (Ba Sing Se) on the large
 central/eastern continent; Fire Nation volcanic archipelago in the south-west with the capital
 in a caldera; Southern Air Temple on high southern peaks. Walkable links (frozen strait,

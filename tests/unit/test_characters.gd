@@ -8,6 +8,15 @@ const SK = preload("res://src/characters/rig/rig_skeleton_def.gd")
 var _steps: Array = []
 
 
+func before_each() -> void:
+	# Character tests run on a flat plane at y = 0 (the baked world is ~130 m high at the origin).
+	WorldData.use_flat_world(true)
+
+
+func after_each() -> void:
+	WorldData.use_flat_world(false)
+
+
 func _make(cfg: Dictionary) -> HumanoidRig:
 	var rig := HumanoidRig.create(cfg)
 	rig.manual_update = true

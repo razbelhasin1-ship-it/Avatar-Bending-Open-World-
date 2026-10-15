@@ -8,7 +8,13 @@ var _rigs: Array[Node] = []
 var _steps: Array = []
 
 
+func before_each() -> void:
+	# Creature tests run on a flat plane at y = 0 (the baked world is ~130 m high at the origin).
+	WorldData.use_flat_world(true)
+
+
 func after_each() -> void:
+	WorldData.use_flat_world(false)
 	if Events.footstep.is_connected(_on_footstep):
 		Events.footstep.disconnect(_on_footstep)
 	for r in _rigs:
