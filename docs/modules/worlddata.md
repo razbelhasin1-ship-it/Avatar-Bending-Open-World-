@@ -6,7 +6,7 @@ generator and served at runtime by the `WorldData` autoload.
 | | |
 | --- | --- |
 | Generator | `tools/worldgen/generate_world.py` (+ `tools/worldgen/wg/*`) |
-| Baked data | `assets/world/` (≈ 26 MB) |
+| Baked data | `assets/world/` (≈ 27.6 MB: heightmap 20.9, splat 2.4, ground 3.0, map 0.9, rest < 0.5) |
 | Runtime | `src/autoload/world_data.gd` (autoload `WorldData`), helpers in `src/world/data/` |
 | Shader include | `src/world/data/world_height.gdshaderinc` |
 | Dev scene | `scenes/dev/world_overview.tscn` (`godot --path . -- --scene=res://scenes/dev/world_overview.tscn`) |
@@ -148,7 +148,7 @@ re-encodes them (exported as-is; PNG/JPG are decoded at runtime with `Image.load
 | File | Content |
 | --- | --- |
 | `heightmap.r16.zlib` | 4096² uint16 LE, rows north→south. zlib (RFC 1950) stream: `PackedByteArray.decompress(33554432, FileAccess.COMPRESSION_DEFLATE)` (verified: `COMPRESSION_DEFLATE` expects zlib-wrapped data, `COMPRESSION_GZIP` gzip). `height = raw * 1/32 - 256` → range -256 … 1791.97 m, 3.1 cm steps |
-| `splat.png` | 2048² RGBA: **R** snow/ice cover, **G** rock/cliff, **B** lush grass/forest floor, **A** sand (beaches) / ash & black sand (Fire Nation, volcanic). Remainder `1 - sum` = bare soil / dry grass. Weights sum ≤ 1 |
+| `splat.png` | 2048² RGBA: **R** snow/ice cover, **G** rock/cliff, **B** lush grass/forest floor, **A** sand (beaches) / ash & black sand (Fire Nation, volcanic). Remainder `1 - sum` = bare soil / dry grass. Weights sum ≤ 1. Snow follows regional snowlines (arctic everywhere, Earth Kingdom ≈ 520 m, Air ≈ 640 m, summit caps ~130 m higher even on steep faces); renderers should treat R as a crisp layer (e.g. `smoothstep(0.16, 0.4, r)`, as the preview shader does) rather than a linear blend |
 | `biome.png` | 2048² L8 `WorldData.Biome` |
 | `region.png` | 1024² L8 index into `REGION_IDS` = [ocean, water_tribe, earth_kingdom, fire_nation, air_temple, wilds] |
 | `roads.png` | 4096² L8 road coverage (anti-aliased) |

@@ -83,8 +83,12 @@ void fragment() {
 	vec3 rock = region == 3 ? vec3(0.27, 0.23, 0.22) : (region == 1 ? vec3(0.42, 0.44, 0.48) : vec3(0.50, 0.45, 0.40));
 	vec3 snow = biome == 3 ? vec3(0.70, 0.85, 0.95) : vec3(0.94, 0.96, 1.0);
 	float rest = clamp(1.0 - (sp.r + sp.g + sp.b + sp.a), 0.0, 1.0);
-	vec3 col = soil * rest + snow * sp.r + rock * sp.g + lush * sp.b + sand * sp.a;
+	float bare = max(rest + sp.g + sp.b + sp.a, 1e-3);
+	vec3 col = (soil * rest + rock * sp.g + lush * sp.b + sand * sp.a) / bare;
 	col *= 0.9 + 0.2 * n1;
+	// stylised snow: a crisp layer (with a little noise on its edge) instead of a grey blend
+	float snow_w = smoothstep(0.16, 0.4, sp.r + (n1 - 0.5) * 0.12);
+	col = mix(col, snow * (0.95 + 0.05 * n1), snow_w);
 	if (biome == 13 || biome == 12) {
 		vec3 paving = region == 1 ? vec3(0.80, 0.88, 0.95) : (region == 3 ? vec3(0.62, 0.42, 0.36) : base);
 		col = mix(col, paving * (0.92 + 0.12 * vnoise(world_pos.xz * 0.5)), 0.85);

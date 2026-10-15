@@ -209,12 +209,15 @@ class Classifier:
         arctic = (terr == T_WATER) | ((terr == T_WILDS) & (self.Z < -1600))
         snowline = np.full(h.shape, 1e5, dtype=np.float32)
         snowline[arctic] = -60.0
-        snowline[terr == T_EARTH] = 560.0
-        snowline[terr == T_AIR] = 760.0
+        snowline[terr == T_EARTH] = 520.0
+        snowline[terr == T_AIR] = 640.0
         snowline += nz.fbm(self.X, self.Z, 1 / 300, self.seed + 712, 3) * 50.0
-        cover = smoothstep(snowline - 60.0, snowline + 140.0, h) * (1.0 - smoothstep(50.0, 72.0, sl))
+        cover = smoothstep(snowline - 60.0, snowline + 140.0, h) * (1.0 - 0.75 * smoothstep(60.0, 82.0, sl))
+        cap = smoothstep(snowline + 120.0, snowline + 260.0, h) * 0.9
+        cover = np.maximum(cover, cap)        # summit snow caps cling even to steep faces
         cover *= (b != B["CITY"]) & (b != B["TEMPLE"]) & (b != B["OCEAN"])
         snow = np.maximum(snow, cover * 0.95)
+        rock = rock * (1.0 - 0.85 * cover)    # snow buries the rock it covers
         lush[arctic & (b != B["GRASSLAND"])] *= 0.1
         # variation and transitions
         lush *= 0.75 + 0.5 * n2

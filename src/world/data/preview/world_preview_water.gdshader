@@ -30,8 +30,10 @@ void vertex() {
 }
 
 void fragment() {
-	bool outside = any(lessThan(world_pos.xz, vec2(WH_ORIGIN))) || any(greaterThan(world_pos.xz, vec2(-WH_ORIGIN)));
-	float ground = outside ? -200.0 : world_height(world_pos.xz);
+	// beyond the baked square the sea floor keeps sloping down from the edge texels
+	vec2 inside_xz = clamp(world_pos.xz, vec2(WH_ORIGIN), vec2(-WH_ORIGIN));
+	float outside = length(world_pos.xz - inside_xz);
+	float ground = world_height(inside_xz) - outside * 0.3;
 	float depth = water_level - ground;
 	if (depth < -0.05) {
 		discard;
