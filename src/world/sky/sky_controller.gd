@@ -50,11 +50,14 @@ func _build() -> void:
 	environment.fog_sky_affect = 0.0
 	environment.fog_sun_scatter = 0.12
 	environment.adjustment_enabled = true
-	environment.glow_intensity = 0.55
+	environment.adjustment_contrast = 1.1
+	environment.glow_intensity = 0.3
 	environment.glow_strength = 0.9
 	environment.glow_bloom = 0.02
-	environment.glow_hdr_threshold = 1.1
-	environment.glow_blend_mode = Environment.GLOW_BLEND_MODE_SOFTLIGHT
+	environment.glow_hdr_threshold = 1.25
+	# screen blend only lifts what is actually bright (sun, glints, embers); softlight washed
+	# every midtone out
+	environment.glow_blend_mode = Environment.GLOW_BLEND_MODE_SCREEN
 	environment.ssao_radius = 1.6
 	environment.ssao_intensity = 1.4
 	environment.volumetric_fog_density = 0.0
@@ -160,7 +163,9 @@ func apply(state: Dictionary, sun_dir: Vector3, moon_dir: Vector3, moon_phase: f
 		env.volumetric_fog_density = float(mods.get(&"volumetric", 0.004))
 		env.volumetric_fog_albedo = fog_col
 		env.volumetric_fog_emission = fog_col * 0.25 * float(s[&"ambient_energy"])
-	env.glow_intensity = 0.55 if sun_vis > 0.5 else 0.8
+	env.glow_intensity = 0.3 if sun_vis > 0.5 else 0.55
+	# painterly value structure: a little extra contrast in clear air, flat in white-outs
+	env.adjustment_contrast = lerpf(1.12, 1.0, float(mods.get(&"sky_fog", 0.0)))
 
 	# --- sky ---
 	var cloud_speed := float(mods.get(&"cloud_speed", 1.0))

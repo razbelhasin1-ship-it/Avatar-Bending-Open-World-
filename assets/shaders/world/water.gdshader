@@ -135,10 +135,11 @@ void fragment() {
 
 	// --- foam ---
 	// lacy foam: small cells broken up by two drifting noise scales
-	float lace = texture(water_nrm, wp.xz / 1.7 + drift * 1.5).a;
 	float fnoise = texture(noise_tex, wp.xz / 23.0 + drift * 0.2).r;
 	float fbreak = texture(noise_tex, wp.xz / 5.5 - drift * 0.7).r;
-	float ftex = lace * 0.45 + fbreak * 0.55;
+	// fine lace, its cells warped by noise so no regular net shows
+	float lace = texture(water_nrm, wp.xz / 0.95 + (vec2(fbreak, fnoise) - 0.5) * 0.9 + drift * 1.5).a;
+	float ftex = lace * 0.3 + fbreak * 0.7;
 	float shore = 1.0 - smoothstep(0.0, foam_depth, depth);
 	// bands that run up the beach with the swell
 	float bands = sin(depth * 5.5 - world_time * (inland ? 0.8 : 1.7) + fnoise * 5.0) * 0.5 + 0.5;

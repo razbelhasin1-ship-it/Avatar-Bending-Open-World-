@@ -80,7 +80,7 @@ static func region_keyframes(region: StringName) -> Dictionary:
 					&"glow": Color(1.0, 0.75, 0.45), &"glow_strength": 0.45, &"ambient": Color(0.76, 0.66, 0.60),
 					&"ambient_energy": 0.45, &"fog": Color(0.86, 0.75, 0.62), &"fog_density": 0.00016,
 					&"cloud_lit": Color(1.0, 0.93, 0.84), &"cloud_shade": Color(0.66, 0.54, 0.52), &"coverage": 0.3,
-					&"haze": 0.5, &"saturation": 1.04, &"fog_height_density": 0.0})
+					&"haze": 0.45, &"saturation": 1.1, &"fog_height_density": 0.0})
 			golden = _phase(day, {&"zenith": Color(0.34, 0.36, 0.58), &"horizon": Color(1.0, 0.56, 0.28),
 					&"sun": Color(1.0, 0.58, 0.30), &"sun_energy": 1.1, &"glow": Color(1.0, 0.45, 0.18), &"glow_strength": 0.9,
 					&"ambient": Color(0.74, 0.52, 0.48), &"fog": Color(0.96, 0.56, 0.32), &"cloud_lit": Color(1.0, 0.62, 0.36),
