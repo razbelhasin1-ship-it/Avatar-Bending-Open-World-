@@ -8,9 +8,9 @@ extends Node
 ##   extends RefCounted
 ##   func run(p: Playtest) -> void:
 ##       await p.load_scene("res://scenes/world/world.tscn", {"element": ElementDefs.Element.FIRE})
-##       await p.wait(2.0)
+##       await p.wait_game(2.0)   # game time; p.wait() is wall clock
 ##       p.hold("move_forward")
-##       await p.wait(1.0)
+##       await p.wait_game(1.0)
 ##       p.release("move_forward")
 ##       await p.tap("attack_light")
 ##       await p.screenshot("after_attack")
@@ -99,8 +99,18 @@ func player() -> Node3D:
 	return get_tree().get_first_node_in_group(&"player") as Node3D
 
 
+## Waits wall-clock seconds. Under software rendering frames are slow and physics
+## is capped per frame, so prefer wait_game() for gameplay timing.
 func wait(t: float) -> void:
 	await get_tree().create_timer(t, true, false, true).timeout
+
+
+## Waits `t` seconds of GAME time (physics ticks), independent of render speed.
+## Use this for anything gameplay-timed: combos, cooldowns, AI, movement distances.
+func wait_game(t: float) -> void:
+	var ticks := maxi(1, int(round(t * Engine.physics_ticks_per_second)))
+	for i in ticks:
+		await get_tree().physics_frame
 
 
 func frames(n: int) -> void:
@@ -133,9 +143,9 @@ func release(action: StringName) -> void:
 
 func tap(action: StringName, hold_time: float = 0.06) -> void:
 	hold(action)
-	await wait(hold_time)
+	await wait_game(hold_time)
 	release(action)
-	await frames(1)
+	await get_tree().physics_frame
 
 
 func release_all() -> void:
