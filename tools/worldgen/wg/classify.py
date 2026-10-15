@@ -132,7 +132,7 @@ class Classifier:
             plat = np.hypot(X - cx, Z - cz) < rad * 0.95
             biome[earth & plat & (sl > 22)] = B["ROCK"]
         biome[earth & (h > 380) & (sl > 18)] = B["MOUNTAIN"]
-        biome[earth & (h > 600 + n1 * 40)] = B["SNOW"]
+        biome[earth & (h > 560 + n1 * 50) & (sl < 42)] = B["SNOW"]
 
         # ---------------- Fire Nation ----------------
         biome[fire] = B["FOREST"]
@@ -161,8 +161,8 @@ class Classifier:
         biome[air & (h < 420) & (moist > 0.05) & (sl < 32)] = B["FOREST"]
         biome[air & (h > 330) & (sl > 22)] = B["MOUNTAIN"]
         biome[air & (sl > 40)] = B["ROCK"]
-        biome[air & (h > 880 + n1 * 50)] = B["SNOW"]
-        biome[air & (h > 820 + n1 * 50) & (sl < 30)] = B["SNOW"]
+        biome[air & (h > 840 + n1 * 50) & (sl < 46)] = B["SNOW"]
+        biome[air & (h > 720 + n1 * 60) & (sl < 30)] = B["SNOW"]
 
         # ---------------- Wild islands ----------------
         biome[wild] = B["GRASSLAND"]
@@ -195,7 +195,7 @@ class Classifier:
         for name, (sn, rk, lu, sa) in {
             "SNOW": (1.0, 0.0, 0.0, 0.0), "ICE": (0.9, 0.0, 0.0, 0.0), "TUNDRA": (0.35, 0.05, 0.15, 0.0),
             "GRASSLAND": (0.0, 0.0, 0.62, 0.0), "FOREST": (0.0, 0.0, 0.92, 0.0), "FARMLAND": (0.0, 0.0, 0.45, 0.0),
-            "ROCK": (0.0, 0.85, 0.0, 0.0), "MOUNTAIN": (0.12, 0.55, 0.1, 0.0), "VOLCANIC": (0.0, 0.7, 0.0, 0.25),
+            "ROCK": (0.0, 0.85, 0.0, 0.0), "MOUNTAIN": (0.12, 0.6, 0.0, 0.0), "VOLCANIC": (0.0, 0.7, 0.0, 0.25),
             "ASH": (0.0, 0.15, 0.0, 0.85), "BEACH": (0.0, 0.0, 0.0, 1.0), "TEMPLE": (0.0, 0.35, 0.25, 0.0),
             "CITY": (0.0, 0.3, 0.1, 0.1), "OCEAN": (0.0, 0.2, 0.0, 0.6),
         }.items():
@@ -204,6 +204,18 @@ class Classifier:
             rock[m] = np.maximum(rock[m], rk)
             lush[m] = lu
             sand[m] = sa
+        # snow cover on high ground (regional snowlines), none on cliffs
+        terr = self.terr
+        arctic = (terr == T_WATER) | ((terr == T_WILDS) & (self.Z < -1600))
+        snowline = np.full(h.shape, 1e5, dtype=np.float32)
+        snowline[arctic] = -60.0
+        snowline[terr == T_EARTH] = 560.0
+        snowline[terr == T_AIR] = 760.0
+        snowline += nz.fbm(self.X, self.Z, 1 / 300, self.seed + 712, 3) * 50.0
+        cover = smoothstep(snowline - 60.0, snowline + 140.0, h) * (1.0 - smoothstep(50.0, 72.0, sl))
+        cover *= (b != B["CITY"]) & (b != B["TEMPLE"]) & (b != B["OCEAN"])
+        snow = np.maximum(snow, cover * 0.95)
+        lush[arctic & (b != B["GRASSLAND"])] *= 0.1
         # variation and transitions
         lush *= 0.75 + 0.5 * n2
         lush += self.wet * 0.25 * (lush > 0)

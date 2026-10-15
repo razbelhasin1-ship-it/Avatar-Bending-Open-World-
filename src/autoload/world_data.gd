@@ -34,21 +34,27 @@ var _records := WorldRecords.new()
 var _has_data := false
 var _force_flat := false
 var _group_task := -1
+var _jobs: Array = []
+var _load_t0 := 0
 var _task_errors: Array[String] = []
 var _task_mutex := Mutex.new()
+var _load_mutex := Mutex.new()
 var _map_texture: ImageTexture = null
 var _sources: Array[Dictionary] = []
 
 
 # --- Loading --------------------------------------------------------------------------------
 
-## Loads world data (blocking). Safe and cheap to call repeatedly.
+## Loads world data (blocking). Safe and cheap to call repeatedly, from any thread.
 func load_world() -> void:
 	if loaded:
 		return
-	if _group_task < 0:
-		_start_load()
-	_finish_load()
+	_load_mutex.lock()
+	if not loaded:
+		if _group_task < 0:
+			_start_load()
+		_finish_load()
+	_load_mutex.unlock()
 
 
 ## Starts loading on worker threads and returns immediately. Events.world_ready fires when done.
@@ -78,13 +84,8 @@ func _start_load() -> void:
 	_task_errors.clear()
 	_has_data = false
 	_load_t0 = Time.get_ticks_usec()
-	var jobs := ["heightmap", "records"] + WorldMaps.map_names()
-	_jobs = jobs
-	_group_task = WorkerThreadPool.add_group_task(_load_job, jobs.size(), -1, false, "WorldData load")
-
-
-var _jobs: Array = []
-var _load_t0 := 0
+	_jobs = ["heightmap", "records"] + WorldMaps.map_names()
+	_group_task = WorkerThreadPool.add_group_task(_load_job, _jobs.size(), -1, false, "WorldData load")
 
 
 func _load_job(index: int) -> void:
@@ -106,8 +107,7 @@ func _load_job(index: int) -> void:
 func _poll_async() -> void:
 	while _group_task >= 0 and not WorkerThreadPool.is_group_task_completed(_group_task):
 		await get_tree().process_frame
-	if not loaded:
-		_finish_load()
+	load_world()
 
 
 func _finish_load() -> void:
@@ -120,7 +120,10 @@ func _finish_load() -> void:
 		push_warning("WorldData: using the flat fallback world (%s)" % load_error)
 	load_time_sec = (Time.get_ticks_usec() - _load_t0) / 1000000.0
 	loaded = true
-	Events.world_ready.emit()
+	if OS.get_thread_caller_id() == OS.get_main_thread_id():
+		Events.world_ready.emit()
+	else:
+		Events.world_ready.emit.call_deferred()
 
 
 func _ensure() -> void:

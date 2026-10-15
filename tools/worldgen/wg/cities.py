@@ -294,15 +294,19 @@ def build_fire_harbor(f: Field) -> dict:
 
     ramps = list(cfg["ramp_bearings"]) + [g["gate_bearing_from_harbor"]]
     ring_layout(f, k, cfg["tiers"], ramps, cfg["ramp_width"], cfg["ramp_length"], cfg["blend"], keep_out=keep_out)
+    # side gates in the back wall of the upper tier; roads leave from just outside them
     upper = cfg["tiers"][-1]
     a0, a1 = upper["arc"]
-    north = layout.polar(k, a1 - 6, (upper["r_inner"] + upper["r_outer"]) / 2)
-    south = layout.polar(k, a0 + 6, (upper["r_inner"] + upper["r_outer"]) / 2)
+    bn, bs = a1 - 8.0, a0 + 8.0
+    north = layout.polar(k, bn, upper["r_outer"] - 4)
+    south = layout.polar(k, bs, upper["r_outer"] - 4)
     gates = [
         {"id": "gate", "bearing": _r2(g["gate_bearing_from_harbor"]), "position": _p3(f, *g["gate"]), "width": 20.0},
-        {"id": "north", "bearing": _r2(a1 - 6), "position": _p3(f, *north), "width": 12.0},
-        {"id": "south", "bearing": _r2(a0 + 6), "position": _p3(f, *south), "width": 12.0},
+        {"id": "north", "bearing": _r2(bn), "position": _p3(f, *north), "width": 12.0},
+        {"id": "south", "bearing": _r2(bs), "position": _p3(f, *south), "width": 12.0},
     ]
+    north_out = layout.polar(k, bn, upper["r_outer"] + 16)
+    south_out = layout.polar(k, bs, upper["r_outer"] + 16)
     rec = {
         "id": cfg["id"], "name": cfg["name"], "region": cfg["region"], "kind": "town",
         "center": _p3(f, *cfg["center"]), "radius": 420.0, "layout": "rings", "ring_center": list(map(_r2, k)),
@@ -311,5 +315,5 @@ def build_fire_harbor(f: Field) -> dict:
         "harbor": {"center": list(map(_r2, k)), "radius": bay_r, "floor": cfg["bay_depth"], "water_level": 0.0},
         "gates": gates,
     }
-    return {"city": rec, "anchors": {"fire_harbor:gate": g["gate"], "fire_harbor:north": north,
-                                     "fire_harbor:south": south}}
+    return {"city": rec, "anchors": {"fire_harbor:gate": g["gate"], "fire_harbor:north": north_out,
+                                     "fire_harbor:south": south_out}}

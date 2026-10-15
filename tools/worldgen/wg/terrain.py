@@ -172,17 +172,26 @@ def _range_field(X, Z, s) -> np.ndarray:
         sl = (slice(rows[0], rows[-1] + 1), slice(cols[0], cols[-1] + 1))
         dist, _, _ = grid.polyline_distance(wx[sl], wz[sl], pts)
         m = smoothstep(hw, 0.0, dist)
-        r = nz.ridged(wx[sl], wz[sl], 1.0 / wl, s + 100 + k, octaves=7, sharpness=2.1)
-        prof = m ** 1.35 * (0.22 + 0.95 * r) * (0.75 + 0.5 * along[sl])
+        r = nz.ridged(wx[sl], wz[sl], 1.0 / wl, s + 100 + k, octaves=7, sharpness=2.3)
+        crag = nz.ridged(wx[sl], wz[sl], 1.0 / 210.0, s + 150 + k, octaves=4, sharpness=2.5)
+        prof = m ** 1.35 * (0.18 + 0.95 * r + 0.18 * crag) * (0.75 + 0.5 * along[sl])
         out[sl] = smooth_max(out[sl], peak * prof, 40.0)
     for k, (cx, cz, height, rad) in enumerate(layout.PEAKS):
-        dd = np.hypot(wx - cx, wz - cz) / rad
-        cone = np.clip(1 - dd, 0, 1) ** 1.5
-        if not cone.any():
+        dd = np.hypot(wx - cx, wz - cz) / (rad * 1.25)
+        t = np.clip(1 - dd, 0, 1)
+        massif = (t * t * (3 - 2 * t)) ** 1.15          # broad shoulders, rounded summit
+        if not massif.any():
             continue
-        r = nz.ridged(wx, wz, 1 / 360, s + 200 + k, octaves=6, sharpness=1.8)
-        out = smooth_max(out, height * cone * (0.6 + 0.4 * r), 30.0)
+        r = nz.ridged(wx, wz, 1 / 240, s + 200 + k, octaves=6, sharpness=2.3)
+        out = smooth_max(out, height * massif * (0.5 + 0.5 * r), 30.0)
     return out
+
+
+def sharpen_mountains(h: np.ndarray, cell: float) -> np.ndarray:
+    """Unsharp-masks high ground so crests and gullies stay crisp after erosion/upsampling."""
+    blur = ndimage.gaussian_filter(h, 2.0)
+    w = smoothstep(180.0, 450.0, h)
+    return (h + 0.9 * (h - blur) * w).astype(np.float32)
 
 
 def smooth_max(a, b, k: float):
@@ -223,6 +232,13 @@ def build_elevation(b: Base) -> None:
     mt = np.maximum(mt, air_base * (230 + 140 * (nz.fbm(wx, wz, 1 / 900, s + 31, 4) * 0.5 + 0.5)))
     land_h = land_h + mt * smoothstep(0.0, 90.0, d)
 
+    # --- Omashu's mountain: the city crowns its summit --------------------------------
+    ocx, ocz = layout.OMASHU["center"]
+    rom = np.hypot(X - ocx, Z - ocz) * (1.0 + 0.12 * nz.fbm(X, Z, 1 / 400, s + 35, 3))
+    mount = 168.0 * (1.0 - smoothstep(330.0, 1150.0, rom)) ** 1.3 + nz.ridged(X, Z, 1 / 230, s + 36, 4) * 26.0 * \
+        smoothstep(380.0, 600.0, rom) * (1.0 - smoothstep(900.0, 1300.0, rom))
+    land_h = np.where(rom < 1400.0, smooth_max(land_h, mount, 25.0), land_h)
+
     # --- Earth Kingdom plateaus and canyons ---------------------------------------
     land_h = _plateaus_and_canyons(b, land_h, d)
 
@@ -250,14 +266,15 @@ def build_elevation(b: Base) -> None:
 
     # --- sea floor --------------------------------------------------------------------
     sd = ndimage.gaussian_filter(np.maximum(-d, 0), 5)
-    depth = 2.5 * smoothstep(0, 80, sd) + 22.0 * smoothstep(50, 700, sd) + 130.0 * smoothstep(550, 2400, sd)
+    depth = 2.5 * smoothstep(0, 80, sd) + 30.0 * smoothstep(40, 520, sd) + 170.0 * smoothstep(380, 1700, sd)
     depth += c * 16.0 * smoothstep(0, 50, sd)
     depth += (nz.fbm(X, Z, 1 / 650, s + 71, 4) * 0.5 + 0.5) * 22.0 * smoothstep(200, 1000, sd)
     sea_h = -depth
     b.h = np.where(land, np.maximum(land_h, 0.05), sea_h).astype(np.float32)
 
     # Erosion strength: lower on ice, none at sea, none in planned city plains / spire
-    er = 1.0 * w[T_EARTH] + 0.3 * w[T_WATER] + 0.85 * w[T_FIRE] + 1.0 * w[T_AIR] + 0.6 * w[T_WILDS]
+    arctic_er = 0.3 + 0.55 * smoothstep(140.0, 380.0, b.h)      # glaciated ranges get carved too
+    er = 1.0 * w[T_EARTH] + arctic_er * w[T_WATER] + 0.85 * w[T_FIRE] + 1.0 * w[T_AIR] + 0.6 * w[T_WILDS]
     er *= smoothstep(-5, 25, d)
     er *= 1.0 - plain_w
     er *= 1.0 - spire_w
@@ -269,8 +286,9 @@ def build_elevation(b: Base) -> None:
     b.erodibility = np.clip(er, 0, 1).astype(np.float32)
 
 
-def enforce_peaks(h: np.ndarray, X: np.ndarray, Z: np.ndarray) -> np.ndarray:
-    """Raises each named summit (layout.PEAKS) to its authored height after erosion wore it down."""
+def enforce_peaks(h: np.ndarray, X: np.ndarray, Z: np.ndarray, mask: np.ndarray) -> np.ndarray:
+    """Raises each named summit (layout.PEAKS) to its authored height after erosion wore it down.
+    `mask` (0..1) keeps the bumps off shaped areas (temple spire, cities, plains)."""
     out = h.copy()
     for cx, cz, target, rad in layout.PEAKS:
         r = np.hypot(X - cx, Z - cz)
@@ -282,8 +300,9 @@ def enforce_peaks(h: np.ndarray, X: np.ndarray, Z: np.ndarray) -> np.ndarray:
         cur = float(out[j, i])
         if cur >= target:
             continue
-        rr = np.hypot(X - X[j, i], Z - Z[j, i]) / (rad * 0.85)
-        bump = np.clip(1.0 - rr, 0.0, 1.0) ** 1.7
+        rr = np.hypot(X - X[j, i], Z - Z[j, i]) / rad
+        t = np.clip(1.0 - rr, 0.0, 1.0)
+        bump = t * t * (3.0 - 2.0 * t) * mask
         out = out + (target - cur) * bump
     return out.astype(np.float32)
 

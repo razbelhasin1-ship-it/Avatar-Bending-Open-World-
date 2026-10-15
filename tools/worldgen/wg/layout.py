@@ -110,11 +110,11 @@ RANGES = [
     ([(1350, -3480), (2000, -3560), (2700, -3430), (3350, -3240)], 420, 430, 850),
     # Earth Kingdom
     ([(2350, -1520), (2900, -1260), (3300, -920), (3620, -460), (3720, 0)], 540, 640, 1100),
-    ([(-480, -1020), (-40, -720), (380, -420), (820, -160)], 600, 330, 900),
+    ([(-480, -1020), (-40, -720), (380, -420), (820, -160)], 640, 190, 900),
     ([(3420, 250), (3640, 760)], 340, 230, 800),
     ([(2900, -1850), (3200, -1950)], 260, 210, 600),
     ([(-1500, -560), (-1700, -680)], 220, 120, 500),
-    ([(760, 2080), (1280, 2170), (1760, 2280)], 330, 170, 700),
+    ([(700, 2000), (1150, 2080)], 300, 170, 700),
     ([(-1150, -1460), (-920, -1160), (-1010, -720)], 300, 150, 700),
     ([(2500, 1250), (2900, 1500), (3300, 1700)], 330, 140, 700),
     ([(560, -1380), (1050, -1290), (1450, -1080)], 300, 120, 600),
@@ -136,9 +136,8 @@ PEAKS = [
     (3550, 3650, 880, 360),
     (1650, 3480, 760, 330),
     (3000, 2950, 820, 320),
-    (60, -760, 430, 330),          # Omashu's flanking peaks
-    (820, -60, 360, 300),
-    (-80, -150, 330, 260),
+    (-380, -1050, 420, 330),       # backdrop peaks of the Omashu range (well away from the city)
+    (1000, 120, 300, 260),
 ]
 
 # Polar ice shelves: (polygon) flat ice at ~20 m with sheer seaward cliffs
@@ -412,19 +411,19 @@ ROADS = [
     {"id": "bss_air_pass", "name": "Pass of a Thousand Steps", "kind": "main",
      "waypoints": ["ba_sing_se:south", (2010, 1300), (2020, 2000), "air_pass:bottom"]},
     {"id": "bss_east", "name": "Eastern Trade Road", "kind": "minor",
-     "waypoints": ["ba_sing_se:east", (2950, 300), (3450, 700), (3700, 1150)]},
+     "waypoints": ["ba_sing_se:east", (2950, 300), (3250, 600), (3420, 960), (3700, 1150)]},
     {"id": "omashu_northreach", "name": "Northreach Trail", "kind": "minor",
      "waypoints": ["omashu:bridge", (840, -700), (520, -1180), (60, -1460), "village:northreach"]},
     {"id": "fn_capital_harbor", "name": "Dragon's Throat Road", "kind": "main",
      "waypoints": ["fire_nation_capital:gorge_in", "fire_nation_capital:gorge_out", "fire_harbor:gate"]},
     {"id": "fn_harbor_ashleaf", "name": "Ashleaf Road", "kind": "minor",
-     "waypoints": ["fire_harbor:south", (-1880, 2560), (-2000, 2950), (-2150, 3150), "village:ashleaf"]},
+     "waypoints": ["fire_harbor:south", (-1990, 2540), (-2060, 2860), (-2200, 3120), "village:ashleaf"]},
     {"id": "fn_harbor_saltspark", "name": "West Rim Trail", "kind": "minor",
      "waypoints": ["fire_harbor:north", (-2250, 1760), (-2850, 1760), (-3350, 2150), "village:saltspark"]},
     {"id": "resort_paths", "name": "Sunflare Promenade", "kind": "minor",
      "waypoints": ["village:sunflare_resort", (-3560, 1180), (-3700, 1130)]},
     {"id": "air_landing_road", "name": "Landing Path", "kind": "minor",
-     "waypoints": ["village:foothill_landing", (1420, 2760), "air_pass:bottom"]},
+     "waypoints": ["village:foothill_landing", (1080, 2700), (1250, 2520), (1650, 2390), (2150, 2230)]},
 ]
 
 # --------------------------------------------------------------------------------------

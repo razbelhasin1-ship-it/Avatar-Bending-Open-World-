@@ -69,12 +69,12 @@ class RoadRouter:
         g = self.g
         dh = np.abs(self.h[g.dst] - self.h[g.src])
         grade = dh / g.length
-        w = g.length * (1.0 + 30.0 * grade ** 2 + 900.0 * np.maximum(grade - 0.14, 0.0) ** 2)
+        w = g.length * (1.0 + 30.0 * grade ** 2 + 2500.0 * np.maximum(grade - 0.12, 0.0) ** 2)
         side = 0.5 * (self.rough[g.src] + self.rough[g.dst])
         w *= 1.0 + 2.5 * np.maximum(side - 0.25, 0.0)
         pen = 0.5 * (self.penalty[g.src] + self.penalty[g.dst])
         w *= 1.0 + 6.0 * pen
-        w *= 1.0 - 0.45 * np.minimum(0.5 * (self.bonus[g.src] + self.bonus[g.dst]), 1.0)
+        w *= 1.0 - 0.2 * np.minimum(0.5 * (self.bonus[g.src] + self.bonus[g.dst]), 1.0)
         bad = self.forbid[g.src] | self.forbid[g.dst] | (self.h[g.src] < 0.8) | (self.h[g.dst] < 0.8)
         w[bad] = np.inf
         return w
@@ -106,9 +106,15 @@ class RoadRouter:
 
 
 def smooth_path(pts: np.ndarray, cell: float) -> np.ndarray:
-    p = grid.simplify_rdp(pts, cell * 0.55)
-    p = grid.chaikin(p, 3)
-    return p
+    """Removes the grid staircase (moving average along the path, ends pinned) and rounds corners."""
+    p = np.asarray(pts, dtype=np.float64)
+    if len(p) > 9:
+        sm = np.column_stack([ndimage.uniform_filter1d(p[:, 0], 9, mode="nearest"),
+                              ndimage.uniform_filter1d(p[:, 1], 9, mode="nearest")])
+        sm[0], sm[-1] = p[0], p[-1]
+        p = sm
+    p = grid.simplify_rdp(p, cell * 0.3)
+    return grid.chaikin(p, 2)
 
 
 class FerryRouter:

@@ -69,7 +69,7 @@ def add_detail(h4: np.ndarray, slope1024: np.ndarray, territory1024: np.ndarray,
         zs = ax[j0:j0 + step]
         X, Z = np.meshgrid(ax, zs, indexing="xy")
         s = sl[j0:j0 + step]
-        amp_rock = 1.8 * smoothstep(18.0, 42.0, s) * (1.0 - 0.5 * arctic[j0:j0 + step])
+        amp_rock = 2.4 * smoothstep(18.0, 42.0, s) * (1.0 - 0.4 * arctic[j0:j0 + step])
         amp_soft = 0.14 * (1.0 - 0.6 * arctic[j0:j0 + step])
         rk = nz.ridged(X, Z, 1 / 46, seed + 801, 3, sharpness=2.0) - 0.35
         fb = nz.fbm(X, Z, 1 / 17, seed + 802, 2)
@@ -106,14 +106,18 @@ def build_roads(f: shapes.Field, anchors: dict, forbid: np.ndarray, extra: list,
         wps = [resolve_anchor(w, anchors) for w in rd["waypoints"]]
         for a, b in zip(wps[:-1], wps[1:]):
             seg = router.route(a, b)
+            ratio = grid.polyline_lengths(seg)[-1] / max(np.hypot(b[0] - a[0], b[1] - a[1]), 1.0)
+            if ratio > 2.5:
+                print(f"[worldgen]   WARNING road {rd['id']}: leg {a} -> {b} detours x{ratio:.1f}")
             if pts_all:
                 seg = seg[1:]
             pts_all.extend(seg.tolist())
         pts = routes.smooth_path(np.asarray(pts_all), router.g.cell)
         pts = grid.resample_polyline(pts, 1.0)
-        hs = grid.sample_bilinear(f.h, pts[:, 0], pts[:, 1])
-        hs = ndimage.uniform_filter1d(hs, size=31, mode="nearest")
+        ground = grid.sample_bilinear(f.h, pts[:, 0], pts[:, 1])
+        hs = ndimage.uniform_filter1d(ground, size=31, mode="nearest")
         hs = grade_limit(hs, 1.0, 0.15)
+        hs = np.clip(hs, ground - 4.5, ground + 3.0)      # never dig trenches / build dykes
         hs = ndimage.uniform_filter1d(hs, size=21, mode="nearest")
         main = rd["kind"] == "main"
         samples = np.column_stack([pts, hs])
@@ -175,7 +179,8 @@ def main() -> int:
     clock.lap(f"hydraulic erosion ({drops} droplets)")
     h = erosion.thermal_erosion(h, base.cell, 38.0, 30, mask=base.erodibility > 0.05)
     h = np.where(base.h <= 0, np.minimum(h, -0.5), h)          # erosion never raises the sea floor into land
-    h = terrain.enforce_peaks(h, base.X, base.Z)
+    h = terrain.enforce_peaks(h, base.X, base.Z, smoothstep(0.02, 0.35, ndimage.gaussian_filter(base.erodibility, 4)))
+    h = np.where(base.erodibility > 0.05, terrain.sharpen_mountains(h, base.cell), h)
     clock.lap("thermal erosion + summits")
     preview.save_preview(h, base.cell, os.path.join(pv, "02_eroded.png"))
 
@@ -238,6 +243,9 @@ def main() -> int:
     forbid = (f.h < 0.5) | lake_mask
     road_flat, road_json = build_roads(f, anchors, forbid, [sw], clock)
     road_cover, road_paved = shapes.flatten_roads(f, road_flat)
+    for rd in road_json:   # overlapping corridors: publish the surface that was actually built
+        for p in rd["points"]:
+            p[1] = r2(grid.sample_bilinear(f.h, np.array([p[0]]), np.array([p[2]]))[0])
     clock.lap("road flattening")
 
     # 6. arches, ports, ferries ------------------------------------------------------------

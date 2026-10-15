@@ -30,7 +30,8 @@ void vertex() {
 }
 
 void fragment() {
-	float ground = world_height(world_pos.xz);
+	bool outside = any(lessThan(world_pos.xz, vec2(WH_ORIGIN))) || any(greaterThan(world_pos.xz, vec2(-WH_ORIGIN)));
+	float ground = outside ? -200.0 : world_height(world_pos.xz);
 	float depth = water_level - ground;
 	if (depth < -0.05) {
 		discard;
@@ -38,15 +39,17 @@ void fragment() {
 	float t = 1.0 - exp(-max(depth, 0.0) / depth_scale);
 	vec3 col = mix(shallow_color, deep_color, t);
 	float foam_n = vnoise(world_pos.xz * 0.35 + TIME * 0.3) * 0.5 + vnoise(world_pos.xz * 0.11 - TIME * 0.1) * 0.5;
-	float foam = smoothstep(1.6, 0.0, depth) * smoothstep(0.3, 0.75, foam_n + 0.25);
-	col = mix(col, vec3(0.92, 0.96, 0.97), foam * 0.85);
+	float foam = smoothstep(0.7, 0.0, depth) * smoothstep(0.35, 0.8, foam_n + 0.2);
+	col = mix(col, vec3(0.85, 0.92, 0.94), foam * 0.85);
 	vec2 w = world_pos.xz;
 	float wx = sin(w.x * 0.07 + TIME * 0.9) * 0.5 + sin(w.x * 0.031 + w.y * 0.05 + TIME * 0.6) * 0.5;
 	float wz = sin(w.y * 0.06 + TIME * 0.8) * 0.5 + sin(w.y * 0.027 - w.x * 0.04 + TIME * 0.5) * 0.5;
-	vec3 n = normalize(vec3(wx * 0.06, 1.0, wz * 0.06));
+	float dist = length(world_pos - CAMERA_POSITION_WORLD);
+	float wave = 0.06 * exp(-dist / 900.0);     // fade ripples with distance (no moire)
+	vec3 n = normalize(vec3(wx * wave, 1.0, wz * wave));
 	NORMAL = normalize((VIEW_MATRIX * vec4(n, 0.0)).xyz);
 	ALBEDO = col;
-	ROUGHNESS = 0.08;
+	ROUGHNESS = mix(0.08, 0.3, clamp(dist / 6000.0, 0.0, 1.0));
 	SPECULAR = 0.55;
-	ALPHA = clamp(mix(0.55, 0.96, t) + foam * 0.4, 0.0, 1.0);
+	ALPHA = t > 0.97 ? 1.0 : clamp(mix(0.55, 0.97, t) + foam * 0.4, 0.0, 1.0);
 }

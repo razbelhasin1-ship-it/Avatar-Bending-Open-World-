@@ -67,12 +67,19 @@ static func build_world_mesh(res: int) -> ArrayMesh:
 	return mesh
 
 
-## Square detail patch centred on (cx, cz), displaced on the GPU from the 2 m heightmap.
-static func build_patch(cx: float, cz: float, size: float, subdivisions: int) -> MeshInstance3D:
+## Square detail patch near (cx, cz), displaced on the GPU from the 2 m heightmap. Vertices sit
+## exactly on heightmap texel centres (one per texel), so the GPU mesh reproduces the data.
+static func build_patch(cx: float, cz: float, size: float) -> MeshInstance3D:
+	var t := WorldConstants.TEXEL_SIZE
+	var cells := int(size / t / 2.0) * 2
+	size = cells * t
+	# texel centres sit at odd metres; an even cell count keeps the plane centre on one too
+	cx = floorf(cx / t) * t + t * 0.5
+	cz = floorf(cz / t) * t + t * 0.5
 	var pm := PlaneMesh.new()
 	pm.size = Vector2(size, size)
-	pm.subdivide_width = subdivisions
-	pm.subdivide_depth = subdivisions
+	pm.subdivide_width = cells - 1
+	pm.subdivide_depth = cells - 1
 	pm.custom_aabb = AABB(Vector3(-size * 0.5, -400.0, -size * 0.5), Vector3(size, 1700.0, size))
 	var mi := MeshInstance3D.new()
 	mi.mesh = pm
@@ -84,9 +91,9 @@ static func build_patch(cx: float, cz: float, size: float, subdivisions: int) ->
 ## Sea plane covering the world (plus a margin) at sea level.
 static func build_sea() -> MeshInstance3D:
 	var pm := PlaneMesh.new()
-	pm.size = Vector2(WorldConstants.WORLD_SIZE + 6000.0, WorldConstants.WORLD_SIZE + 6000.0)
-	pm.subdivide_width = 64
-	pm.subdivide_depth = 64
+	pm.size = Vector2(80000.0, 80000.0)
+	pm.subdivide_width = 160
+	pm.subdivide_depth = 160
 	var mi := MeshInstance3D.new()
 	mi.mesh = pm
 	mi.position = Vector3(0.0, WorldConstants.SEA_LEVEL, 0.0)

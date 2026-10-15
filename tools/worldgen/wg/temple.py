@@ -6,7 +6,7 @@ import math
 import numpy as np
 
 from . import grid, layout
-from .grid import smoothstep
+from . import noise as nz
 from .shapes import Field, ring_layout
 from .cities import _p3, _r2, _tiers_json, _ramps_json
 
@@ -20,11 +20,16 @@ PINNACLES = [
 
 
 def _raise_pillar(f: Field, cx, cz, radius, top, flare=0.22):
-    """Raises a near-vertical rock column whose sides flare out gently toward the base."""
-    rows, cols, X, Z = f.win(cx, cz, radius + 220)
-    r = np.hypot(X - cx, Z - cz)
+    """Raises a near-vertical rock column with fluted, ledged sides that flare toward the base."""
+    rows, cols, X, Z = f.win(cx, cz, radius + 260)
+    dx, dz = X - cx, Z - cz
+    ang = np.arctan2(dx, dz)
+    wob = nz.fbm(np.cos(ang) * radius * 2, np.sin(ang) * radius * 2, 1 / 18.0, f.seed + int(cx) % 101, 3)
+    r = np.hypot(dx, dz) / (1.0 + 0.22 * wob)
     hw = f.h[rows, cols].astype(np.float64)
-    side = top - np.maximum(r - radius, 0.0) / flare
+    depth = np.maximum(r - radius, 0.0) / flare
+    depth = nz.terrace(depth, 16.0, 0.7)            # rock strata ledges
+    side = top - depth
     target = np.where(r < radius, top, side)
     f.h[rows, cols] = np.maximum(hw, target).astype(np.float32)
     f.locked[rows, cols] |= r < radius

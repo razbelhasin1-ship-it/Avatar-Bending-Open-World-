@@ -113,8 +113,10 @@ def render(h4096: np.ndarray, biome2048: np.ndarray, data: dict, seed: int, size
     for rd in data.get("roads", []):
         pts = [_to_px(p[0], p[2], size * ss) for p in rd["points"]]
         main = rd.get("kind") == "main"
-        col = (128, 46, 30, 235) if main else (110, 72, 44, 210)
-        _dashed(dr, pts, col, width=4 if main else 3, dash=16 if main else 7, gap=7 if main else 7)
+        col = (128, 40, 26, 240) if main else (104, 66, 40, 220)
+        if main:   # pale casing under main roads keeps them readable on dark relief
+            dr.line(pts, fill=(239, 227, 200, 150), width=9, joint="curve")
+        _dashed(dr, pts, col, width=6 if main else 3, dash=18 if main else 7, gap=6 if main else 7)
     for fr in data.get("ferries", []):
         pts = [_to_px(p[0], p[1], size * ss) for p in fr["points"]]
         _dashed(dr, pts, (62, 44, 30, 150), width=3, dash=5, gap=12)

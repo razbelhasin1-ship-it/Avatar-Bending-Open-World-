@@ -58,9 +58,9 @@ func _build_environment() -> void:
 	add_child(_camera)
 	_camera.current = true
 	_sun = DirectionalLight3D.new()
-	_sun.rotation_degrees = Vector3(-38, -35, 0)
-	_sun.light_energy = 1.25
-	_sun.light_color = Color(1.0, 0.96, 0.88)
+	_sun.rotation_degrees = Vector3(-34, -40, 0)
+	_sun.light_energy = 1.6
+	_sun.light_color = Color(1.0, 0.95, 0.86)
 	_sun.shadow_enabled = true
 	_sun.directional_shadow_max_distance = 3000.0
 	add_child(_sun)
@@ -77,14 +77,14 @@ func _build_environment() -> void:
 	sky.sky_material = sm
 	_env.sky = sky
 	_env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-	_env.ambient_light_energy = 0.9
+	_env.ambient_light_energy = 0.55
 	_env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
-	_env.tonemap_white = 6.0
+	_env.tonemap_white = 4.0
 	_env.fog_enabled = true
 	_env.fog_mode = Environment.FOG_MODE_EXPONENTIAL
-	_env.fog_light_color = Color(0.72, 0.80, 0.90)
-	_env.fog_density = 0.00008
-	_env.fog_aerial_perspective = 0.6
+	_env.fog_light_color = Color(0.62, 0.72, 0.84)
+	_env.fog_density = 0.00004
+	_env.fog_aerial_perspective = 0.35
 	_env.fog_sky_affect = 0.0
 	Settings.configure_environment(_env)
 	_env.volumetric_fog_enabled = false
@@ -107,7 +107,11 @@ func set_view(vname: String) -> void:
 		_camera.fov = v.get("fov", 55.0)
 	_camera.position = v["pos"]
 	_camera.look_at(v["look"], Vector3.UP if not v.has("ortho") else Vector3.FORWARD)
-	_env.fog_density = 0.00002 if v.has("ortho") else 0.00008
+	# light from the side and slightly behind the camera so slopes facing it are modelled
+	var to_target: Vector3 = (v["look"] as Vector3) - (v["pos"] as Vector3)
+	var cam_yaw := rad_to_deg(atan2(-to_target.x, -to_target.z))
+	_sun.rotation_degrees = Vector3(-30.0, cam_yaw + 58.0, 0.0) if not v.has("ortho") else Vector3(-40, -40, 0)
+	_env.fog_density = 0.0 if v.has("ortho") else (0.000035 if v.has("patch") else 0.000022)
 	if _patch:
 		_patch.queue_free()
 		_patch = null
@@ -116,7 +120,7 @@ func set_view(vname: String) -> void:
 	if v.has("patch") and WorldData.has_world_data():
 		var c: Vector3 = v["patch"]
 		var size: float = v["patch_size"]
-		_patch = WorldPreviewBuilder.build_patch(c.x, c.z, size, mini(int(size / 2.4), 760))
+		_patch = WorldPreviewBuilder.build_patch(c.x, c.z, size)
 		_patch.name = "DetailPatch"
 		add_child(_patch)
 		var inset := size * 0.5 - 6.0

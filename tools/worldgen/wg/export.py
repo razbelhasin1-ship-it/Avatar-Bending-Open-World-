@@ -1,8 +1,8 @@
 """Writers for the runtime data in assets/world/.
 
 Heightmap encoding (must match src/world/data/world_constants.gd and the shader include):
-    raw  = round((height + HEIGHT_MIN_NEG) * HEIGHT_RES)        (uint16, little endian)
-    height = raw * HEIGHT_SCALE + HEIGHT_MIN                     (HEIGHT_SCALE = 1/32 m, HEIGHT_MIN = -256 m)
+    raw    = round((height - HEIGHT_MIN) / HEIGHT_SCALE)          (uint16, little endian, clamped)
+    height = raw * HEIGHT_SCALE + HEIGHT_MIN                      (HEIGHT_SCALE = 1/32 m, HEIGHT_MIN = -256 m)
 Rows are z (north -> south), columns x (west -> east), texel centres at
     x = -4096 + (i + 0.5) * 2,  z = -4096 + (j + 0.5) * 2.
 The stream is a zlib (RFC 1950) stream: PackedByteArray.decompress(size, FileAccess.COMPRESSION_DEFLATE).

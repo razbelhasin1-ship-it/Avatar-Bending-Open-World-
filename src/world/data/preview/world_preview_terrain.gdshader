@@ -86,18 +86,22 @@ void fragment() {
 	vec3 col = soil * rest + snow * sp.r + rock * sp.g + lush * sp.b + sand * sp.a;
 	col *= 0.9 + 0.2 * n1;
 	if (biome == 13 || biome == 12) {
-		col = mix(col, base * (0.92 + 0.12 * vnoise(world_pos.xz * 0.5)), 0.85);
+		vec3 paving = region == 1 ? vec3(0.80, 0.88, 0.95) : (region == 3 ? vec3(0.62, 0.42, 0.36) : base);
+		col = mix(col, paving * (0.92 + 0.12 * vnoise(world_pos.xz * 0.5)), 0.85);
 	}
-	col = mix(col, vec3(0.66, 0.60, 0.52), clamp(gr.g * 0.6, 0.0, 1.0));
+	vec3 settle = region == 1 ? vec3(0.82, 0.88, 0.94) : vec3(0.66, 0.60, 0.52);
+	col = mix(col, settle, clamp(gr.g * 0.6, 0.0, 1.0));
 	vec3 road_col = gr.r > 0.4 ? vec3(0.62, 0.58, 0.52) : vec3(0.52, 0.42, 0.30);
 	col = mix(col, road_col, smoothstep(0.25, 0.75, road));
 	if (biome == 7) {
+		float fade = 1.0 - smoothstep(150.0, 600.0, length(world_pos - CAMERA_POSITION_WORLD));
 		float furrow = smoothstep(0.35, 0.65, sin(dot(world_pos.xz, vec2(0.9, 0.4)) * 1.3) * 0.5 + 0.5);
-		col *= 0.9 + 0.12 * furrow;
+		float fields = vnoise(floor(world_pos.xz / 48.0) * 1.7);       // patchwork of plots
+		col *= mix(1.0, 0.9 + 0.12 * furrow, fade) * (0.88 + 0.24 * fields);
 	}
 	vec3 n = world_normal(world_pos.xz);
 	NORMAL = normalize((VIEW_MATRIX * vec4(n, 0.0)).xyz);
-	ALBEDO = col;
+	ALBEDO = pow(clamp(col, 0.0, 1.0), vec3(2.2));   // palette is authored in sRGB
 	ROUGHNESS = biome == 3 ? 0.35 : 0.92;
 	SPECULAR = biome == 3 ? 0.6 : 0.25;
 }
