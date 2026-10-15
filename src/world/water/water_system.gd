@@ -77,8 +77,9 @@ func _make_material(inland: bool) -> ShaderMaterial:
 
 
 func _apply_quality() -> void:
-	# screen refraction/depth soft edges are cheap on desktop GPUs; keep them everywhere they work
-	var screen_ok := not Settings.is_compatibility_renderer() or Settings.detail_level() >= 1
+	# screen refraction + scene-depth soft edges need the Forward+/Mobile depth/screen copies;
+	# the Compatibility renderer falls back to the heightmap water column (same colours/foam)
+	var screen_ok := not Settings.is_compatibility_renderer()
 	for m in [ocean_material, inland_material]:
 		m.set_shader_parameter(&"use_screen", screen_ok)
 		m.set_shader_parameter(&"wave_fade_distance", [300.0, 500.0, 700.0, 1000.0][Settings.detail_level()])

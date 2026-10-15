@@ -4,7 +4,7 @@ extends RefCounted
 ## Also measures frame time and draw calls per view.
 
 const SHOTS := ["water_tribe", "water_tribe_blizzard", "water_tribe_night", "ba_sing_se", "fire_nation",
-		"air_temple", "shore", "vista"]
+		"fire_volcano", "air_temple", "shore", "vista"]
 
 
 func run(p: Playtest) -> void:

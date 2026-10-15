@@ -19,7 +19,7 @@ uniform vec3 shallow_color : source_color = vec3(0.20, 0.62, 0.64);
 uniform vec3 deep_color : source_color = vec3(0.03, 0.16, 0.30);
 uniform vec3 foam_color : source_color = vec3(0.92, 0.96, 0.98);
 uniform float depth_scale = 7.0;
-uniform float foam_depth = 1.4;
+uniform float foam_depth = 0.7;
 uniform float reflect_strength = 0.85;
 uniform float normal_strength = 0.55;
 uniform float wave_fade_distance = 700.0;
@@ -142,8 +142,8 @@ void fragment() {
 	float shore = 1.0 - smoothstep(0.0, foam_depth, depth);
 	// bands that run up the beach with the swell
 	float bands = sin(depth * 5.5 - world_time * (inland ? 0.8 : 1.7) + fnoise * 5.0) * 0.5 + 0.5;
-	float foam = shore * smoothstep(0.45, 0.8, ftex * 0.6 + bands * 0.45 + shore * 0.35);
-	foam = max(foam, smoothstep(0.85, 1.0, shore + fnoise * 0.2));
+	float foam = shore * smoothstep(0.55, 0.85, ftex * 0.55 + bands * 0.5 + shore * 0.3);
+	foam = max(foam, smoothstep(0.88, 1.0, shore + fnoise * 0.15));
 	// whitecaps on steep crests in rough water
 	if (!inland) {
 		float crest = smoothstep(0.25, 0.7, (1.0 - n.y) * 6.0 * wave_params.x) * amp_mask;

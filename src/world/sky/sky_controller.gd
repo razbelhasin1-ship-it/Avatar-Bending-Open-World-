@@ -19,7 +19,6 @@ var current: Dictionary = {}
 
 var _cloud_offset := Vector2.ZERO
 var _sky_time := 0.0
-var _sky_accum := 0.0
 var _sun_up := true
 
 
@@ -63,6 +62,8 @@ func _build() -> void:
 	environment.volumetric_fog_sky_affect = 0.0
 	environment.volumetric_fog_detail_spread = 2.0
 	environment.volumetric_fog_gi_inject = 0.0
+	# lit by the ambient light too, so thick weather fog is bright instead of a dark absorber
+	environment.volumetric_fog_ambient_inject = 1.0
 	world_environment = WorldEnvironment.new()
 	world_environment.name = "WorldEnvironment"
 	world_environment.environment = environment
@@ -105,7 +106,7 @@ func _apply_settings() -> void:
 
 
 ## Applies a palette state and weather modifiers. `mods` keys (all optional):
-## coverage, cloud_darkness, sun_mult, fog_mult, fog_tint (Color), fog_tint_amount, ambient_mult,
+## coverage, cloud_darkness, sun_mult, fog_mult, fog_floor (min density), sky_fog (0..1), fog_tint (Color), fog_tint_amount, ambient_mult,
 ## saturation_mult, haze_add, exposure_mult, fog_height_density, volumetric (density),
 ## cirrus, cloud_speed. `wind` is the x/z wind velocity (m/s) moving the clouds.
 func apply(state: Dictionary, sun_dir: Vector3, moon_dir: Vector3, moon_phase: float, hour: float,
@@ -117,7 +118,7 @@ func apply(state: Dictionary, sun_dir: Vector3, moon_dir: Vector3, moon_phase: f
 	s[&"fog"] = fog_col
 	s[&"horizon"] = (s[&"horizon"] as Color).lerp(fog_col, float(mods.get(&"fog_tint_amount", 0.0)) * 0.7)
 	s[&"coverage"] = maxf(float(s[&"coverage"]), float(mods.get(&"coverage", 0.0)))
-	s[&"fog_density"] = float(s[&"fog_density"]) * float(mods.get(&"fog_mult", 1.0))
+	s[&"fog_density"] = maxf(float(s[&"fog_density"]) * float(mods.get(&"fog_mult", 1.0)), float(mods.get(&"fog_floor", 0.0)))
 	s[&"sun_energy"] = float(s[&"sun_energy"]) * float(mods.get(&"sun_mult", 1.0))
 	s[&"moon_energy"] = float(s[&"moon_energy"]) * float(mods.get(&"sun_mult", 1.0))
 	s[&"ambient_energy"] = float(s[&"ambient_energy"]) * float(mods.get(&"ambient_mult", 1.0))
@@ -151,11 +152,14 @@ func apply(state: Dictionary, sun_dir: Vector3, moon_dir: Vector3, moon_phase: f
 	env.fog_density = float(s[&"fog_density"])
 	env.fog_height = float(mods.get(&"fog_height", 40.0))
 	env.fog_height_density = float(s[&"fog_height_density"]) + float(mods.get(&"fog_height_density", 0.0))
+	# heavy weather swallows the sky too (blizzard white-out, fog banks)
+	env.fog_sky_affect = float(mods.get(&"sky_fog", 0.0))
 	env.tonemap_exposure = float(s[&"exposure"])
 	env.adjustment_saturation = float(s[&"saturation"])
 	if env.volumetric_fog_enabled:
 		env.volumetric_fog_density = float(mods.get(&"volumetric", 0.004))
 		env.volumetric_fog_albedo = fog_col
+		env.volumetric_fog_emission = fog_col * 0.25 * float(s[&"ambient_energy"])
 	env.glow_intensity = 0.55 if sun_vis > 0.5 else 0.8
 
 	# --- sky ---

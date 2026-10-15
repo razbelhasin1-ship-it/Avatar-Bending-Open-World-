@@ -34,6 +34,7 @@ var water: WaterSystem
 var weather: WeatherSystem
 var precipitation: WeatherParticles
 var cloud_sea: CloudSea
+var volcano_smoke: VolcanoSmoke
 var collision: TerrainCollision
 var snow: SnowTrails
 
@@ -80,6 +81,8 @@ func _ready() -> void:
 	add_child(precipitation)
 	cloud_sea = CloudSea.new()
 	add_child(cloud_sea)
+	volcano_smoke = VolcanoSmoke.new()
+	add_child(volcano_smoke)
 	collision = TerrainCollision.new()
 	collision.name = "Collision"
 	add_child(collision)
@@ -268,6 +271,7 @@ func _process(delta: float) -> void:
 	precipitation.set_intensities(weather.precipitation())
 	precipitation.follow(cam_pos)
 	cloud_sea.update(cam_pos, float(weather.params["coverage"]))
+	volcano_smoke.set_wind(weather.wind_velocity())
 	var focus_pos := _focus_position()
 	collision.focus = focus if focus and is_instance_valid(focus) else null
 	collision.update(focus_pos, delta)

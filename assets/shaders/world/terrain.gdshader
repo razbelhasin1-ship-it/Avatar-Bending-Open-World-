@@ -52,7 +52,7 @@ const vec3 ROCK_D[4] = vec3[4](vec3(0.27, 0.32, 0.41), vec3(0.38, 0.32, 0.27), v
 const vec3 ROCK_L[4] = vec3[4](vec3(0.58, 0.64, 0.72), vec3(0.70, 0.61, 0.48), vec3(0.38, 0.31, 0.29), vec3(0.72, 0.66, 0.58));
 const vec3 SOIL[4] = vec3[4](vec3(0.44, 0.44, 0.45), vec3(0.55, 0.44, 0.30), vec3(0.33, 0.26, 0.22), vec3(0.57, 0.51, 0.41));
 const vec3 SAND[4] = vec3[4](vec3(0.74, 0.74, 0.72), vec3(0.89, 0.81, 0.61), vec3(0.19, 0.17, 0.18), vec3(0.82, 0.76, 0.62));
-const vec3 PAVE[4] = vec3[4](vec3(0.80, 0.87, 0.94), vec3(0.68, 0.64, 0.55), vec3(0.60, 0.38, 0.31), vec3(0.88, 0.82, 0.68));
+const vec3 PAVE[4] = vec3[4](vec3(0.80, 0.87, 0.94), vec3(0.68, 0.64, 0.55), vec3(0.52, 0.42, 0.38), vec3(0.88, 0.82, 0.68));
 
 // Visible surface height: terrain (exact WorldData.get_height formula) + snow trail.
 float surface_height(vec2 xz, float spacing) {
@@ -153,7 +153,13 @@ void fragment() {
 	float near = (1.0 - smoothstep(detail_distance * 0.55, detail_distance, dist)) * detail_strength;
 
 	vec3 n = has_world ? terrain_normal(wp.xz, uv, dist) : vec3(0.0, 1.0, 0.0);
+	// layer selection uses a ~16 m blurred slope so terraced talus slopes do not flip between
+	// rock and soil every few metres (contour banding); lighting keeps the sharp normal
 	float slope = 1.0 - n.y;
+	if (has_world && use_normal_map) {
+		vec2 sxz = texture(world_normal_map, uv, 3.0).rg * 2.0 - 1.0;
+		slope = 1.0 - sqrt(max(1.0 - dot(sxz, sxz), 0.0));
+	}
 
 	// world-space macro variation ("brush strokes" at several scales)
 	vec4 nz_big = texture(noise_tex, wp.xz * (1.0 / 900.0));
@@ -276,13 +282,13 @@ void fragment() {
 	vec3 sand_c = sand * (0.88 + 0.2 * p_rip) * (0.92 + 0.12 * macro);
 	col = mix(col, sand_c, w_sand);
 	// rock & cliffs (splat rock + steep slopes), height-blended with the rock pattern
-	float slope_rock = smoothstep(0.22, 0.40, slope + edge_n * 0.12);
+	float slope_rock = smoothstep(0.18, 0.42, slope + edge_n * 0.1);
 	float w_rock = max(sp.g, slope_rock);
 	w_rock = smoothstep(0.35, 0.65, w_rock + (p_rock - 0.5) * 0.5 + edge_n * 0.15);
 	float rock_v = mix(strata, p_rock, near * 0.75) * 0.7 + macro * 0.3;
 	vec3 rock = wc_ramp(rock_d, rock_l, rock_v, 0.48, 0.3);
 	// darker crevices, lighter top faces (painterly modelling)
-	rock *= 0.85 + 0.3 * smoothstep(0.55, 0.95, n.y + 0.3);
+	rock *= 0.88 + 0.24 * smoothstep(0.55, 0.95, 1.3 - slope);
 	col = mix(col, rock, w_rock);
 	// roads: dirt tracks and paved roads (stone flags)
 	float w_road = smoothstep(0.3, 0.75, road + edge_n * 0.15);
