@@ -79,7 +79,7 @@ func update(skel: RigSkeleton, xf: Transform3D, delta: float) -> void:
 		# Rotate the bone toward the simulated tip.
 		var cur_dir := (g.basis * _tip_dir[k]).normalized()
 		var want := (inv.basis * (_x[k] - origin_w)).normalized()
-		want = cur_dir.slerp(want, weight) if weight < 1.0 else want
+		want = cur_dir.lerp(want, weight).normalized() if weight < 1.0 else want
 		if cur_dir.dot(want) < 0.99999:
 			var q := Quaternion(cur_dir, want)
 			var nb := Basis(q) * g.basis

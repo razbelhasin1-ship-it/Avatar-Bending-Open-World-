@@ -289,7 +289,7 @@ func _solve_spine(pose: CreaturePose) -> void:
 	banks.resize(n)
 	_sample(rig.global_position, ds, pts, banks)
 	var fw := rig.flight_w
-	var front_lift := sin(clampf(pose.body_pitch, -0.6, 1.2)) * 4.0 * k
+	var front_lift := sin(clampf(pose.body_pitch - rig.flight_pitch * fw, -0.6, 1.2)) * 4.0 * k * (1.0 - fw * 0.7)
 	var fwd_root := -xf.basis.z
 	# Heights above the trail (ground profile -> level in flight) + undulation.
 	var ge := rig.gait
@@ -315,13 +315,23 @@ func _solve_spine(pose: CreaturePose) -> void:
 		pts[i] += Vector3.UP * vert_amp * vwave * smoothstep(0.0, 0.3, u)
 	# Frames -> rig-space transforms -> local rotations/offsets.
 	var prev_g := Transform3D.IDENTITY
+	var prev_up := xf.basis.y.normalized()
 	for i in SPINE:
 		var f := _fwd(pts, i, fwd_root)
 		var roll := banks[i] * fw + pose.body_roll * (1.0 - fw) * (1.0 - float(i) / n)
-		var up := Basis(f, roll) * Vector3.UP
+		# Near-vertical path segments (climbing/diving straight) use the previous
+		# segment's up vector so the frame never degenerates.
+		var up_ref := Vector3.UP if absf(f.y) < 0.9 else prev_up
+		var up := Basis(f, roll) * up_ref
 		var z := -f
-		var x := up.cross(z).normalized()
+		var xv := up.cross(z)
+		if xv.length_squared() < 1e-6:
+			xv = prev_up.cross(z)
+			if xv.length_squared() < 1e-6:
+				xv = Vector3.RIGHT
+		var x := xv.normalized()
 		var y := z.cross(x).normalized()
+		prev_up = y
 		var g := inv * Transform3D(Basis(x, y, z), pts[i])
 		var bi := spine_bones[i]
 		var local := g if i == 0 else prev_g.affine_inverse() * g
@@ -388,6 +398,9 @@ func _update_flap(rig: CreatureRig, delta: float) -> void:
 
 func flight_pose(rig: CreatureRig, pose: CreaturePose, _delta: float) -> void:
 	var fw := rig.flight_w
+	# Exposed for consumers (cameras, riders); the spine applies the banks from the trail.
+	pose.body_roll += fw * rig.flight_bank
+	pose.body_pitch += fw * rig.flight_pitch
 	pose.neck_pitch += fw * (-0.42 - rig.flight_pitch * 0.3)
 	pose.head_pitch += fw * (0.3 + rig.flight_pitch * 0.2)
 	pose.neck_yaw += fw * -rig.flight_bank * 0.25

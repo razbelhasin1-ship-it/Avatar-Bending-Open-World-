@@ -128,7 +128,7 @@ func build(rig: CreatureRig) -> void:
 	rig.add_socket(&"claw_left", &"fl_foot_l", Transform3D(Basis.IDENTITY, v.call(0, -0.1, -0.35)))
 	rig.add_socket(&"claw_right", &"fl_foot_r", Transform3D(Basis.IDENTITY, v.call(0, -0.1, -0.35)))
 	rig.set_dimensions({
-		"length": 4.6 * k, "height": 1.8 * k, "width": 2.4 * k, "saddle_height": 1.87 * k,
+		"length": 4.6 * k, "height": 1.95 * k, "width": 2.4 * k, "saddle_height": 1.87 * k,
 		"paw_size": 0.62 * k, "weight": 1.0, "can_fly": false, "walk_speed": 1.4 * sqrt(k),
 		"run_speed": 6.5 * sqrt(k), "sprint_speed": 8.5 * sqrt(k), "fly_speed": 0.0,
 		"collision_radius": 1.1 * k, "collision_height": 1.8 * k, "mass": 4000.0 * k * k * k,

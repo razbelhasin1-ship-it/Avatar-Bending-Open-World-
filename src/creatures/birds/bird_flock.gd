@@ -123,8 +123,9 @@ func set_center(c: Vector3, r: float = -1.0, alt: float = -1.0) -> void:
 		altitude = alt
 
 
+## Copy of the current bird positions (world).
 func bird_positions() -> PackedVector3Array:
-	return _pos
+	return _pos.duplicate()
 
 
 func _process(delta: float) -> void:

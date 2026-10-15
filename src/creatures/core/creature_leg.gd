@@ -117,7 +117,8 @@ func solve(skel: RigSkeleton, target: Vector3, body: Basis, normal: Vector3) -> 
 		_put(skel, meta, b3)
 	# Foot: body yaw, tilted to the ground when planted, toes curled in swing.
 	var fwd := -body.z
-	var up := normal.normalized().slerp(body.y, clampf(free + lift * 0.5, 0.0, 1.0))
+	# nlerp (Vector3.slerp is unstable for nearly parallel vectors).
+	var up := normal.normalized().lerp(body.y, clampf(free + lift * 0.5, 0.0, 1.0)).normalized()
 	fwd = (fwd - up * fwd.dot(up)).normalized()
 	if fwd.length_squared() < 1e-6:
 		fwd = Vector3.FORWARD
