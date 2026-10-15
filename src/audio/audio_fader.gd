@@ -22,6 +22,15 @@ func _init(p: AudioStreamPlayer) -> void:
 	player = p
 
 
+## Real (unscaled, wall-clock) seconds since `last_usec`; updates it in place via
+## the returned pair [dt, now]. Audio fades and timers must not stall during
+## hitstop (Engine.time_scale) or crawl when the frame rate drops.
+static func real_delta(last_usec: int) -> Array:
+	var now := Time.get_ticks_usec()
+	var dt := 0.0 if last_usec <= 0 else float(now - last_usec) / 1000000.0
+	return [clampf(dt, 0.0, 2.0), now]
+
+
 ## Starts a fade towards `to` (0..1) lasting `seconds` (0 = immediate).
 func fade_to(to: float, seconds: float) -> void:
 	target = clampf(to, 0.0, 1.0)

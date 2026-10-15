@@ -192,7 +192,13 @@ func snapshot() -> Array[Dictionary]:
 	return out
 
 
-func _process(delta: float) -> void:
+var _last_usec := 0
+
+
+func _process(_delta: float) -> void:
+	var r := AudioFader.real_delta(_last_usec)
+	var delta: float = r[0]
+	_last_usec = r[1]
 	for list: Array[Voice] in [voices3d, voices2d]:
 		for v in list:
 			if v.follow != null:

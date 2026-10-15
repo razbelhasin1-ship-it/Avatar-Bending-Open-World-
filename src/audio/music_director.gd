@@ -193,7 +193,13 @@ func _claim() -> AudioFader:
 	return best
 
 
-func _process(delta: float) -> void:
+var _last_usec := 0
+
+
+func _process(_delta: float) -> void:
+	var r := AudioFader.real_delta(_last_usec)
+	var delta: float = r[0]
+	_last_usec = r[1]
 	if _exit_timer >= 0.0:
 		_exit_timer -= delta
 		if _exit_timer < 0.0:

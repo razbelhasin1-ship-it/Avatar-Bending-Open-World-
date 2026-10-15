@@ -11,7 +11,10 @@ const BUSES: Array[StringName] = [&"Master", &"Music", &"SFX", &"Ambience", &"UI
 const BANDS := 48
 const F_MIN := 30.0
 const F_MAX := 16000.0
-const WIDTH := 430.0
+const WIDTH := 400.0
+## Layout is authored at 1x and scaled for the 1920x1080 canvas so text stays
+## readable on 720p windows and phones.
+const UI_SCALE := 1.4
 
 const INK := Color(0.106, 0.082, 0.071, 0.88)
 const PARCHMENT := Color(0.937, 0.89, 0.784)
@@ -34,6 +37,7 @@ var _recent: Array[Dictionary] = []
 
 func _ready() -> void:
 	layer = 120
+	scale = Vector2(UI_SCALE, UI_SCALE)
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	var fp := "res://assets/fonts/Marcellus-Regular.ttf"
 	_font = load(fp) as Font if ResourceLoader.exists(fp) else ThemeDB.fallback_font
@@ -110,18 +114,18 @@ func _text(pos: Vector2, s: String, size: int = 15, color: Color = PARCHMENT) ->
 
 
 func _on_draw() -> void:
-	var vp := _panel.get_viewport_rect().size
-	var x0 := vp.x - WIDTH - 18.0
-	var y := 18.0
-	var h := vp.y - 36.0
+	var vp := _panel.get_viewport_rect().size / UI_SCALE
+	var x0 := vp.x - WIDTH - 12.0
+	var y := 12.0
+	var h := vp.y - 24.0
 	_panel.draw_rect(Rect2(x0, y, WIDTH, h), INK)
 	_panel.draw_rect(Rect2(x0, y, WIDTH, h), GOLD, false, 1.5)
 	var x := x0 + 16.0
 	var w := WIDTH - 32.0
 	y += 30.0
 	_text(Vector2(x, y), "AUDIO", 22, GOLD)
-	_text(Vector2(x + 90.0, y), "env: %s" % Audio.current_environment(), 15, PARCHMENT)
-	_text(Vector2(x + 230.0, y), "voices %d / %d" % [Audio.voice_count(), Audio.POOL_3D + Audio.POOL_2D], 15, PARCHMENT)
+	_text(Vector2(x + 86.0, y), "env  %s" % Audio.current_environment(), 15, PARCHMENT)
+	_text(Vector2(x + 236.0, y), "voices %d/%d" % [Audio.voice_count(), Audio.POOL_3D + Audio.POOL_2D], 15, PARCHMENT)
 	# Music state
 	y += 28.0
 	var combat := Audio.is_in_combat()

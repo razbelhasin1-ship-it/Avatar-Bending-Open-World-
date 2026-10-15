@@ -78,7 +78,13 @@ func _make_player() -> AudioStreamPlayer:
 	return p
 
 
-func _process(delta: float) -> void:
+var _last_usec := 0
+
+
+func _process(_delta: float) -> void:
+	var r := AudioFader.real_delta(_last_usec)
+	var delta: float = r[0]
+	_last_usec = r[1]
 	for k: StringName in _layers:
 		var L: Dictionary = _layers[k]
 		for f: AudioFader in [L["a"], L["b"]]:

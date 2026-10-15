@@ -18,6 +18,9 @@ class Shrine:
 	var orb: MeshInstance3D
 	var mat: ShaderMaterial
 	var color: Color
+	var size := 1.0
+	var pulse := 1.0
+	var orb_pos: Vector3
 
 
 class Driver:
@@ -37,8 +40,8 @@ class Driver:
 		var x := -TILE * 3.0 + fmod(t * 1.7, TILE * 6.0)
 		walker.position = Vector3(x, 0.9, 3.0)
 		step_t -= delta
-		if step_t <= 0.0:
-			step_t = 0.42
+		while step_t <= 0.0:  # software rendering can drop to a few fps: never skip steps
+			step_t += 0.42
 			foot = 1 - foot
 			var idx := clampi(int((x + TILE * 3.0) / TILE), 0, SURFACES.size() - 1)
 			Events.footstep.emit(walker, Vector3(x, 0.0, 3.0 + (0.15 if foot else -0.15)), 0.0, 0.28, 1.0, SURFACES[idx])
@@ -51,21 +54,25 @@ class Driver:
 		for s: Shrine in shrines:
 			var on := false
 			for v: Dictionary in active:
-				if v.has("position") and (v["position"] as Vector3).distance_to(s.pos + Vector3.UP * 2.1) < 1.6:
+				if v.has("position") and (v["position"] as Vector3).distance_to(s.orb_pos) < 1.6 * s.size:
 					on = true
 					break
 			var target := 5.0 if on else 0.5
 			var cur: float = s.mat.get_shader_parameter(&"emission_energy")
 			s.mat.set_shader_parameter(&"emission_energy", lerpf(cur, target, minf(1.0, delta * 10.0)))
-			var sc := lerpf(s.orb.scale.x, 1.35 if on else 1.0, minf(1.0, delta * 8.0))
-			s.orb.scale = Vector3.ONE * sc
+			s.pulse = lerpf(s.pulse, 1.35 if on else 1.0, minf(1.0, delta * 8.0))
+			s.orb.scale = Vector3.ONE * s.pulse * s.size
 
 
 var _shrines: Array = []
 var _driver: Driver
+var _sun: DirectionalLight3D
+var _env: Environment
+var _sky: ProceduralSkyMaterial
+var _root: Node3D
 
 
-func _shrine(root: Node3D, element: int, pos: Vector3, color: Color, label: String) -> Shrine:
+func _shrine(root: Node3D, element: int, pos: Vector3, color: Color, label: String, scale_factor: float = 1.0) -> Shrine:
 	var s := Shrine.new()
 	s.element = element
 	s.pos = pos
@@ -99,15 +106,21 @@ func _shrine(root: Node3D, element: int, pos: Vector3, color: Color, label: Stri
 	root.add_child(s.orb)
 	var l := Label3D.new()
 	l.text = label
-	l.font = load("res://assets/fonts/Marcellus-Regular.ttf")
-	l.font_size = 64
-	l.pixel_size = 0.006
-	l.outline_size = 14
-	l.modulate = Color(0.94, 0.89, 0.78)
+	l.font = load("res://assets/fonts/Cinzel-Variable.ttf")
+	l.font_size = 96
+	l.pixel_size = 0.01 * scale_factor
+	l.outline_size = 18
+	l.modulate = Color(0.97, 0.92, 0.8)
 	l.outline_modulate = Color(0.1, 0.08, 0.07)
 	l.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	l.position = pos + Vector3.UP * 3.0
+	l.position = pos + Vector3.UP * (3.0 * scale_factor)
 	root.add_child(l)
+	if scale_factor != 1.0:
+		for n: Node3D in [base, cap, s.orb]:
+			n.position = pos + (n.position - pos) * scale_factor
+			n.scale = Vector3.ONE * scale_factor
+	s.size = scale_factor
+	s.orb_pos = s.orb.position
 	_shrines.append(s)
 	return s
 
@@ -121,44 +134,84 @@ func _build(p: Playtest) -> Node3D:
 	env.background_mode = Environment.BG_SKY
 	var sky := Sky.new()
 	var sm := ProceduralSkyMaterial.new()
-	sm.sky_top_color = Color(0.2, 0.27, 0.45)
-	sm.sky_horizon_color = Color(0.95, 0.66, 0.45)
-	sm.ground_horizon_color = Color(0.6, 0.45, 0.35)
-	sm.ground_bottom_color = Color(0.2, 0.16, 0.14)
-	sm.sun_angle_max = 20.0
+	sm.sky_top_color = Color(0.13, 0.17, 0.36)
+	sm.sky_horizon_color = Color(0.93, 0.55, 0.34)
+	sm.sky_curve = 0.12
+	sm.ground_horizon_color = Color(0.45, 0.3, 0.24)
+	sm.ground_bottom_color = Color(0.12, 0.1, 0.1)
+	sm.sun_angle_max = 12.0
 	sky.sky_material = sm
 	env.sky = sky
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-	env.ambient_light_energy = 0.8
+	env.ambient_light_energy = 0.55
 	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	env.tonemap_exposure = 0.95
 	env.glow_enabled = true
 	env.glow_intensity = 0.9
-	env.glow_bloom = 0.15
+	env.glow_bloom = 0.12
 	env.fog_enabled = true
-	env.fog_light_color = Color(0.85, 0.62, 0.5)
-	env.fog_density = 0.006
+	env.fog_light_color = Color(0.62, 0.45, 0.42)
+	env.fog_density = 0.0035
+	env.fog_sky_affect = 0.0
 	Settings.configure_environment(env)
 	env.volumetric_fog_enabled = false
 	we.environment = env
 	root.add_child(we)
+	_env = env
+	_sky = sm
+	_root = root
 	var sun := DirectionalLight3D.new()
-	sun.rotation_degrees = Vector3(-24, -35, 0)
-	sun.light_color = Color(1.0, 0.82, 0.65)
-	sun.light_energy = 1.2
+	_sun = sun
+	sun.rotation_degrees = Vector3(-20, -140, 0)
+	sun.light_color = Color(1.0, 0.76, 0.55)
+	sun.light_energy = 1.25
 	Settings.configure_sun(sun)
 	root.add_child(sun)
+	# Framed so the scene sits left of the debug overlay panel.
 	var cam := Camera3D.new()
-	cam.fov = 58.0
+	cam.fov = 60.0
 	root.add_child(cam)
-	cam.position = Vector3(0, 6.2, 14.5)
-	cam.look_at(Vector3(0, 1.4, -7))
+	cam.position = Vector3(4.3, 5.6, 15.0)
+	cam.look_at(Vector3(4.8, 1.6, -8))
 	cam.make_current()
 	var ground := MeshInstance3D.new()
 	var pm := PlaneMesh.new()
-	pm.size = Vector2(160, 160)
+	pm.size = Vector2(400, 400)
 	ground.mesh = pm
-	ground.material_override = ToonMaterials.make(Color(0.52, 0.47, 0.38), {"outline": false})
+	ground.material_override = ToonMaterials.make(Color(0.4, 0.36, 0.27), {"outline": false})
 	root.add_child(ground)
+	# Distant peaks for depth (Southern Air Temple style silhouettes).
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 7
+	for i in 9:
+		var peak := MeshInstance3D.new()
+		var pk := CylinderMesh.new()
+		pk.top_radius = 0.0
+		pk.bottom_radius = rng.randf_range(18.0, 34.0)
+		pk.height = rng.randf_range(28.0, 55.0)
+		pk.radial_segments = 7
+		peak.mesh = pk
+		peak.material_override = ToonMaterials.make(Color(0.36, 0.33, 0.45).lerp(Color(0.55, 0.4, 0.42), rng.randf()), {"outline": false})
+		peak.position = Vector3(-120.0 + i * 30.0 + rng.randf_range(-8, 8), pk.height * 0.5 - 2.0, -150.0 - rng.randf_range(0, 40))
+		root.add_child(peak)
+	# Stone posts with warm lanterns around the courtyard.
+	for i in 10:
+		var a := PI * (0.1 + 0.8 * float(i) / 9.0)
+		var post := MeshInstance3D.new()
+		var bm2 := BoxMesh.new()
+		bm2.size = Vector3(0.35, 1.2, 0.35)
+		post.mesh = bm2
+		post.material_override = ToonMaterials.make(Color(0.5, 0.45, 0.4))
+		post.position = Vector3(cos(a) * 14.0, 0.6, -5.0 - sin(a) * 14.0)
+		root.add_child(post)
+		var lamp := MeshInstance3D.new()
+		var lm := SphereMesh.new()
+		lm.radius = 0.16
+		lm.height = 0.32
+		lamp.mesh = lm
+		lamp.material_override = ToonMaterials.make(Color(1.0, 0.75, 0.4), {"emission": Color(1.0, 0.6, 0.25), "emission_energy": 3.0, "outline": false})
+		lamp.position = post.position + Vector3.UP * 0.75
+		root.add_child(lamp)
 	var court := MeshInstance3D.new()
 	var cm := CylinderMesh.new()
 	cm.top_radius = 13.0
@@ -180,19 +233,19 @@ func _build(p: Playtest) -> Node3D:
 		var l := Label3D.new()
 		l.text = String(SURFACES[i])
 		l.font = load("res://assets/fonts/Marcellus-Regular.ttf")
-		l.font_size = 48
-		l.pixel_size = 0.005
-		l.outline_size = 10
-		l.modulate = Color(0.94, 0.89, 0.78)
+		l.font_size = 72
+		l.pixel_size = 0.0075
+		l.outline_size = 14
+		l.modulate = Color(0.97, 0.92, 0.8)
 		l.outline_modulate = Color(0.1, 0.08, 0.07)
-		l.rotation_degrees = Vector3(-70, 0, 0)
-		l.position = tile.position + Vector3(0, 0.08, 1.45)
+		l.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		l.position = tile.position + Vector3(0, 0.45, 1.35)
 		root.add_child(l)
 	_shrine(root, ElementDefs.Element.AIR, Vector3(-9, 0.12, -4), ElementDefs.DATA[ElementDefs.Element.AIR]["color"], "Air")
 	_shrine(root, ElementDefs.Element.EARTH, Vector3(-4.5, 0.12, -9), ElementDefs.DATA[ElementDefs.Element.EARTH]["color"], "Earth")
 	_shrine(root, ElementDefs.Element.FIRE, Vector3(2.5, 0.12, -10), ElementDefs.DATA[ElementDefs.Element.FIRE]["color"], "Fire")
 	_shrine(root, ElementDefs.Element.WATER, Vector3(8.5, 0.12, -5.5), ElementDefs.DATA[ElementDefs.Element.WATER]["color"], "Water")
-	_shrine(root, -1, Vector3(-1.0, 0.12, -38), Color(0.75, 0.55, 0.95), "Creatures  40 m")
+	_shrine(root, -1, Vector3(-6.0, 0.0, -40), Color(0.75, 0.55, 0.95), "Creatures 40 m", 2.6)
 	var walker := MeshInstance3D.new()
 	var cap := CapsuleMesh.new()
 	cap.radius = 0.3
@@ -208,8 +261,44 @@ func _build(p: Playtest) -> Node3D:
 	return root
 
 
+## Dusk -> rainy night: dim the sun, darken the sky, start rain streaks.
+func _nightfall(p: Playtest) -> void:
+	var t := p.get_tree().create_tween().set_parallel(true)
+	t.tween_property(_sun, "light_energy", 0.25, 1.2)
+	t.tween_property(_sun, "light_color", Color(0.55, 0.62, 0.9), 1.2)
+	t.tween_property(_sky, "sky_top_color", Color(0.03, 0.04, 0.09), 1.2)
+	t.tween_property(_sky, "sky_horizon_color", Color(0.18, 0.17, 0.26), 1.2)
+	t.tween_property(_env, "ambient_light_energy", 0.35, 1.2)
+	t.tween_property(_env, "fog_light_color", Color(0.16, 0.17, 0.24), 1.2)
+	var rain := GPUParticles3D.new()
+	rain.amount = int(2500 * Settings.effects_scale())
+	rain.lifetime = 0.9
+	rain.preprocess = 1.0
+	rain.visibility_aabb = AABB(Vector3(-30, -15, -30), Vector3(60, 30, 60))
+	var pm := ParticleProcessMaterial.new()
+	pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
+	pm.emission_box_extents = Vector3(22, 0.5, 18)
+	pm.direction = Vector3(0.12, -1, 0)
+	pm.spread = 2.0
+	pm.initial_velocity_min = 16.0
+	pm.initial_velocity_max = 20.0
+	pm.gravity = Vector3(0, -9.8, 0)
+	rain.process_material = pm
+	var q := QuadMesh.new()
+	q.size = Vector2(0.02, 0.55)
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.albedo_color = Color(0.7, 0.78, 0.95, 0.26)
+	mat.billboard_mode = BaseMaterial3D.BILLBOARD_FIXED_Y
+	q.material = mat
+	rain.draw_pass_1 = q
+	rain.position = Vector3(2, 12, -2)
+	_root.add_child(rain)
+
+
 func _orb_pos(i: int) -> Vector3:
-	return (_shrines[i] as Shrine).pos + Vector3.UP * 2.1
+	return (_shrines[i] as Shrine).orb_pos
 
 
 func _hit(element: int, pos: Vector3, heavy: bool, result: int) -> void:
@@ -268,13 +357,20 @@ func run(p: Playtest) -> void:
 	await p.wait(1.2)
 	p.check(Audio.current_environment() == &"cave", "cave reverb active")
 	await p.screenshot("audio_cave_creatures")
-	# Weather + night layers, leave combat.
+	# Weather + night layers, leave combat (music returns after the exit delay).
 	Events.weather_changed.emit(&"rain")
 	Events.time_of_day_changed.emit(22.5)
 	Events.combat_state_changed.emit(false)
+	Audio.set_environment(&"open", 2.0)
+	_nightfall(p)
 	for id in loops:
 		Audio.stop_loop(id, 0.5)
-	await p.wait(1.5)
+	await p.wait(2.0)
+	p.check(Audio.active_music() == &"music_combat", "combat music holds through short lulls")
+	await p.wait(3.0)
+	p.note("music after combat: active=%s base=%s combat=%s exit_timer=%.2f" % [Audio.active_music(), Audio.current_music(),
+		Audio.is_in_combat(), Audio.music._exit_timer])
+	p.check(Audio.active_music() == &"music_earth_kingdom", "regional theme returns after combat")
 	p.check(Audio.ambience_layers().get(&"weather") == &"amb_rain", "rain layer playing")
 	p.check(Audio.ambience_layers().get(&"night") == &"amb_night", "night layer playing")
 	await p.screenshot("audio_night_rain")

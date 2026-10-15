@@ -48,6 +48,7 @@ var _env_from: Dictionary = {}
 var _env_to: Dictionary = {}
 var _env_t := 1.0
 var _env_fade := 1.0
+var _env_last_usec := 0
 var _reverb: AudioEffectReverb
 var _region: StringName = &""
 var _hour := 12.0
@@ -101,7 +102,32 @@ func _auto_stinger(sound_name: StringName, volume_db: float = 0.0) -> void:
 		play_stinger(sound_name, volume_db)
 
 
-func _process(delta: float) -> void:
+func _exit_tree() -> void:
+	# Stop every playback before the players are freed, then give the mixer
+	# thread one buffer to drop them, so the AudioServer does not keep stream
+	# playbacks alive past shutdown ("resources still in use" on quit).
+	stop_all()
+	if not Engine.is_editor_hint():
+		OS.delay_msec(int(ceil(AudioServer.get_output_latency() * 1000.0)) + 100)
+
+
+## Immediately silences every voice, loop, music track and ambience layer.
+func stop_all() -> void:
+	if voices:
+		for v in voices.voices3d + voices.voices2d:
+			voices.release(v)
+	for n: Node in [music, ambience]:
+		if n == null:
+			continue
+		for c in n.get_children():
+			if c is AudioStreamPlayer:
+				(c as AudioStreamPlayer).stop()
+
+
+func _process(_delta: float) -> void:
+	var r := AudioFader.real_delta(_env_last_usec)
+	var delta: float = r[0]
+	_env_last_usec = r[1]
 	if _env_t < 1.0:
 		_env_t = minf(1.0, _env_t + delta / maxf(_env_fade, 0.01))
 		AudioEnvironments.apply(_reverb, AudioEnvironments.blend(_env_from, _env_to, smoothstep(0.0, 1.0, _env_t)))
