@@ -446,7 +446,7 @@ func post_pose(rig: CreatureRig, _delta: float) -> void:
 			&"stretch_wings":
 				var e := a.envelope(0.25, 0.3)
 				fold -= 0.95 * e * w * (1.0 - fw)
-				extra_raise += 0.35 * e * w * sin(a.t * 2.2) * (1.0 - fw)
+				extra_raise += (0.55 + 0.25 * sin(a.t * 2.2)) * e * w * (1.0 - fw)
 	fold = clampf(fold, 0.0, 1.0)
 	_wing_fold = fold
 	# Near the ground (takeoff/landing) the downstroke is shortened so the tips clear it.

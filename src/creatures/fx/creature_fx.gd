@@ -12,6 +12,7 @@ const SURFACE_COLORS := {
 
 static var _chunk_mesh: Mesh = null
 static var _dust_mesh: Mesh = null
+static var _flame_mesh: Mesh = null
 
 
 static func color_for(surface: StringName) -> Color:
@@ -93,6 +94,7 @@ static func _chunk() -> Mesh:
 		b.size = Vector3(0.12, 0.09, 0.1)
 		var m := StandardMaterial3D.new()
 		m.vertex_color_use_as_albedo = true
+		m.vertex_color_is_srgb = true
 		m.roughness = 1.0
 		b.material = m
 		_chunk_mesh = b
@@ -107,6 +109,7 @@ static func _dust() -> Mesh:
 		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 		m.vertex_color_use_as_albedo = true
+		m.vertex_color_is_srgb = true
 		m.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
 		m.albedo_texture = _soft_dot()
 		q.material = m
@@ -121,4 +124,76 @@ static func _soft_dot() -> Texture2D:
 			var d := Vector2(x - 15.5, y - 15.5).length() / 15.5
 			var a := clampf(1.0 - d, 0.0, 1.0)
 			img.set_pixel(x, y, Color(1, 1, 1, a * a))
+	return ImageTexture.create_from_image(img)
+
+
+## Visual-only fire stream for a dragon's `mouth` socket. Returns the emitter (child of
+## `socket`, aimed along its -Z); toggle `emitting` on the "fire_start"/"fire_end" action
+## events. It deals NO damage: the companion/bending module pairs it with its own hit
+## queries (cone along the socket) so visuals never imply hits that did not happen.
+static func fire_breath(socket: Node3D, length: float = 14.0) -> CPUParticles3D:
+	var p := CPUParticles3D.new()
+	p.name = &"FireBreath"
+	p.mesh = _flame()
+	p.amount = maxi(24, int(90.0 * _effects_scale()))
+	p.lifetime = 0.7
+	p.local_coords = false
+	p.emitting = false
+	p.direction = Vector3.FORWARD
+	p.spread = 9.0
+	p.initial_velocity_min = length / 0.75
+	p.initial_velocity_max = length / 0.55
+	p.damping_min = 4.0
+	p.damping_max = 8.0
+	p.gravity = Vector3(0, 2.5, 0)
+	p.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
+	p.emission_sphere_radius = 0.15
+	p.angle_min = 0.0
+	p.angle_max = 360.0
+	p.scale_amount_min = 0.5
+	p.scale_amount_max = 1.0
+	var sc := Curve.new()
+	sc.add_point(Vector2(0.0, 0.22))
+	sc.add_point(Vector2(0.45, 1.2))
+	sc.add_point(Vector2(1.0, 2.3))
+	p.scale_amount_curve = sc
+	# Saturated toon flame: hot yellow core -> orange -> deep red -> dark smoke.
+	var ramp := Gradient.new()
+	ramp.set_color(0, Color(1.0, 0.92, 0.35, 1.0))
+	ramp.add_point(0.18, Color(1.0, 0.62, 0.08, 1.0))
+	ramp.add_point(0.5, Color(0.92, 0.24, 0.04, 0.95))
+	ramp.add_point(0.78, Color(0.45, 0.1, 0.05, 0.6))
+	ramp.set_color(ramp.get_point_count() - 1, Color(0.18, 0.13, 0.12, 0.0))
+	p.color_ramp = ramp
+	socket.add_child(p)
+	return p
+
+
+static func _flame() -> Mesh:
+	if _flame_mesh == null:
+		var q := QuadMesh.new()
+		q.size = Vector2(1.2, 1.2)
+		var m := StandardMaterial3D.new()
+		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		m.vertex_color_use_as_albedo = true
+		m.vertex_color_is_srgb = true
+		m.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+		m.albedo_texture = _flame_tex()
+		q.material = m
+		_flame_mesh = q
+	return _flame_mesh
+
+
+## Puffy flame sprite: a round core with a slightly crisp edge (reads as a toon flame
+## lick rather than a blurry glow).
+static func _flame_tex() -> Texture2D:
+	var img := Image.create_empty(48, 48, false, Image.FORMAT_RGBA8)
+	for y in 48:
+		for x in 48:
+			var v := Vector2(x - 23.5, y - 23.5)
+			var ang := atan2(v.y, v.x)
+			var r := v.length() / 23.5 * (1.0 + 0.12 * sin(ang * 5.0))
+			var a := 1.0 - smoothstep(0.62, 0.95, r)
+			img.set_pixel(x, y, Color(1, 1, 1, a))
 	return ImageTexture.create_from_image(img)

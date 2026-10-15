@@ -133,6 +133,69 @@ func set_ground(color: Color) -> void:
 					(g as MeshInstance3D).material_override = _ground_material()
 
 
+## Replaces the flat ground with rolling hills around `c` (size m): a displaced mesh, a
+## matching HeightMapShape3D collider and WorldData.height_override, so both the ray
+## probes and the WorldData fallback agree. Returns the height function.
+func set_hills(c: Vector3, size: float = 120.0, amp: float = 1.6) -> Callable:
+	var h := func(x: float, z: float) -> float:
+		var dx := x - c.x
+		var dz := z - c.z
+		return amp * (sin(dx * 0.11) * cos(dz * 0.09) + 0.5 * sin(dx * 0.23 + 1.3) * sin(dz * 0.19 + 0.4)) \
+				+ amp * 0.8 * exp(-((dx - 12.0) * (dx - 12.0) + dz * dz) / 60.0)
+	WorldData.height_override = h
+	for ch in get_children():
+		if ch is StaticBody3D:
+			ch.queue_free()
+	var res := 96
+	var step := size / float(res)
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for iz in res:
+		for ix in res:
+			var x0 := c.x - size * 0.5 + ix * step
+			var z0 := c.z - size * 0.5 + iz * step
+			var pts := [Vector3(x0, 0, z0), Vector3(x0 + step, 0, z0), Vector3(x0 + step, 0, z0 + step), Vector3(x0, 0, z0 + step)]
+			for p in pts:
+				p.y = h.call(p.x, p.z)
+			for idx in [0, 1, 2, 0, 2, 3]:
+				var p: Vector3 = pts[idx]
+				p.y = h.call(p.x, p.z)
+				st.add_vertex(p)
+	st.generate_normals()
+	var ground := StaticBody3D.new()
+	ground.collision_layer = Layers.WORLD
+	ground.collision_mask = 0
+	var gm := MeshInstance3D.new()
+	gm.mesh = st.commit()
+	gm.material_override = _ground_material()
+	ground.add_child(gm)
+	var hs := HeightMapShape3D.new()
+	var n := res + 1
+	hs.map_width = n
+	hs.map_depth = n
+	var data := PackedFloat32Array()
+	data.resize(n * n)
+	for iz in n:
+		for ix in n:
+			data[iz * n + ix] = h.call(c.x - size * 0.5 + ix * step, c.z - size * 0.5 + iz * step)
+	hs.map_data = data
+	var cs := CollisionShape3D.new()
+	cs.shape = hs
+	cs.scale = Vector3(step, 1.0, step)
+	cs.position = Vector3(c.x, 0.0, c.z)
+	ground.add_child(cs)
+	add_child(ground)
+	# Far flat plane under the hills so the horizon stays green.
+	var far := MeshInstance3D.new()
+	var pm := PlaneMesh.new()
+	pm.size = Vector2(4000, 4000)
+	far.mesh = pm
+	far.material_override = _ground_material()
+	far.position = Vector3(c.x, -amp * 1.6, c.z)
+	add_child(far)
+	return h
+
+
 ## A shallow toon pond (flat water disc slightly above the ground) for swimmers.
 func add_pond(c: Vector3, r: float) -> MeshInstance3D:
 	var m := MeshInstance3D.new()

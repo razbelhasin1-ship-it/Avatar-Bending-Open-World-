@@ -156,13 +156,13 @@ func build_mesh(rig: CreatureRig, kit: MeshKit) -> void:
 			return s.chain_weights(p, tail, tip, 0.5)
 		var t := smoothstep(z0, z1, p.z)
 		return PackedFloat32Array([front[0], 1.0 - t, tail[0], t])
-	kit.loft(secs, {"segs": 22, "sub": 2, "color": hide, "cap0": "none", "cap1": "point", "weights": body_w, "mark_row": 1})
+	kit.loft(secs, {"segs": 22, "sub": 2, "color": hide, "cap0": "round", "cap1": "point", "weights": body_w, "mark_row": 1})
 	# Head: heavy wedge with a rhino horn.
 	kit.loft([{"p": v.call(0, 1.0, -1.4), "w": 0.3 * k, "h": 0.25 * k},
 			{"p": v.call(0, 1.04, -1.6), "w": 0.32 * k, "h": 0.24 * k, "hb": 0.2 * k},
 			{"p": v.call(0, 1.0, -1.85), "w": 0.24 * k, "h": 0.17 * k, "hb": 0.15 * k},
 			{"p": v.call(0, 0.95, -2.08), "w": 0.17 * k, "h": 0.12 * k, "hb": 0.1 * k}],
-			{"segs": 18, "sub": 2, "color": hide, "cap0": "none", "cap1": "round", "cap_len": 0.6, "weights": hw, "mark_row": 2})
+			{"segs": 18, "sub": 2, "color": hide, "cap0": "round", "cap1": "round", "cap_len": 0.6, "weights": hw, "mark_row": 2})
 	kit.loft([{"p": v.call(0, 0.86, -1.62), "w": 0.26 * k, "h": 0.05 * k, "hb": 0.1 * k},
 			{"p": v.call(0, 0.85, -2.0), "w": 0.14 * k, "h": 0.04 * k, "hb": 0.07 * k}],
 			{"segs": 14, "sub": 1, "color": hide, "weights": s.rigid_weighter(&"jaw"), "mark_row": 3})

@@ -171,7 +171,7 @@ func build_mesh(rig: CreatureRig, kit: MeshKit) -> void:
 		{"p": v.call(0, 2.02, -1.28), "w": 0.29 * k, "h": 0.25 * k},
 	]
 	o = fluff_o.duplicate()
-	o.merge({"segs": 24, "sub": 3, "color": fur, "cap0": "none", "cap1": "none", "seed": 5, "fluff": 0.1,
+	o.merge({"segs": 24, "sub": 3, "color": fur, "cap0": "round", "cap1": "round", "cap_len": 0.5, "seed": 5, "fluff": 0.1,
 			"weights": s.chain_weighter([&"chest", &"neck1", &"neck2", &"head"], v.call(0, 2.0, -1.4))})
 	kit.loft(neck, o)
 	# Head: broad bear-like skull, short strong muzzle.
@@ -241,7 +241,7 @@ func build_mesh(rig: CreatureRig, kit: MeshKit) -> void:
 		kit.ellipsoid(ec - look * 0.014 * k, Vector3(0.078, 0.07, 0.055) * k, {"weights": s.rigid_weighter(&"head"),
 				"color": Color(1, 1, 1, 0), "rings": 8, "segs": 12}, Basis.looking_at(look, Vector3.UP))
 		kit.tube(PackedVector3Array([hp(0.19 * side, 1.89, -1.47), hp(0.168 * side, 1.862, -1.6), hp(0.135 * side, 1.856, -1.72), hp(0.07 * side, 1.86, -1.82)]),
-				PackedFloat32Array([0.02 * k, 0.019 * k, 0.017 * k, 0.014 * k]), {"weights": s.rigid_weighter(&"head"), "segs": 6, "sub": 3, "fur": 0.0})
+				PackedFloat32Array([0.014 * k, 0.014 * k, 0.013 * k, 0.011 * k]), {"weights": s.rigid_weighter(&"head"), "segs": 6, "sub": 3, "fur": 0.0})
 	kit.surface(&"fur")
 
 

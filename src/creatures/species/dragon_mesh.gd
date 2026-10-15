@@ -51,7 +51,7 @@ static func build(sp: CreatureSpecies, rig: CreatureRig, kit: MeshKit) -> void:
 			return s.chain_weights(p, spine_chain, tail_tip, 0.45)
 		var t := (p.z + 0.35 * k) / (0.7 * k)
 		return PackedFloat32Array([neck_chain[0], 1.0 - t, spine_chain[0], t])
-	kit.loft(secs, {"segs": 26, "sub": 2, "color": scale_c, "cap0": "none", "cap1": "point", "weights": weigh,
+	kit.loft(secs, {"segs": 26, "sub": 2, "color": scale_c, "cap0": "round", "cap_len": 0.5, "cap1": "point", "weights": weigh,
 			"mark_row": 1, "fur": 0.0})
 	# --- Head.
 	var hw := s.rigid_weighter(&"head")
@@ -63,7 +63,7 @@ static func build(sp: CreatureSpecies, rig: CreatureRig, kit: MeshKit) -> void:
 		{"p": v.call(0, 3.6, -5.55), "w": 0.33 * k, "h": 0.25 * k, "hb": 0.22 * k},
 		{"p": v.call(0, 3.59, -5.8), "w": 0.27 * k, "h": 0.21 * k, "hb": 0.18 * k},
 	]
-	kit.loft(head, {"segs": 26, "sub": 3, "color": scale_c, "cap0": "none", "cap1": "round", "cap_len": 0.6,
+	kit.loft(head, {"segs": 26, "sub": 3, "color": scale_c, "cap0": "round", "cap1": "round", "cap_len": 0.6,
 			"weights": hw, "mark_row": 2, "fur": 0.0})
 	var jaw := [
 		{"p": v.call(0, 3.44, -4.25), "w": 0.44 * k, "h": 0.1 * k, "hb": 0.2 * k},

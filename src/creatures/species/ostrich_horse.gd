@@ -130,7 +130,7 @@ func build_mesh(rig: CreatureRig, kit: MeshKit) -> void:
 	kit.loft([{"p": v.call(0, 1.56, -0.55), "w": 0.2 * k, "h": 0.2 * k}, {"p": v.call(0, 1.72, -0.78), "w": 0.15 * k, "h": 0.16 * k},
 			{"p": v.call(0, 2.04, -0.94), "w": 0.12 * k, "h": 0.13 * k}, {"p": v.call(0, 2.38, -1.03), "w": 0.11 * k, "h": 0.12 * k},
 			{"p": v.call(0, 2.6, -1.05), "w": 0.1 * k, "h": 0.11 * k}],
-			{"segs": 14, "sub": 2, "color": body_c, "cap0": "none", "cap1": "none", "mark_row": 2,
+			{"segs": 14, "sub": 2, "color": body_c, "cap0": "round", "cap1": "round", "mark_row": 2,
 			"weights": s.chain_weighter([&"chest", &"neck1", &"neck2", &"neck3", &"head"], v.call(0, 2.65, -1.15))})
 	# Horse head.
 	kit.loft([{"p": v.call(0, 2.66, -0.98), "w": 0.1 * k, "h": 0.11 * k},

@@ -167,7 +167,7 @@ func build_mesh(rig: CreatureRig, kit: MeshKit) -> void:
 		{"p": v.call(0, 2.54, -2.32), "w": 1.30 * k, "h": 1.06 * k, "hb": 1.22 * k, "f": 1.6},
 	]
 	kit.loft(body, {"segs": 36, "sub": 3, "color": fur, "fluff": 0.05, "lobes": 23.0, "fluff_freq": 1.4, "fluff_lo": 2.2,
-			"cap1": "none", "cap_len": 0.6, "seed": 21, "mark_row": 1,
+			"cap1": "round", "cap_len": 0.5, "seed": 21, "mark_row": 1,
 			"weights": s.chain_weighter([&"pelvis", &"spine1", &"spine2", &"chest"], v.call(0, 2.5, -2.3))})
 	# Fluffy collar where the head meets the body.
 	var ruff := [
@@ -185,7 +185,7 @@ func build_mesh(rig: CreatureRig, kit: MeshKit) -> void:
 		{"p": v.call(0, 2.58, -3.33), "w": 0.92 * k, "h": 0.6 * k, "hb": 0.5 * k, "f": 0.2},
 		{"p": v.call(0, 2.55, -3.50), "w": 0.78 * k, "h": 0.5 * k, "hb": 0.42 * k, "f": 0.0},
 	]
-	kit.loft(head, {"segs": 34, "sub": 3, "color": fur, "fluff": 0.05, "lobes": 17.0, "cap0": "none", "cap1": "round",
+	kit.loft(head, {"segs": 34, "sub": 3, "color": fur, "fluff": 0.05, "lobes": 17.0, "cap0": "round", "cap1": "round",
 			"cap_len": 0.36, "seed": 25, "mark_row": 2, "fur": 0.4, "weights": head_w})
 	# Upper lip pad under the nose.
 	kit.ellipsoid(v.call(0, 2.43, -3.6), Vector3(0.6, 0.24, 0.22) * k, {"color": fur, "fur": 0.25, "weights": head_w,

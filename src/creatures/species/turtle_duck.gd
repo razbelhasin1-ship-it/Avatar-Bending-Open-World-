@@ -112,7 +112,7 @@ func build_mesh(rig: CreatureRig, kit: MeshKit) -> void:
 			"weights": s.chain_weighter([&"tail1", &"pelvis", &"chest"], v.call(0, 0.21, -0.18)), "mark_row": 1})
 	kit.loft([{"p": v.call(0, 0.2, -0.13), "w": 0.042 * k, "h": 0.042 * k}, {"p": v.call(0, 0.27, -0.165), "w": 0.034 * k, "h": 0.034 * k},
 			{"p": v.call(0, 0.34, -0.18), "w": 0.034 * k, "h": 0.034 * k}],
-			{"segs": 10, "sub": 2, "color": color("head", HEAD), "cap0": "none", "cap1": "none",
+			{"segs": 10, "sub": 2, "color": color("head", HEAD), "cap0": "round", "cap1": "round",
 			"weights": s.chain_weighter([&"neck1", &"neck2", &"head"], v.call(0, 0.37, -0.19))})
 	kit.loft([{"p": v.call(0, 0.37, -0.145), "w": 0.04 * k, "h": 0.04 * k},
 			{"p": v.call(0, 0.375, -0.19), "w": 0.047 * k, "h": 0.046 * k},

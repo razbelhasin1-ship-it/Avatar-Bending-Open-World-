@@ -159,7 +159,7 @@ func build_mesh(rig: CreatureRig, kit: MeshKit) -> void:
 		{"p": v.call(0, 1.04, -2.65), "w": 0.24 * k, "h": 0.17 * k, "hb": 0.17 * k, "f": 0.0},
 		{"p": v.call(0, 0.99, -2.97), "w": 0.14 * k, "h": 0.11 * k, "hb": 0.1 * k, "f": 0.0},
 	]
-	kit.loft(head, {"segs": 26, "sub": 3, "color": fur, "fluff": 0.04, "lobes": 15.0, "cap0": "none", "cap1": "round",
+	kit.loft(head, {"segs": 26, "sub": 3, "color": fur, "fluff": 0.04, "lobes": 15.0, "cap0": "round", "cap1": "round",
 			"cap_len": 0.5, "seed": 43, "mark_row": 2, "fur": 0.45, "weights": hw})
 	var jaw := [
 		{"p": v.call(0, 0.98, -2.1), "w": 0.32 * k, "h": 0.05 * k, "hb": 0.11 * k},
