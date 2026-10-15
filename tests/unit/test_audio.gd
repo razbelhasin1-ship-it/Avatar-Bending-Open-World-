@@ -316,9 +316,10 @@ func test_stinger_ducks_music() -> void:
 	expect(Audio.music._duck_db < -3.0, "music ducked under the stinger (%.1f dB)" % Audio.music._duck_db)
 
 
-## Records the engine output across a loop point (AudioEffectCapture on a
-## private bus) to prove the imported loop plays seamlessly in Godot.
-func test_loop_wraps_seamlessly_in_engine() -> void:
+## Plays `stream` from just before its end on a private bus with an
+## AudioEffectCapture and returns what the engine mixed across the loop point
+## (empty when the audio driver is not mixing).
+func _capture_wrap(stream: AudioStream, before_end: float, total: float) -> PackedVector2Array:
 	var bus := AudioServer.bus_count
 	AudioServer.add_bus(bus)
 	AudioServer.set_bus_name(bus, "LoopTest")
@@ -329,24 +330,57 @@ func test_loop_wraps_seamlessly_in_engine() -> void:
 	var p := AudioStreamPlayer.new()
 	p.bus = &"LoopTest"
 	add_child(p)
-	var stream := Audio.get_stream(&"fire_loop") as AudioStreamWAV
 	p.stream = stream
-	p.play(stream.get_length() - 0.3)
-	await seconds(0.7)
+	p.play(stream.get_length() - before_end)
+	await seconds(total)
+	var still_playing := p.playing
 	var frames := cap.get_frames_available()
-	if frames < 2000:
-		print("  (skipped: audio driver is not mixing in this environment, %d frames)" % frames)
-	else:
-		var buf := cap.get_buffer(frames)
-		var max_step := 0.0
-		var steps := PackedFloat32Array()
-		for i in range(1, buf.size()):
-			var s := absf(buf[i].x - buf[i - 1].x)
-			steps.append(s)
-			max_step = maxf(max_step, s)
-		steps.sort()
-		var p999 := steps[int(steps.size() * 0.999)]
-		expect(p.playing, "looping sound still playing past its end")
-		expect(max_step <= p999 * 2.5 + 0.01, "no click at the wrap (max step %.4f vs p99.9 %.4f)" % [max_step, p999])
+	var buf := cap.get_buffer(frames) if frames > 0 else PackedVector2Array()
+	p.stop()
 	p.queue_free()
 	AudioServer.remove_bus(bus)
+	expect(still_playing, "looping stream still playing past its end")
+	return buf
+
+
+## Records the engine output across a WAV loop point to prove the imported loop
+## plays seamlessly in Godot (no click at the wrap).
+func test_loop_wraps_seamlessly_in_engine() -> void:
+	var buf := await _capture_wrap(Audio.get_stream(&"fire_loop"), 0.3, 0.7)
+	if buf.size() < 2000:
+		print("  (skipped: audio driver is not mixing in this environment, %d frames)" % buf.size())
+		return
+	var max_step := 0.0
+	var steps := PackedFloat32Array()
+	for i in range(1, buf.size()):
+		var s := absf(buf[i].x - buf[i - 1].x)
+		steps.append(s)
+		max_step = maxf(max_step, s)
+	steps.sort()
+	var p999 := steps[int(steps.size() * 0.999)]
+	expect(max_step <= p999 * 2.5 + 0.01, "no click at the wrap (max step %.4f vs p99.9 %.4f)" % [max_step, p999])
+
+
+## Music OGG loops: no decoder gap (silent hole) when the track wraps.
+func test_music_loop_has_no_gap_in_engine() -> void:
+	var buf := await _capture_wrap(Audio.get_stream(&"music_select", Audio.MUSIC_DIR), 0.4, 0.8)
+	if buf.size() < 4000:
+		print("  (skipped: audio driver is not mixing in this environment, %d frames)" % buf.size())
+		return
+	var win := 220  # ~5 ms
+	var rms := PackedFloat32Array()
+	for s in range(0, buf.size() - win, win):
+		var acc := 0.0
+		for i in range(s, s + win):
+			acc += buf[i].x * buf[i].x + buf[i].y * buf[i].y
+		rms.append(sqrt(acc / (2.0 * win)))
+	var sorted := rms.duplicate()
+	sorted.sort()
+	var median := sorted[sorted.size() / 2]
+	var quiet := 0
+	# Skip the first windows: capture starts before the player is audible.
+	for i in range(8, rms.size()):
+		if rms[i] < median * 0.03:
+			quiet += 1
+	expect(median > 0.001, "music is audible through the wrap (median rms %.4f)" % median)
+	expect(quiet == 0, "no silent gap at the loop point (%d near-silent 5 ms windows)" % quiet)
