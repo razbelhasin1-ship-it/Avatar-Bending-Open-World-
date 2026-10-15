@@ -101,6 +101,7 @@ func _play(title: String, caption: String, element: int, hold: float) -> void:
 	_seal_color = UiTheme.SEAL
 	_caption.add_theme_color_override(&"font_color", UiTheme.element_light(element) if ElementDefs.is_valid(element) else UiTheme.GOLD)
 	_seal.visible = not _seal_glyph.is_empty()
+	_layout()
 	_seal.queue_redraw()
 	_title.visible_ratio = 0.0
 	_title.modulate.a = 1.0
@@ -120,6 +121,26 @@ func _play(title: String, caption: String, element: int, hold: float) -> void:
 	_tween.tween_interval(hold)
 	_tween.tween_property(_box, "modulate:a", 0.0, 0.6).set_trans(Tween.TRANS_SINE)
 	_tween.tween_callback(_done)
+
+
+## Fits long titles inside the stroke and stamps the seal just past the last letter, so
+## the seal never covers text ("THE NORTHERN WATER TRIBE" shrinks slightly).
+func _layout() -> void:
+	const BASE_SIZE := 62
+	const GAP := 28.0
+	var font := _title.get_theme_font(&"font")
+	var seal_w := (_seal.size.x + GAP) if _seal.visible else 0.0
+	var max_w := _title.size.x - 2.0 * (_seal.size.x + GAP)
+	var w := font.get_string_size(_title.text, HORIZONTAL_ALIGNMENT_LEFT, -1, BASE_SIZE).x
+	var fs := BASE_SIZE
+	if w > max_w:
+		fs = maxi(40, floori(BASE_SIZE * max_w / w))
+		w = font.get_string_size(_title.text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+	_title.add_theme_font_size_override(&"font_size", fs)
+	# centre the title + seal group on the box
+	_title.position.x = -seal_w * 0.5
+	var text_right := _title.size.x * 0.5 + w * 0.5 - seal_w * 0.5
+	_seal.position = Vector2(text_right + GAP, _title.position.y + (_title.size.y - _seal.size.y) * 0.5 - 4.0)
 
 
 func _done() -> void:

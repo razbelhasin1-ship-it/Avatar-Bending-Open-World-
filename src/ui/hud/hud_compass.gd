@@ -23,7 +23,7 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	custom_minimum_size = Vector2(780, 86)
 	_region = UiTheme.make_label("", UiTheme.title_font(600, 6), UiTheme.SIZE_TINY - 1, Color(UiTheme.PARCHMENT, 0.75), HORIZONTAL_ALIGNMENT_CENTER)
-	_region.position = Vector2(0, 52)
+	_region.position = Vector2(0, 64)  # below the quest-distance readout (y 48..62)
 	_region.size = Vector2(780, 28)
 	_region.add_theme_color_override(&"font_shadow_color", Color(0, 0, 0, 0.7))
 	_region.add_theme_constant_override(&"shadow_outline_size", 6)
