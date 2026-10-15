@@ -19,7 +19,7 @@ const RESOLUTIONS := [Vector2i(1280, 720), Vector2i(1366, 768), Vector2i(1600, 9
 		Vector2i(2560, 1440), Vector2i(3440, 1440), Vector2i(3840, 2160)]
 const AA_MODES := ["off", "fxaa", "smaa", "msaa2", "msaa4", "msaa8", "taa"]
 const UPSCALERS := ["bilinear", "fsr1", "fsr2"]
-const QUALITY_PRESETS := ["low", "medium", "high", "ultra", "custom"]
+const QUALITY_PRESETS := ["mobile", "low", "medium", "high", "ultra", "custom"]
 ## 0 = Off/Low ... 4 = Ultra for shadows; 0..3 for the other level settings.
 const LEVEL_NAMES := ["Low", "Medium", "High", "Ultra"]
 const SHADOW_NAMES := ["Off", "Low", "Medium", "High", "Ultra"]
@@ -71,9 +71,30 @@ const DEFAULTS := {
 		"damage_numbers": true,
 		"subtitles": true,
 	},
+	"touch": {
+		## "auto" (on for phones/tablets/touchscreens), "on" or "off".
+		"controls": "auto",
+		"button_scale": 1.0,
+		"opacity": 0.7,
+		"left_handed": false,
+		"camera_sensitivity": 1.0,
+		## Pushing the virtual stick to the edge sprints.
+		"auto_sprint": true,
+		"haptics": true,
+	},
+}
+
+## Applied once on first launch on phones/tablets (and mobile browsers).
+const MOBILE_DEFAULTS := {
+	"display": {"render_scale": 0.75, "fps_limit": 60, "upscaler": "fsr1"},
+	"graphics": {"preset": "mobile", "antialiasing": "msaa2", "shadows": 1, "ssao": false, "ssil": false,
+			"glow": true, "volumetric_fog": false, "sdfgi": false, "view_distance": 0, "vegetation": 0,
+			"effects": 0, "detail": 0},
 }
 
 const PRESETS := {
+	"mobile": {"antialiasing": "msaa2", "shadows": 1, "ssao": false, "ssil": false, "glow": true, "volumetric_fog": false,
+			"sdfgi": false, "view_distance": 0, "vegetation": 0, "effects": 0, "detail": 0},
 	"low": {"antialiasing": "off", "shadows": 1, "ssao": false, "ssil": false, "glow": false, "volumetric_fog": false,
 			"sdfgi": false, "view_distance": 0, "vegetation": 0, "effects": 0, "detail": 0},
 	"medium": {"antialiasing": "fxaa", "shadows": 2, "ssao": false, "ssil": false, "glow": true, "volumetric_fog": false,
@@ -160,6 +181,10 @@ func _detect_preset() -> String:
 func load_settings() -> void:
 	var cfg := ConfigFile.new()
 	if cfg.load(SAVE_PATH) != OK:
+		if is_mobile_device():
+			for section: String in MOBILE_DEFAULTS:
+				for key: String in MOBILE_DEFAULTS[section]:
+					_values[section][key] = MOBILE_DEFAULTS[section][key]
 		_loaded = true
 		return
 	for section: String in DEFAULTS:
@@ -208,20 +233,45 @@ func is_compatibility_renderer() -> bool:
 	return rendering_method() == "gl_compatibility"
 
 
+## Mobile (Vulkan) renderer used on Android/iOS.
+func is_mobile_renderer() -> bool:
+	return rendering_method() == "mobile"
+
+
+## Phone/tablet, including mobile web browsers. `--mobile` on the command line
+## simulates one for testing.
+func is_mobile_device() -> bool:
+	return OS.has_feature("mobile") or OS.has_feature("web_android") or OS.has_feature("web_ios") \
+			or OS.get_cmdline_user_args().has("--mobile")
+
+
+## True when the on-screen touch controls should be shown.
+func touch_controls_enabled() -> bool:
+	match String(get_value("touch", "controls")):
+		"on": return true
+		"off": return false
+	return is_mobile_device() or (DisplayServer.is_touchscreen_available() and not is_headless())
+
+
 ## Whether an option can take effect with the active renderer/platform.
 func is_feature_supported(feature: String) -> bool:
 	var compat := is_compatibility_renderer()
+	var mobile_r := is_mobile_renderer()
 	match feature:
 		"ssao", "ssil", "sdfgi", "volumetric_fog", "taa", "fsr2", "smaa":
+			return not compat and not mobile_r
+		"fsr1":
 			return not compat
-		"exclusive", "borderless", "vsync", "resolution":
+		"exclusive", "borderless", "vsync", "resolution", "display_mode":
 			return not is_headless() and OS.get_name() not in ["Web", "Android", "iOS"]
+		"rebinding":
+			return not is_mobile_device()
 	return true
 
 
 func apply_display() -> void:
 	Engine.max_fps = int(get_value("display", "fps_limit"))
-	if is_test_run():
+	if is_test_run() or not is_feature_supported("display_mode"):
 		return
 	var mode: String = get_value("display", "mode")
 	var res: Vector2i = get_value("display", "resolution")
@@ -276,7 +326,7 @@ func apply_graphics() -> void:
 ## Applies AA / render scale / LOD to any viewport (main or SubViewport previews).
 func configure_viewport(vp: Viewport) -> void:
 	var aa: String = get_value("graphics", "antialiasing")
-	var compat := is_compatibility_renderer()
+	var compat := is_compatibility_renderer() or is_mobile_renderer()
 	vp.msaa_3d = Viewport.MSAA_DISABLED
 	vp.screen_space_aa = Viewport.SCREEN_SPACE_AA_DISABLED
 	vp.use_taa = false
@@ -294,11 +344,11 @@ func configure_viewport(vp: Viewport) -> void:
 	var scale: float = clampf(float(get_value("display", "render_scale")), 0.5, 2.0)
 	vp.scaling_3d_scale = scale
 	var up: String = get_value("display", "upscaler")
-	if compat or scale >= 1.0:
+	if is_compatibility_renderer() or scale >= 1.0:
 		vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_BILINEAR
-	elif up == "fsr2":
+	elif up == "fsr2" and not is_mobile_renderer():
 		vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_FSR2
-	elif up == "fsr1":
+	elif up == "fsr1" or up == "fsr2":
 		vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_FSR
 	else:
 		vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_BILINEAR
@@ -311,12 +361,12 @@ func configure_viewport(vp: Viewport) -> void:
 func configure_environment(env: Environment) -> void:
 	if env == null:
 		return
-	var compat := is_compatibility_renderer()
-	env.ssao_enabled = bool(get_value("graphics", "ssao")) and not compat
-	env.ssil_enabled = bool(get_value("graphics", "ssil")) and not compat
-	env.sdfgi_enabled = bool(get_value("graphics", "sdfgi")) and not compat
+	var full := not is_compatibility_renderer() and not is_mobile_renderer()
+	env.ssao_enabled = bool(get_value("graphics", "ssao")) and full
+	env.ssil_enabled = bool(get_value("graphics", "ssil")) and full
+	env.sdfgi_enabled = bool(get_value("graphics", "sdfgi")) and full
 	env.glow_enabled = bool(get_value("graphics", "glow"))
-	env.volumetric_fog_enabled = bool(get_value("graphics", "volumetric_fog")) and not compat
+	env.volumetric_fog_enabled = bool(get_value("graphics", "volumetric_fog")) and full
 
 
 ## Shadow settings for the scene's main DirectionalLight3D.
@@ -422,7 +472,32 @@ func apply_controls() -> void:
 		var action := StringName(action_name)
 		if InputDefaults.ACTIONS.has(action) and binds[action_name] is Array:
 			InputDefaults.set_action_events(action, binds[action_name])
+	if touch_controls_enabled():
+		_strip_mouse_buttons()
 	Events.controls_changed.emit()
+	Events.touch_controls_changed.emit(touch_controls_enabled())
+
+
+## With touch controls active every screen tap is also emulated as a left mouse
+## click; remove mouse-button bindings so taps on virtual buttons never fire
+## attacks by accident (the touch overlay presses actions directly).
+func _strip_mouse_buttons() -> void:
+	for action: StringName in InputDefaults.ACTIONS:
+		for ev in InputMap.action_get_events(action):
+			if ev is InputEventMouseButton:
+				InputMap.action_erase_event(action, ev)
+
+
+func touch_button_scale() -> float:
+	return clampf(float(get_value("touch", "button_scale")), 0.6, 1.6)
+
+
+func touch_opacity() -> float:
+	return clampf(float(get_value("touch", "opacity")), 0.2, 1.0)
+
+
+func touch_camera_sensitivity() -> float:
+	return float(get_value("touch", "camera_sensitivity"))
 
 
 ## Current binding entries of an action (defaults merged with overrides).

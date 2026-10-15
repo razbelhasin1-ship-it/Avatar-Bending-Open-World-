@@ -25,6 +25,15 @@ defensive).
 | F | Mount / dismount |
 | M, K, J, Esc | Map, skills, journal, pause |
 
+**Touch layout (phones/tablets).** Left half: floating virtual stick (appears where the
+thumb lands; pushing to the edge sprints). Right half: drag anywhere free to look.
+Right-thumb cluster: large Strike button (tap = light combo), Heavy (hold to charge),
+Jump, Dodge, Defend (hold), arc of 4 technique buttons + Signature (with cooldown sweeps,
+they ARE the HUD ability slots on touch). Top bar: pause, map, lock-on, call companion.
+A contextual button appears when an interaction/mount prompt is available. Swipe on the
+target area while locked switches target. Button size/opacity/left-handed are settings.
+Gestures stay simple: no multi-finger combos are required for any action.
+
 Input buffering: the last bending press is buffered 0.2 s, so a press during
 recovery fires on the first cancellable frame. Combos advance only if the next
 light press arrives inside the chain window.

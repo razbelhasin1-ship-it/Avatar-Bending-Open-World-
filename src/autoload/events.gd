@@ -36,6 +36,13 @@ signal target_unlocked
 signal combat_state_changed(in_combat: bool)
 
 # --- Camera / feel -----------------------------------------------------------
+## Camera look input from non-mouse sources (touch drag), in screen pixels.
+## Camera code must apply this exactly like mouse motion, and must IGNORE
+## InputEventMouseMotion whose device == InputEvent.DEVICE_ID_EMULATION
+## (mouse events emulated from touch) while touch controls are active.
+signal look_input(delta_pixels: Vector2)
+## Touch controls overlay shown/hidden (gameplay HUD can re-layout).
+signal touch_controls_changed(active: bool)
 signal camera_shake(strength: float, duration: float)
 signal camera_impulse(direction: Vector3, strength: float)
 signal hitstop(duration: float)

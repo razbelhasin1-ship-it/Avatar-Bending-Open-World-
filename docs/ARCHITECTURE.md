@@ -16,16 +16,41 @@ dependencies apart from fonts, generated audio and generated world data.
    `Settings` quality levels; never unbounded spawning.
 5. **No fake features.** A button, ability or system either works end-to-end or is not shown.
 
+## Target platforms — desktop AND mobile
+
+The game must be playable on **phones/tablets** (Android/iOS, Mobile renderer; and mobile
+browsers via the Web export, Compatibility renderer) as well as desktop (Forward+).
+
+* Every feature must work on all three renderers (`forward_plus`, `mobile`,
+  `gl_compatibility`). Forward+-only effects (SSAO, SSIL, SDFGI, volumetric fog, TAA, FSR2)
+  are optional extras that degrade gracefully — never required for readability or gameplay.
+  Test with `RENDERER=mobile` and `RENDERER=gl_compatibility tools/playtest.sh ...`.
+* `Settings.is_mobile_device()` (or `-- --mobile` for testing) selects the `mobile` quality preset
+  on first launch (render scale 0.75, MSAA 2x, low shadows, short view distance, low
+  vegetation/effects/detail). Every system must scale down via the Settings helpers so the
+  `mobile` preset targets 30–60 fps on a mid-range phone: keep draw calls, shader cost,
+  overdraw (big transparent particles!), skinned characters and physics bodies on a budget.
+* Touch: `Settings.touch_controls_enabled()` turns on the on-screen controls overlay (virtual
+  stick, camera drag, bending buttons). The overlay drives the SAME input actions via
+  `Input.action_press/release`, and camera look via `Events.look_input(delta_px)`.
+  Gameplay code must therefore read input only through actions (+ mouse motion / look_input
+  for the camera); camera code must ignore `InputEventMouseMotion` with
+  `device == InputEvent.DEVICE_ID_EMULATION` while touch controls are active. Mouse-button
+  bindings are stripped from actions in touch mode so taps never trigger attacks.
+* UI: everything usable by tap — minimum touch target ~88 px at 1080p, scroll containers
+  draggable, no hover-only information, no right-click-only actions, safe-area margins
+  (`DisplayServer.get_display_safe_area()`), landscape orientation.
+
 ## Running
 
 | Task | Command |
 | --- | --- |
 | Play (from editor or CLI) | `godot --path .` |
-| Jump straight into a scene | `godot --path . -- --scene=world --element=fire` (aliases: world, tutorial, menu, select) |
+| Jump straight into a scene | `godot --path . -- --scene=world --element=fire` (aliases: world, tutorial, menu, select; add `--mobile` to simulate a phone) |
 | Parse-check every script | `tools/check.sh` |
 | Unit/integration tests (headless) | `tools/test.sh [filter]` |
 | Scripted playtest + screenshots | `tools/playtest.sh <scenario> [out_dir] [WxH]` (Xvfb + software Vulkan) |
-| Test Compatibility renderer | `RENDERER=gl_compatibility tools/playtest.sh <scenario>` |
+| Test Compatibility renderer | `RENDERER=gl_compatibility tools/playtest.sh <scenario>` (or RENDERER=mobile) |
 
 Pass `-- --test` (done by the tools) to stop Settings from resizing the window.
 The engine API reference for 4.7 is dumped at `/opt/godot/api/doc/classes/*.xml` in the

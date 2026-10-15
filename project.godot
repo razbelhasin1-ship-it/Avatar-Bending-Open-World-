@@ -37,10 +37,13 @@ window/size/window_width_override=1600
 window/size/window_height_override=900
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
+window/handheld/orientation=4
+window/energy_saving/keep_screen_on=true
 
 [input_devices]
 
 pointing/emulate_touch_from_mouse=false
+pointing/emulate_mouse_from_touch=true
 
 [layer_names]
 
@@ -65,6 +68,10 @@ common/max_physics_steps_per_frame=6
 
 [rendering]
 
+renderer/rendering_method="forward_plus"
+renderer/rendering_method.mobile="mobile"
+renderer/rendering_method.web="gl_compatibility"
+textures/vram_compression/import_etc2_astc=true
 rendering_device/fallback_to_opengl3=true
 lights_and_shadows/directional_shadow/size=4096
 lights_and_shadows/directional_shadow/soft_shadow_filter_quality=2
