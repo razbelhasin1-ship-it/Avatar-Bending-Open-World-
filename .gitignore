@@ -16,3 +16,6 @@ tools/worldgen/.cache/
 
 # Agent worktrees
 .claude/
+
+# World generator (worlddata module): quick-look previews
+tools/worldgen/preview/
