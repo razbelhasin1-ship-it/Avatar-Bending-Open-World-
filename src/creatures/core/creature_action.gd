@@ -22,6 +22,8 @@ var events: Array = []
 var opts: Dictionary = {}
 ## Idle behaviour (any explicit play_action replaces it immediately).
 var is_idle := false
+## Replaces the previous action without cross-fading (its pose is continued by this one).
+var cut_previous := false
 
 # Runtime state (managed by ActionPlayer).
 var t := 0.0

@@ -14,7 +14,10 @@ var fading: Array[CreatureAction] = []
 
 func play(a: CreatureAction) -> void:
 	if current != null:
-		_begin_stop(current)
+		if a.cut_previous:
+			finished.emit(current.name)
+		else:
+			_begin_stop(current)
 	current = a
 	a.t = 0.0
 	a.weight = 0.0 if a.blend_in > 0.0 else 1.0

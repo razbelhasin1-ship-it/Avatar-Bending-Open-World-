@@ -3,6 +3,13 @@ extends RefCounted
 ## SPECIES env var picks the creature (default polar_bear_dog).
 
 
+## Waits until the creature's animation clock advanced `t` seconds (the playtest's
+## wait() is wall-clock based while game time is capped per slow software frame).
+func rt(p: Playtest, rig: CreatureRig, t: float) -> void:
+	var end := rig.time + t
+	await p.wait_until(func() -> bool: return rig.time >= end, t * 30.0 + 5.0)
+
+
 func run(p: Playtest) -> void:
 	var sp := StringName(OS.get_environment("SPECIES") if OS.get_environment("SPECIES") != "" else "polar_bear_dog")
 	var stage: Node = await p.load_scene("res://scenes/dev/creature_showcase.tscn")
@@ -11,63 +18,89 @@ func run(p: Playtest) -> void:
 	var L: float = minf(d["length"], d["height"] * 2.6)
 	var H: float = d["height"]
 	stage.add_reference_human(Vector3(L * 0.45 + 1.2, 0, 0.8))
-	await p.wait(0.6)
+	await rt(p, rig, 0.6)
 	stage.frame(Vector3(L * 1.1, H * 0.75, -L * 1.0), Vector3(0, H * 0.45, 0), 45.0)
-	await p.wait(0.3)
+	await rt(p, rig, 0.3)
 	await p.screenshot("%s_34front" % sp)
 	stage.frame(Vector3(L * 1.6, H * 0.5, 0.0), Vector3(0, H * 0.45, 0), 45.0)
-	await p.wait(0.2)
+	await rt(p, rig, 0.2)
 	await p.screenshot("%s_side" % sp)
 	var hp: Vector3 = rig.get_socket(&"head").global_position
 	stage.frame(hp + Vector3(L * 0.28, 0.0, -L * 0.42), hp + Vector3(0, -0.1 * L, -0.05 * L), 40.0)
-	await p.wait(0.2)
+	await rt(p, rig, 0.2)
 	await p.screenshot("%s_face" % sp)
 	# Walk sequence.
 	var drv: CreatureDriver = stage.driver(rig)
 	drv.line(Vector3.LEFT, rig.walk_speed)
 	stage.frame(Vector3(-4.0, H * 0.6, L * 1.6), Vector3(-4.0, H * 0.4, 0), 50.0)
-	await p.wait(1.5)
+	await rt(p, rig, 1.5)
 	for i in 3:
 		var pos := rig.global_position
 		stage.frame(pos + Vector3(0.0, H * 0.55, L * 1.5), pos + Vector3(0, H * 0.4, 0), 50.0)
-		await p.wait(0.22)
+		await rt(p, rig, 0.22)
 		await p.screenshot("%s_walk_%d" % [sp, i])
 	drv.line(Vector3.LEFT, rig.run_speed * 1.5)
-	await p.wait(2.0)
+	await rt(p, rig, 2.0)
 	for i in 3:
 		var pos := rig.global_position
 		stage.frame(pos + Vector3(0.0, H * 0.55, L * 1.7), pos + Vector3(0, H * 0.4, 0), 50.0)
-		await p.wait(0.13)
+		await rt(p, rig, 0.13)
 		await p.screenshot("%s_run_%d" % [sp, i])
 	p.check(rig.gait.footsteps > 4, "footsteps emitted (%d)" % rig.gait.footsteps)
+	if rig.supported_actions().has(&"dig_in"):
+		drv.idle()
+		await rt(p, rig, 1.2)
+		var pos0 := rig.global_position
+		stage.frame(pos0 + Vector3(L * 0.9, H * 0.9, -L * 0.9), pos0 + Vector3(0, H * 0.3, 0), 45.0)
+		rig.play_action(&"dig_in")
+		for i in 3:
+			await rt(p, rig, 0.8)
+			await p.screenshot("%s_dig_%d" % [sp, i])
+		await rt(p, rig, 0.8)
+		p.check(not rig.mesh_instance.visible, "hidden while burrowed")
+		drv.line(Vector3.FORWARD, 3.0)
+		await rt(p, rig, 2.0)
+		drv.idle()
+		await rt(p, rig, 0.3)
+		var pos1 := rig.global_position
+		stage.frame(pos1 + Vector3(L * 0.9, H * 0.9, -L * 0.9), pos1 + Vector3(0, H * 0.3, 0), 45.0)
+		rig.play_action(&"emerge")
+		for i in 3:
+			await rt(p, rig, 0.35)
+			await p.screenshot("%s_emerge_%d" % [sp, i])
+		await rt(p, rig, 1.5)
+		p.check(rig.mesh_instance.visible, "visible after emerging")
+		rig.play_action(&"rear_up")
+		await rt(p, rig, 0.8)
+		await p.screenshot("%s_rear" % sp)
 	if rig.can_fly():
 		drv.idle()
-		await p.wait(1.5)
+		await rt(p, rig, 1.5)
 		var start := rig.global_position
 		var dur := rig.set_flying(true)
 		p.check(dur > 0.0, "takeoff has a duration")
 		stage.frame(start + Vector3(L * 0.9, H * 0.6, L * 1.3), start + Vector3(0, H * 0.6, 0), 50.0)
 		drv.fly_line(Vector3.LEFT, 6.0, 8.0 * H / 4.0)
 		for i in 3:
-			await p.wait(0.5)
+			await rt(p, rig, 0.5)
 			await p.screenshot("%s_takeoff_%d" % [sp, i])
 		drv.fly_circle(rig.global_position + Vector3(0, 0, -30), 30.0, 16.0, 12.0)
-		await p.wait(5.0)
+		await rt(p, rig, 5.0)
 		for i in 3:
 			var pos := rig.global_position
 			var fwd := -rig.global_basis.z
 			stage.frame(pos + fwd * L * 1.2 + Vector3(0, H * 0.4, 0) + rig.global_basis.x * L * 1.4, pos, 55.0)
-			await p.wait(0.3)
+			await rt(p, rig, 0.3)
 			await p.screenshot("%s_fly_%d" % [sp, i])
 			p.note("bank %.2f roll %.2f fw %.2f flying %s pitch %.2f" % [rig.flight_bank, rig.pose.body_roll, rig.flight_w, rig.flying, rig.pose.body_pitch])
 		var pos2 := rig.global_position
 		stage.frame(pos2 + Vector3(0, -H * 0.5, 0) + rig.global_basis.x * L * 2.0, pos2, 55.0)
-		await p.wait(0.1)
+		await rt(p, rig, 0.1)
 		await p.screenshot("%s_fly_below" % sp)
 		drv.line(-rig.global_basis.z, 6.0)
 		rig.set_flying(false)
 		for i in 3:
-			await p.wait(0.6)
+			await rt(p, rig, 0.6)
 			var pos3 := rig.global_position
 			stage.frame(pos3 + rig.global_basis.x * L * 1.6 + Vector3(0, H * 0.4, 0), pos3 + Vector3(0, H * 0.4, 0), 50.0)
 			await p.screenshot("%s_land_%d" % [sp, i])

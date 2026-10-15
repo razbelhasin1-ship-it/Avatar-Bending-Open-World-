@@ -15,7 +15,7 @@ var rng := RandomNumberGenerator.new()
 var tune := {
 	"sit_pitch": 0.42, "sit_drop": 0.25, "lie_drop": 0.7, "rear_pitch": 0.75,
 	"neck_down": -0.75, "head_up": 0.55, "roar_jaw": 1.0, "shake_roll": 0.22,
-	"vocal": &"", "vocal_event": &"call", "bite_reach": 0.5, "hind_tuck": Vector3(0, 0.4, -0.3),
+	"vocal": &"", "vocal_event": &"call", "bite_reach": 0.5, "swim_float": 0.1,
 }
 
 
@@ -91,6 +91,12 @@ func sound_for(_action: StringName, _event: StringName) -> StringName:
 	return &""
 
 
+## Called for every action event before CreatureRig.action_event is emitted (species
+## spawn their visual effects here when rig.fx is on).
+func on_event(_rig: CreatureRig, _action: StringName, _event: StringName) -> void:
+	pass
+
+
 # --- Shared locomotion pose -------------------------------------------------------------
 
 ## Generic body motion from the gait engine: support height/pitch/roll, gait
@@ -127,6 +133,28 @@ func default_locomotion_pose(rig: CreatureRig, pose: CreaturePose) -> void:
 	pose.tail_yaw += -turn * 0.25
 	pose.ears_back += clampf(spd / maxf(rig.run_speed * 1.4, 0.1), 0.0, 1.0) * 0.6
 	pose.breath += sin(rig.time * TAU / maxf(rig.breath_period * (1.0 - 0.45 * clampf(spd / maxf(rig.run_speed, 0.1), 0.0, 1.0)), 0.5))
+	if rig.swim_w > 0.0:
+		swim_pose(rig, pose)
+
+
+## Floating + paddling (rig.set_swimming). Wherever the controller keeps the rig, the
+## pelvis floats `tune.swim_float` meters (k = 1) above the water line.
+func swim_pose(rig: CreatureRig, pose: CreaturePose) -> void:
+	var w := rig.swim_w
+	var spd := Vector2(rig.velocity.x, rig.velocity.z).length()
+	var rest_h := rig.skel.rest_pos[rig.motor.pelvis].y if rig.motor.pelvis >= 0 else 0.0
+	var fl: float = tune.get("swim_float", 0.1)
+	pose.body_y += ((rig.water_y - rig.global_position.y) - rest_h + fl * k) * w
+	pose.body_y += sin(rig.time * 2.1) * 0.02 * k * w
+	pose.body_roll += sin(rig.time * 1.3) * 0.03 * w
+	pose.body_pitch += clampf(spd * 0.02, 0.0, 0.12) * w
+	pose.head_pitch += 0.15 * w
+	pose.tail_pitch += 0.1 * w
+	var rate := 1.2 + spd * 0.8
+	for l in rig.legs:
+		var ph := rig.time * rate * TAU + (PI if l.side > 0.0 else 0.0) + (0.5 if l.group == CreatureLeg.Group.HIND else 0.0)
+		var r := l.reach()
+		pose.add_paw(l.index, Vector3(0.0, 0.18 * sin(ph), 0.3 * cos(ph)) * r * w)
 
 
 # --- Shared actions ---------------------------------------------------------------------

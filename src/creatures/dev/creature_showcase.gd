@@ -129,6 +129,36 @@ func set_ground(color: Color) -> void:
 					(g as MeshInstance3D).material_override = _ground_material()
 
 
+## A shallow toon pond (flat water disc slightly above the ground) for swimmers.
+func add_pond(c: Vector3, r: float) -> MeshInstance3D:
+	var m := MeshInstance3D.new()
+	var cm := CylinderMesh.new()
+	cm.top_radius = r
+	cm.bottom_radius = r
+	cm.height = 0.02
+	cm.radial_segments = 48
+	m.mesh = cm
+	var sh := Shader.new()
+	sh.code = """
+shader_type spatial;
+render_mode cull_back;
+varying vec3 wp;
+void vertex() { wp = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz; }
+void fragment() {
+	float w = sin(wp.x * 3.0 + TIME * 1.5) * sin(wp.z * 2.6 - TIME * 1.2);
+	ALBEDO = mix(vec3(0.16, 0.42, 0.56), vec3(0.3, 0.6, 0.7), 0.5 + 0.5 * w);
+	ROUGHNESS = 0.15;
+	SPECULAR = 0.6;
+}
+"""
+	var mat := ShaderMaterial.new()
+	mat.shader = sh
+	m.material_override = mat
+	add_child(m)
+	m.global_position = c + Vector3(0, 0.03, 0)
+	return m
+
+
 func spawn(species: StringName, pos: Vector3, yaw: float = 0.0, cfg: Dictionary = {}) -> CreatureRig:
 	var rig := CreatureRig.create(species, cfg)
 	add_child(rig)

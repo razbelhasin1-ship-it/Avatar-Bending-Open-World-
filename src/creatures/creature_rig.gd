@@ -57,6 +57,8 @@ var footstep_actor: Node3D = null
 var sounds := true
 ## Random idle behaviours when standing still.
 var idle_enabled := true
+## Built-in visual effects (dig debris, emerge bursts...). Turn off if the owner spawns its own.
+var fx := true
 
 # Locomotion state.
 var velocity := Vector3.ZERO
@@ -116,7 +118,8 @@ var _notifier: VisibleOnScreenNotifier3D
 
 ## Creates a creature. config: seed (int), scale (float, default 1), colors
 ## (Dictionary of species color overrides, e.g. {"fur": Color(...)}), detail (0..3,
-## default Settings.detail_level()), sounds (bool), idle (bool), lod (int, -1 = auto).
+## default Settings.detail_level()), sounds (bool), idle (bool), fx (bool), lod (int, -1 = auto),
+## draw_distance (m).
 static func create(species_name: StringName, cfg: Dictionary = {}) -> CreatureRig:
 	if not SPECIES_PATHS.has(species_name):
 		push_error("CreatureRig: unknown species %s" % species_name)
@@ -327,6 +330,7 @@ func _build(species_name: StringName, sp: CreatureSpecies, cfg: Dictionary) -> v
 	species = sp
 	config = cfg
 	sounds = bool(cfg.get("sounds", true))
+	fx = bool(cfg.get("fx", true))
 	idle_enabled = bool(cfg.get("idle", true))
 	sp.k = float(cfg.get("scale", 1.0))
 	sp.cfg = cfg
@@ -413,16 +417,19 @@ func _process(delta: float) -> void:
 	_lod_accum += delta
 	if _lod_accum < interval:
 		return
-	var dt := minf(_lod_accum, 0.25)
+	var raw := _lod_accum
 	_lod_accum = 0.0
-	_step(dt)
+	_step(raw)
 
 
-func _step(dt: float) -> void:
-	time += dt
+## Advances one animation step. Action/flight timing uses the full elapsed time so it
+## stays in sync with gameplay even at low frame rates; the pose solve clamps its step.
+func _step(raw: float) -> void:
+	var dt := minf(raw, 0.25)
+	time += raw
 	_update_motion(dt)
-	_update_flight(dt)
-	actions.update(dt)
+	_update_flight(raw)
+	actions.update(raw)
 	var cur := actions.current
 	if cur != null and cur.cancel_on_move and gait.speed > walk_speed * 0.35 and cur.t > 0.3:
 		actions.stop()
@@ -575,6 +582,7 @@ func _update_sockets() -> void:
 
 
 func _on_action_event(action_name: StringName, event: StringName) -> void:
+	species.on_event(self, action_name, event)
 	if sounds and is_inside_tree() and lod < 3:
 		var snd := species.sound_for(action_name, event)
 		if snd != &"":
