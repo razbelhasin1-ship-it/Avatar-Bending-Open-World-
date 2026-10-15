@@ -16,6 +16,8 @@ var rest_off := PackedVector3Array()
 var local_rot: Array[Basis] = []
 var local_pos := PackedVector3Array()
 var local_scale := PackedVector3Array()
+## Bones whose local_scale is written to the skeleton (eyes, mouth, skirt panels).
+var scale_bones := PackedInt32Array([SK.EYE_L, SK.EYE_R, SK.MOUTH])
 var g_basis: Array[Basis] = []
 var g_pos := PackedVector3Array()
 
@@ -231,7 +233,8 @@ func _solve_leg(side: int, pose: RigPose) -> void:
 	var hb := g_basis[SK.HIPS]
 	var dl := hb.transposed() * x1
 	thigh_swing[side] = atan2(-dl.z, -dl.y)
-	thigh_abduct[side] = atan2(dl.x * sg, -dl.y)
+	# Out of the sagittal plane (stays small for a thigh raised straight forward).
+	thigh_abduct[side] = atan2(dl.x * sg, Vector2(dl.y, dl.z).length())
 
 
 ## Orthonormal frame with X along `x` and Y toward `p` (made perpendicular).
@@ -269,7 +272,7 @@ func apply(sk: Skeleton3D, hips_dirty: bool = true) -> void:
 		sk.set_bone_pose_rotation(i, local_rot[i].get_rotation_quaternion())
 	if hips_dirty:
 		sk.set_bone_pose_position(SK.HIPS, local_pos[SK.HIPS])
-	for i in [SK.EYE_L, SK.EYE_R, SK.MOUTH]:
+	for i in scale_bones:
 		sk.set_bone_pose_scale(i, local_scale[i])
 
 

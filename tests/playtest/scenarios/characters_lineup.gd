@@ -65,7 +65,7 @@ func _row(p: Playtest, show: CharacterShowcase, cfgs: Array, shot: String) -> vo
 	for i in n:
 		show.spawn(cfgs[i], Vector3((float(i) - (n - 1) * 0.5) * spacing, 0, 0))
 	show.run_for(0.8)
-	var dist := 1.6 + float(n) * 1.15
+	var dist := 1.4 + float(n) * 0.76
 	show.frame_camera(Vector3(0, 1.15, -dist), Vector3(0, 0.92, 0), 36.0)
 	await p.frames(2)
 	await p.screenshot(shot)

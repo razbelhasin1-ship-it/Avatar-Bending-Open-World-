@@ -268,7 +268,10 @@ Events: `release` (spawn the projectile), `impact` (melee contact), `recover`
 * **Snapshot crossfades** handle every transition (action -> action, state
   changes, style changes) without per-pair blend logic.
 * **Quadrant skirt panels** follow their own thigh's swing and spread, so robes
-  open for kicks and horse stances instead of being pierced by the legs.
+  open for kicks and horse stances instead of being pierced by the legs. When
+  both thighs are forward (sitting, meditating) long robes are tucked: the back
+  panels fold under the thighs and the panels shorten (bone scale) to end near
+  the knees. Spring chains rest on the rig's ground plane.
 * Secondary motion is GDScript verlet (hair tails, long hair, braids, capes) in
   world space so it trails behind motion, with a back-collision plane; it is
   disabled beyond LOD 0.
@@ -294,7 +297,8 @@ Events: `release` (spawn the projectile), `impact` (melee contact), `recover`
   per style, reactions, dodges, combo event check). `characters_posesheet`
   renders arbitrary clips frozen at a normalized time, optionally per preset and
   with a prop: `SHEET="jab_r,front_kick_r@0.4;villager_earth:work_hammer@0.35+hammer/hand_r" PRESET=fire_nation VIEW=side tools/playtest.sh characters_posesheet`
-  (`;` separates images, `<preset>_f` = female, `CLOSE=1` frames the upper body).
+  (`;` separates images, `<preset>_f` = female, `VIEW=front|side|34|back|back34`,
+  `CLOSE=1` frames the upper body).
   Without `SHEET` it renders the life/props review set.
 * Interactive: `godot --path . -- --scene=res://scenes/dev/character_showcase.tscn`.
 
@@ -302,8 +306,9 @@ Events: `release` (spawn the projectile), `impact` (melee contact), `recover`
 * Props are simple primitives without their own animation (the glider staff
   does not open; the fishing line is not simulated). Two-handed poles in combat
   clips are not authored; the carry pose is one-handed.
-* Lying poses (sleep / down / dead) leave capes resting flat behind the body
-  (spring chains only collide with the back plane, not the ground).
+* Capes are two-bone spring chains: in lying poses they rest flat on the
+  ground plane rather than draping around the body.
 * Bell sleeves are rigid around the forearm (no gravity drape).
-* Long dresses use four skirt panels; extreme leg poses (splits) can still clip.
+* Long dresses use four rigid skirt panels; extreme leg poses (splits) can
+  still clip, and a seated tunic shows its open hem from above.
 * Hair has a soft environment-reflection sheen from the shared toon shader.

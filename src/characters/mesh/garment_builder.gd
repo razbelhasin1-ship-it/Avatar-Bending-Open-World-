@@ -17,11 +17,13 @@ static func add_bones(d: RigSkeletonDef, spec: Dictionary) -> Array:
 	var h: float = d.p["height"]
 	var need_skirt := false
 	var need_cape := false
+	var hem_min := 1.0
 	for pc: Dictionary in spec.get("pieces", []):
 		match String(pc.get("type", "")):
 			"skirt":
 				if pc.get("bones", true):
 					need_skirt = true
+					hem_min = minf(hem_min, float(pc.get("hem", 0.3)))
 			"cape":
 				need_cape = true
 	if need_skirt:
@@ -33,7 +35,8 @@ static func add_bones(d: RigSkeletonDef, spec: Dictionary) -> Array:
 		var fr := d.add_bone("skirt_fr", SK.HIPS, Vector3(hw * 0.3, hip_y, -hd * 0.35))
 		var bl := d.add_bone("skirt_bl", SK.HIPS, Vector3(-hw * 0.3, hip_y, hd * 0.35))
 		var br := d.add_bone("skirt_br", SK.HIPS, Vector3(hw * 0.3, hip_y, hd * 0.35))
-		chains.append({"skirt": true, "bones": [fl, fr, bl, br]})
+		# drop: pivot-to-hem length, used to tuck long robes when seated.
+		chains.append({"skirt": true, "bones": [fl, fr, bl, br], "drop": hip_y - hem_min * h, "thigh": d.thigh_len})
 	if need_cape:
 		var top := Vector3(0, float(d.p["shoulder_y"]), float(d.p["chest_d"]) * h * 1.1)
 		var c1 := d.add_bone("cape_1", SK.UPPER_CHEST, top)

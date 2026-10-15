@@ -21,6 +21,7 @@ var _skirt_sway := Vector2.ZERO
 var _skirt_vel := Vector2.ZERO
 var _last_root := Vector3.ZERO
 var _last_vel := Vector3.ZERO
+var _skirt_fit := 1.0     # length scale that ends the robe at the knees
 var enabled := true
 
 
@@ -29,6 +30,8 @@ func setup(d: RigSkeletonDef, chain_descs: Array) -> void:
 	for c: Dictionary in chain_descs:
 		if c.get("skirt", false):
 			skirt_bones = PackedInt32Array(c["bones"])
+			var drop: float = c.get("drop", 0.0)
+			_skirt_fit = clampf(float(c.get("thigh", 0.0)) * 1.12 / drop, 0.3, 1.0) if drop > 0.01 else 1.0
 			continue
 		var bones: Array = c["bones"]
 		var lens := PackedFloat32Array()
@@ -108,6 +111,10 @@ func process(s: RigSolver, model_to_world: Transform3D, dt: float) -> void:
 					q.z = min_back
 					pm = s.g_pos[SK.UPPER_CHEST] + uc * q
 					p = model_to_world * pm
+			# Rest on the ground plane of the rig (seated / lying poses).
+			if pm.y < 0.025:
+				pm.y = 0.025
+				p = model_to_world * pm
 			ps[k] = p
 			var cur := (target_m - head_m).normalized()
 			var want := (pm - head_m).normalized()
@@ -135,7 +142,12 @@ func _skirt(s: RigSolver, model_to_world: Transform3D, dt: float) -> void:
 	_last_root = root
 	# Panels [front-left, front-right, back-left, back-right]: each follows its
 	# own thigh's forward (or backward) swing and outward spread, plus a little
-	# of the other leg so the center seam stays covered.
+	# of the other leg so the center seam stays covered. Seated (both thighs
+	# forward) long robes are tucked: the back panels fold under the thighs and
+	# all panels shorten to end near the knees (bone scale = cloth bunching).
+	var both_fwd := minf(s.thigh_swing[0], s.thigh_swing[1])
+	var seat := smoothstep(0.7, 1.2, both_fwd)
+	var sy := lerpf(1.0, _skirt_fit, seat)
 	for qi in 4:
 		var side := qi % 2
 		var front := qi < 2
@@ -146,8 +158,12 @@ func _skirt(s: RigSolver, model_to_world: Transform3D, dt: float) -> void:
 			pitch = maxf(maxf(sw, 0.0), maxf(other, 0.0) * 0.45) * 1.02 + 0.05
 		else:
 			pitch = minf(minf(sw, 0.0), minf(other, 0.0) * 0.45) * 1.02 - 0.03
+			pitch = lerpf(pitch, both_fwd * 0.85, seat)
 		var spread := maxf(s.thigh_abduct[side], 0.0) * 0.95 + 0.03
 		var sg := SK.SIDE_SIGN[side]
 		var bi := skirt_bones[qi]
 		s.local_rot[bi] = Basis(Vector3.RIGHT, pitch + _skirt_sway.x) * Basis(Vector3.BACK, sg * spread + _skirt_sway.y)
+		s.local_scale[bi] = Vector3(1.0, sy, 1.0)
+		if not s.scale_bones.has(bi):
+			s.scale_bones.append(bi)
 		s._fk(bi)

@@ -1,7 +1,7 @@
 extends RefCounted
 ## Pose contact sheets for reviewing clips frozen at a normalized time.
 ## SHEET="clip@t,preset:clip@t+prop/socket;clip,clip" (";" separates images)
-## PRESET=fire_nation (default preset; "<preset>_f" = female) VIEW=front|side|34
+## PRESET=fire_nation (default preset; "<preset>_f" = female) VIEW=front|side|34|back|back34
 ## CLOSE=1 frames the upper body. Without SHEET a default review set is used.
 func run(p: Playtest) -> void:
 	var show: CharacterShowcase = await p.load_scene("res://scenes/dev/character_showcase.tscn")
@@ -38,7 +38,7 @@ func run(p: Playtest) -> void:
 			var clip := StringName(parts[0])
 			var t := float(parts[1]) if parts.size() > 1 else -1.0
 			var pos := Vector3((float(i) - (n - 1) * 0.5) * spacing, 0, 0)
-			var yaw := 90.0 if view == "side" else (30.0 if view == "34" else 0.0)
+			var yaw: float = {"side": 90.0, "34": 30.0, "back": 180.0, "back34": 145.0}.get(view, 0.0)
 			var cfg := {"preset": StringName(pre.trim_suffix("_f"))}
 			if pre.ends_with("_f"):
 				cfg["body"] = "female"
@@ -62,7 +62,9 @@ func run(p: Playtest) -> void:
 			else:
 				rig.play_action(clip, {"blend_in": 0.0, "start": t})
 			rig.animator.paused = true
-			rig.advance(0.0)
+			# Pose frozen; let spring chains (capes, hair) settle into it.
+			for k in 45:
+				rig.advance(1.0 / 30.0)
 			var lab := Label3D.new()
 			lab.text = "%s @%.2f" % [clip, t]
 			lab.font_size = 36

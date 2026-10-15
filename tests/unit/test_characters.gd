@@ -294,6 +294,24 @@ func test_sockets_follow_bones() -> void:
 	expect(hand.global_position.z < -0.35, "hand extended forward on the jab (z=%.2f)" % hand.global_position.z)
 
 
+func test_robe_panels_follow_legs() -> void:
+	var rig := _make({"preset": &"monk_elder"})
+	_step(rig, 0.2)
+	var s := rig.animator.solver
+	var bl := rig.get_bone_index(&"skirt_bl")
+	var fl := rig.get_bone_index(&"skirt_fl")
+	expect(bl >= 0 and fl >= 0, "robe has quadrant panels")
+	expect(s.local_scale[bl].y > 0.99, "standing: full-length robe")
+	rig.play_action(&"sit_loop", {"blend_in": 0.0})
+	_step(rig, 0.5)
+	expect(absf(s.thigh_abduct[0]) < 0.5, "thighs forward are not read as spread (%.2f)" % s.thigh_abduct[0])
+	expect(s.local_scale[bl].y < 0.85, "seated: long robe tucked (%.2f)" % s.local_scale[bl].y)
+	var back_dir := -s.g_basis[bl].y  # panel hangs along its -Y
+	expect(back_dir.z < 0.2, "seated: back panel folds under the thighs, not out behind (z=%.2f)" % back_dir.z)
+	var front_dir := -s.g_basis[fl].y
+	expect(front_dir.z < -0.6, "seated: front panel lies over the lap (z=%.2f)" % front_dir.z)
+
+
 func test_props_attach_and_carry_pose() -> void:
 	var guard := _make({"preset": &"guard"})
 	var spear := guard.get_prop(&"hand_r")
