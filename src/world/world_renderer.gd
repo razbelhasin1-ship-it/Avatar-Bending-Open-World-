@@ -34,6 +34,8 @@ var water: WaterSystem
 var weather: WeatherSystem
 var precipitation: WeatherParticles
 var cloud_sea: CloudSea
+var collision: TerrainCollision
+var snow: SnowTrails
 
 var _region_weights: Dictionary = {}
 var _region_target: Dictionary = {}
@@ -78,6 +80,13 @@ func _ready() -> void:
 	add_child(precipitation)
 	cloud_sea = CloudSea.new()
 	add_child(cloud_sea)
+	collision = TerrainCollision.new()
+	collision.name = "Collision"
+	add_child(collision)
+	snow = SnowTrails.new()
+	snow.name = "Snow"
+	add_child(snow)
+	snow.bind_material(terrain_material)
 	normal_baker = TerrainNormalBaker.new()
 	normal_baker.name = "NormalBaker"
 	add_child(normal_baker)
@@ -177,6 +186,43 @@ func get_dominant_region() -> StringName:
 	return best
 
 
+## Keeps terrain collision within `radius` m of `pos` (NPC groups, companions, projectiles
+## landing far away) until `release_collision_request(id)` or for `lifetime_s` if > 0.
+func request_collision_around(pos: Vector3, radius: float, lifetime_s: float = 0.0) -> int:
+	return collision.request_around(pos, radius, lifetime_s)
+
+
+## Moves a collision request (e.g. a companion that follows at a distance).
+func move_collision_request(id: int, pos: Vector3) -> void:
+	collision.move_request(id, pos)
+
+
+func release_collision_request(id: int) -> void:
+	collision.release_request(id)
+
+
+## True when terrain collision exists under `pos` (spawns should wait for it).
+func is_collision_ready_at(pos: Vector3) -> bool:
+	return collision.is_ready_at(pos)
+
+
+## Builds the collision patch under `pos` immediately (teleports/respawns).
+func ensure_collision_now(pos: Vector3) -> void:
+	collision.ensure_now(pos)
+
+
+## Resolves once terrain collision under the focus is ready (or immediately if it is).
+func wait_until_ready() -> void:
+	while not _is_ready:
+		await world_ready_for_play
+
+
+## How deep (m) trails have pressed the snow at `pos`: lower feet/hooves by this so they sit
+## in their own prints (collision stays on the undisturbed snow surface).
+func get_snow_sink_depth(pos: Vector3) -> float:
+	return snow.get_sink_depth(pos)
+
+
 ## Ripple ring, foam and spray on the water surface at `pos` (for bending). `strength` 0.2
 ## (pebble) .. 3 (boulder / water surge). Returns false if there is no water at `pos`.
 func splash(pos: Vector3, strength: float = 1.0) -> bool:
@@ -222,6 +268,15 @@ func _process(delta: float) -> void:
 	precipitation.set_intensities(weather.precipitation())
 	precipitation.follow(cam_pos)
 	cloud_sea.update(cam_pos, float(weather.params["coverage"]))
+	var focus_pos := _focus_position()
+	collision.focus = focus if focus and is_instance_valid(focus) else null
+	collision.update(focus_pos, delta)
+	snow.camera_position = cam_pos
+	snow.refill_multiplier = float(weather.params["refill"])
+	snow.update(focus_pos, delta)
+	if not _is_ready and is_collision_ready_at(focus_pos):
+		_is_ready = true
+		world_ready_for_play.emit()
 
 
 func _active_camera() -> Camera3D:

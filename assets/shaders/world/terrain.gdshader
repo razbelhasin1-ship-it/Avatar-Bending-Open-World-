@@ -55,9 +55,9 @@ const vec3 SAND[4] = vec3[4](vec3(0.74, 0.74, 0.72), vec3(0.89, 0.81, 0.61), vec
 const vec3 PAVE[4] = vec3[4](vec3(0.80, 0.87, 0.94), vec3(0.68, 0.64, 0.55), vec3(0.60, 0.38, 0.31), vec3(0.88, 0.82, 0.68));
 
 // Visible surface height: terrain (exact WorldData.get_height formula) + snow trail.
-float surface_height(vec2 xz) {
+float surface_height(vec2 xz, float spacing) {
 	float base = has_world ? world_height(xz) : 0.0;
-	return base + trail_displacement(xz);
+	return base + trail_displacement(xz, spacing);
 }
 
 void vertex() {
@@ -68,11 +68,11 @@ void vertex() {
 	vec2 odd = abs(g - 2.0 * floor(g * 0.5));
 	float d = max(abs(wp.x - clip_center.x), abs(wp.z - clip_center.z)) / s;
 	float m = clamp((d - morph_start) / (morph_end - morph_start), 0.0, 1.0);
-	float h = surface_height(wp.xz);
+	float h = surface_height(wp.xz, s);
 	if (m > 0.0 && odd.x + odd.y > 0.5) {
 		// coarse-level surface at this vertex: midpoint of the coarse edge / (0,0)-(2,2) diagonal
 		vec2 o = odd * s;
-		float hc = 0.5 * (surface_height(wp.xz - o) + surface_height(wp.xz + o));
+		float hc = 0.5 * (surface_height(wp.xz - o, s * 2.0) + surface_height(wp.xz + o, s * 2.0));
 		h = mix(h, hc, m);
 	}
 	wp.y = h;
@@ -315,7 +315,7 @@ void fragment() {
 	float snow_raw = sp.r + edge_n * 0.14 + world_snow_cover * 0.4 * smoothstep(0.55, 0.85, n.y);
 	snow_raw -= (p_rock - 0.5) * 0.35 * w_rock + smoothstep(0.45, 0.75, slope) * 0.18;
 	float w_snow = smoothstep(0.16, 0.40, snow_raw);
-	vec3 snow = mix(vec3(0.83, 0.89, 0.98), vec3(0.97, 0.98, 1.0), smoothstep(0.3, 0.8, p_rip * 0.5 + macro * 0.5));
+	vec3 snow = mix(vec3(0.85, 0.90, 0.98), vec3(0.97, 0.98, 1.0), smoothstep(0.25, 0.85, macro * 0.8 + p_rip * 0.2));
 	float rough = mix(0.92, 0.95, w_rock);
 	float spec = 0.12;
 	// --- snow trail (footprints / landings) -----------------------------------------------------
@@ -333,7 +333,8 @@ void fragment() {
 		}
 	}
 	col = mix(col, snow, w_snow);
-	n = normalize(n + vec3(dn_rip.x, 0.0, dn_rip.y) * 0.18 * near * w_snow);
+	// wind-packed snow: only a whisper of the ripple relief, broad soft undulation instead
+	n = normalize(n + vec3(dn_rip.x, 0.0, dn_rip.y) * 0.05 * near * w_snow);
 	rough = mix(rough, 0.6, w_snow);
 	spec = mix(spec, 0.5, w_snow);
 	rough = mix(rough, 0.25, w_ice);
@@ -348,8 +349,16 @@ void fragment() {
 	NORMAL = normalize((VIEW_MATRIX * vec4(n, 0.0)).xyz);
 	ROUGHNESS = rough;
 	SPECULAR = spec;
-	// snow sparkle: sparse glints that follow the view (consumed in light())
-	BACKLIGHT = vec3(w_snow * step(0.985, wc_hash12(floor(wp.xz * 9.0) + floor(dot(VIEW, vec3(7.0, 3.0, 5.0)) * 2.0))) * near);
+	// snow sparkle: tiny sparse glints that change with the view (consumed in light())
+	float glint = 0.0;
+	if (w_snow > 0.01 && dist < 30.0) {
+		vec2 gp = wp.xz * 38.0;
+		vec2 gc = floor(gp);
+		vec2 gf = fract(gp) - 0.5 - (wc_hash22(gc) - 0.5) * 0.6;
+		float on = step(0.992, wc_hash12(gc + floor(dot(VIEW, vec3(9.0, 5.0, 7.0)) * 3.0)));
+		glint = on * smoothstep(0.16, 0.0, length(gf)) * (1.0 - smoothstep(12.0, 30.0, dist)) * w_snow;
+	}
+	BACKLIGHT = vec3(glint);
 }
 
 void light() {
@@ -361,5 +370,5 @@ void light() {
 	vec3 h = normalize(LIGHT + VIEW);
 	float gloss = 1.0 - ROUGHNESS;
 	float sp = pow(max(dot(NORMAL, h), 0.0), mix(6.0, 220.0, gloss * gloss)) * gloss * gloss;
-	SPECULAR_LIGHT += LIGHT_COLOR * ATTENUATION * (sp * SPECULAR_AMOUNT * 0.5 + BACKLIGHT.r * 2.5 * step(0.0, ndl)) / PI;
+	SPECULAR_LIGHT += LIGHT_COLOR * ATTENUATION * (sp * SPECULAR_AMOUNT * 0.5 + BACKLIGHT.r * 1.6 * step(0.0, ndl)) / PI;
 }
