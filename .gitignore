@@ -13,3 +13,6 @@ export_presets.cfg
 __pycache__/
 *.pyc
 tools/worldgen/.cache/
+
+# World generator (worlddata module): quick-look previews
+tools/worldgen/preview/
