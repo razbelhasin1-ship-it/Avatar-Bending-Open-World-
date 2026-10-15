@@ -263,9 +263,21 @@ band, cohesion, separation, wander, bank from turn rate; flap when climbing/star
 glide otherwise. `bird_positions()` returns a copy of the positions.
 
 ## Effects (`CreatureFx`)
-`CreatureFx.debris_burst(parent, pos, surface, power, radius)` - CPUParticles3D rock chunks
-+ dust tinted by surface, scaled by `Settings.effects_scale()`, self-freeing. Used by the
-badgermole; available to other modules (e.g. heavy landings).
+* `CreatureFx.debris_burst(parent, pos, surface, power, radius)` - CPUParticles3D rock
+  chunks + dust tinted by surface, scaled by `Settings.effects_scale()`, self-freeing. Used
+  by the badgermole; available to other modules (e.g. heavy landings).
+* `CreatureFx.fire_breath(mouth_socket, length := 14.0) -> CPUParticles3D` - a toon fire
+  stream parented to the dragon's `mouth` socket (aims along its -Z). **Visual only**:
+  toggle `emitting` on the `fire_start` / `fire_end` action events and pair it with the
+  companion module's own damage cone so visuals never imply hits that did not happen.
+
+```gdscript
+var flames := CreatureFx.fire_breath(dragon.get_socket(&"mouth"))
+dragon.action_event.connect(func(_a, e):
+	if e == &"fire_start": flames.emitting = true      # + start damage ticks
+	elif e == &"fire_end": flames.emitting = false)
+dragon.play_action(&"breathe_fire_start")   # hold; later: play_action(&"breathe_fire_end")
+```
 
 ## Extending
 Add a script in `species/` extending `CreatureSpecies`, register its path in
@@ -286,7 +298,14 @@ Override `make_action()/action_pose()` for new actions, `animate()`, `flight_pos
 * Playtests (`tools/playtest.sh <name> <out> 1280x720`): `creatures_showcase` (lineup with
   1.75 m human markers, 3/4 + side views, faces, signature actions), `creatures_gaits`
   (walk/run strips), `creatures_flight` (takeoff, banked turn from behind/front, cruise,
-  landing), `creatures_wildlife`, `creatures_iter` (`SPECIES=<id>` quick look).
+  landing), `creatures_actions` (sit, lie down, shake, scratch, dig, fire breath, wing
+  stretch, prowl...), `creatures_terrain` (rolling hills: checks planted paws stay on the
+  surface and IK reaches slopes), `creatures_wildlife` (wildlife + pond swim + flocks),
+  `creatures_iter` (`SPECIES=<id>` quick look). `SPECIES` also filters gaits/flight/actions.
+  Verified on Forward+, Mobile and Compatibility renderers.
+* The showcase stage (`src/creatures/dev/creature_showcase.gd`) offers `spawn()`,
+  `add_reference_human()`, `frame()`, `follow()`, `set_hills()`, `add_pond()` and a
+  `CreatureDriver` per creature (line / circle / fly paths) for scenarios.
   Scenarios pace shots on `rig.time` because the playtest `wait()` is wall-clock while
   software-rendered frames cap game time per frame.
 

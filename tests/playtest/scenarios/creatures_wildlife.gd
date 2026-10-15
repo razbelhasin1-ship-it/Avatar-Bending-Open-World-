@@ -20,7 +20,7 @@ func run(p: Playtest) -> void:
 	var hawks := BirdFlock.create(&"hawk", 3, Vector3(10, 0, -30), 30.0, 26.0, 9)
 	stage.add_child(hawks)
 	await rt(p, peng, 0.8)
-	stage.frame(Vector3(1.5, 3.2, 11.0), Vector3(0.5, 1.0, 0), 50.0)
+	stage.frame(Vector3(1.0, 2.6, -8.5), Vector3(0.6, 0.9, 0.3), 52.0)
 	await rt(p, peng, 0.2)
 	await p.screenshot("wildlife_lineup")
 	# Close-ups.
