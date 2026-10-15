@@ -13,3 +13,6 @@ export_presets.cfg
 __pycache__/
 *.pyc
 tools/worldgen/.cache/
+
+# Agent worktrees
+.claude/
