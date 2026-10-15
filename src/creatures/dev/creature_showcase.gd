@@ -47,9 +47,12 @@ func _build_stage() -> void:
 	env.tonemap_white = 6.0
 	env.fog_enabled = true
 	env.fog_light_color = Color(0.74, 0.8, 0.88)
-	env.fog_density = 0.0016
-	env.fog_aerial_perspective = 0.4
+	env.fog_density = 0.0009
+	env.fog_sky_affect = 0.0
 	Settings.configure_environment(env)
+	# Light haze only: the showcase is about the creatures, not the atmosphere.
+	env.volumetric_fog_density = 0.0025
+	env.volumetric_fog_albedo = Color(0.85, 0.9, 0.95)
 	we.environment = env
 	add_child(we)
 	sun = DirectionalLight3D.new()

@@ -36,7 +36,7 @@ static func shell_count(detail: int, lod: int = 0) -> int:
 ## opts: pattern (Pattern), pattern_scale, pattern_strength, marks (Texture2D),
 ## mark_rows (int), mark_colors (Array[Color] x3), rim, rim_color, shade_tint, specular,
 ## specular_size, softness, emission, emission_energy, belly_shade, plate_spacing,
-## plate_line, translucency, translucency_color,
+## plate_line, translucency, translucency_color, flutter (m), flutter_freq,
 ## outline (bool, default true), outline_width (default 1.0),
 ## fur (Dictionary {length, density, comb, strand_width, tip_lighten, root_dark}),
 ## shells (int, number of fur shells; 0 = none).
@@ -52,6 +52,9 @@ static func skin(key: String, color: Color, opts: Dictionary = {}) -> ShaderMate
 	m.set_shader_parameter(&"pattern_scale", float(opts.get("pattern_scale", 8.0)))
 	m.set_shader_parameter(&"pattern_strength", float(opts.get("pattern_strength", 0.15)))
 	m.set_shader_parameter(&"belly_shade", float(opts.get("belly_shade", 0.12)))
+	if opts.has("flutter"):
+		m.set_shader_parameter(&"flutter", float(opts["flutter"]))
+		m.set_shader_parameter(&"flutter_freq", float(opts.get("flutter_freq", 2.2)))
 	if opts.has("plate_spacing"):
 		m.set_shader_parameter(&"plate_spacing", float(opts["plate_spacing"]))
 		m.set_shader_parameter(&"plate_line", opts.get("plate_line", Color(0.55, 0.32, 0.12)))
@@ -59,7 +62,8 @@ static func skin(key: String, color: Color, opts: Dictionary = {}) -> ShaderMate
 	var fur: Dictionary = opts.get("fur", {})
 	if opts.get("outline", true):
 		tail = outline(float(opts.get("outline_width", 1.0)), opts.get("outline_color", INK),
-				float(fur.get("length", 0.0)) * float(opts.get("outline_push", 0.45)) if shells > 0 else 0.0)
+				float(fur.get("length", 0.0)) * float(opts.get("outline_push", 0.45)) if shells > 0 else 0.0,
+				float(opts.get("flutter", 0.0)), float(opts.get("flutter_freq", 2.2)))
 	# Build the shell chain back to front so each shell's next_pass is the next shell.
 	var chain := tail
 	for i in range(shells, 0, -1):
@@ -120,8 +124,9 @@ static func membrane(key: String, color: Color, opts: Dictionary = {}) -> Shader
 	return m
 
 
-static func outline(width: float = 1.0, color: Color = INK, push: float = 0.0) -> ShaderMaterial:
-	var key := "outline|%f|%s|%f" % [width, color.to_html(), push]
+static func outline(width: float = 1.0, color: Color = INK, push: float = 0.0, flutter: float = 0.0,
+		flutter_freq: float = 2.2) -> ShaderMaterial:
+	var key := "outline|%f|%s|%f|%f|%f" % [width, color.to_html(), push, flutter, flutter_freq]
 	if _cache.has(key):
 		return _cache[key]
 	var o := ShaderMaterial.new()
@@ -129,6 +134,8 @@ static func outline(width: float = 1.0, color: Color = INK, push: float = 0.0) -
 	o.set_shader_parameter(&"width", width)
 	o.set_shader_parameter(&"outline_color", color)
 	o.set_shader_parameter(&"push", push)
+	o.set_shader_parameter(&"flutter", flutter)
+	o.set_shader_parameter(&"flutter_freq", flutter_freq)
 	_cache[key] = o
 	return o
 

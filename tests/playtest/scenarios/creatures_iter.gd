@@ -8,7 +8,7 @@ func run(p: Playtest) -> void:
 	var stage: Node = await p.load_scene("res://scenes/dev/creature_showcase.tscn")
 	var rig: CreatureRig = stage.spawn(sp, Vector3.ZERO, 0.0, {"idle": false})
 	var d: Dictionary = rig.get_dimensions()
-	var L: float = d["length"]
+	var L: float = minf(d["length"], d["height"] * 2.6)
 	var H: float = d["height"]
 	stage.add_reference_human(Vector3(L * 0.45 + 1.2, 0, 0.8))
 	await p.wait(0.6)

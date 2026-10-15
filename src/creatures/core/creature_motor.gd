@@ -44,6 +44,9 @@ var look_pitch_limit := 0.6
 ## Fraction of the look yaw/pitch taken by the neck (the rest by the head).
 var look_neck_share := 0.55
 
+## Optional species body solver called after the pose reset instead of the pelvis/spine
+## code (e.g. the dragon's trail-following spine). Signature: func(pose: CreaturePose).
+var body_override: Callable = Callable()
 var springs: Array[SpringChain] = []
 ## Animation clock (seconds), set by the rig every frame.
 var time := 0.0
@@ -69,7 +72,9 @@ func pose_body(pose: CreaturePose) -> void:
 	# --- Body around its pivot (half the spine bend is taken by the pelvis so the
 	# creature curves about its middle).
 	var pivot_z := lerpf(lerpf(hind_z, front_z, 0.5), front_z if pose.pitch_pivot > 0.0 else hind_z, absf(pose.pitch_pivot))
-	if pelvis >= 0:
+	if body_override.is_valid():
+		body_override.call(pose)
+	elif pelvis >= 0:
 		var p0 := skel.rest_pos[pelvis]
 		var pivot := Vector3(0.0, p0.y, pivot_z)
 		var rb := Basis.from_euler(Vector3(pose.body_pitch - pose.spine_pitch * 0.5,

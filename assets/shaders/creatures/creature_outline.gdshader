@@ -10,9 +10,17 @@ uniform float width = 1.0;
 uniform float max_distance = 90.0;
 // Extra offset in meters along the normal (fur).
 uniform float push = 0.0;
+// Must match the skin material's mane flutter so the line follows the hair.
+uniform float flutter = 0.0;
+uniform float flutter_freq = 2.2;
 
 void vertex() {
-	vec4 view_pos = MODELVIEW_MATRIX * vec4(VERTEX + NORMAL * push * COLOR.a, 1.0);
+	vec3 v = VERTEX + NORMAL * push * COLOR.a;
+	if (flutter > 0.0) {
+		float ph = TIME * flutter_freq + UV2.y * 2.5 + UV.x * 6.2831;
+		v += (NORMAL * sin(ph) + vec3(0.0, 0.35, 0.0) * sin(ph * 0.7 + 1.3)) * flutter * COLOR.a;
+	}
+	vec4 view_pos = MODELVIEW_MATRIX * vec4(v, 1.0);
 	float dist = -view_pos.z;
 	vec3 view_n = normalize((MODELVIEW_MATRIX * vec4(NORMAL, 0.0)).xyz);
 	float fade = 1.0 - smoothstep(max_distance * 0.6, max_distance, dist);

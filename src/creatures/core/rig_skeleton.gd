@@ -194,3 +194,39 @@ func rigid_weighter(bone_name: StringName) -> Callable:
 	assert(i >= 0, "rigid_weighter: unknown bone %s" % bone_name)
 	var w := PackedFloat32Array([i, 1.0, i, 0.0])
 	return func(_p: Vector3) -> PackedFloat32Array: return w
+
+
+## Weighting Callable over arbitrary bone segments: `segments` = [[bone_name, a, b], ...]
+## (skeleton-space endpoints). Inverse-distance weights (power `pw`), best `count` bones.
+## Used for membranes and other surfaces spanning several chains.
+func segment_weighter(segments: Array, pw: float = 4.0, count: int = 3) -> Callable:
+	var bones := PackedInt32Array()
+	var a := PackedVector3Array()
+	var b := PackedVector3Array()
+	for sg: Array in segments:
+		var i := idx(sg[0])
+		assert(i >= 0, "segment_weighter: unknown bone %s" % sg[0])
+		bones.append(i)
+		a.append(sg[1])
+		b.append(sg[2])
+	return func(p: Vector3) -> PackedFloat32Array:
+		var ws := PackedFloat32Array()
+		ws.resize(bones.size())
+		for k in bones.size():
+			var ab := b[k] - a[k]
+			var l2 := ab.length_squared()
+			var t := 0.0 if l2 < 1e-8 else clampf((p - a[k]).dot(ab) / l2, 0.0, 1.0)
+			var d := p.distance_to(a[k] + ab * t)
+			ws[k] = 1.0 / pow(d + 0.05, pw)
+		var out := PackedFloat32Array()
+		var used := PackedByteArray()
+		used.resize(bones.size())
+		for n in mini(count, bones.size()):
+			var best := -1
+			for k in bones.size():
+				if used[k] == 0 and (best < 0 or ws[k] > ws[best]):
+					best = k
+			used[best] = 1
+			out.append(bones[best])
+			out.append(ws[best])
+		return out

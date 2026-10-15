@@ -81,7 +81,7 @@ func _physics_process(delta: float) -> void:
 			_alt_now = move_toward(_alt_now, altitude, delta * 3.0)
 		vel.y = (_alt_now - pos.y) / maxf(delta, 1e-4) * 0.2
 		if mode == Mode.FLY_CIRCLE:
-			bank = clampf(_speed_now * _speed_now / maxf(radius, 1.0) / 9.8, 0.0, 0.8) * -1.0
+			bank = clampf(_speed_now * _speed_now / maxf(radius, 1.0) / 9.8, 0.0, 0.55) * -1.0
 	elif rig.flight_w > 0.0 and not rig.flying:
 		_alt_now = move_toward(pos.y, 0.0, delta * 4.0)
 		vel.y = (_alt_now - pos.y) / maxf(delta, 1e-4)

@@ -16,11 +16,18 @@ uniform float plate_spacing = 0.0;
 uniform vec4 plate_line : source_color = vec4(0.55, 0.32, 0.12, 1.0);
 // Darkens the underside slightly (ambient occlusion feel), 0..1.
 uniform float belly_shade : hint_range(0.0, 1.0) = 0.12;
+// Hair/mane flutter (meters), weighted by vertex COLOR.a (0 at roots, 1 at tips).
+uniform float flutter = 0.0;
+uniform float flutter_freq = 2.2;
 
 varying vec3 v_obj_normal;
 
 void vertex() {
 	v_obj_normal = NORMAL;
+	if (flutter > 0.0) {
+		float ph = TIME * flutter_freq + UV2.y * 2.5 + UV.x * 6.2831;
+		VERTEX += (NORMAL * sin(ph) + vec3(0.0, 0.35, 0.0) * sin(ph * 0.7 + 1.3)) * flutter * COLOR.a;
+	}
 }
 
 float scales_pattern(vec2 p) {
