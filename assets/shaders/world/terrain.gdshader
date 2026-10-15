@@ -320,8 +320,6 @@ void fragment() {
 		n = normalize(n + vec3(dn_pave.x, 0.0, dn_pave.y) * 0.22 * near * w_pave);
 	}
 	// ground normal detail (grass / ripples) where not rock
-	vec2 soft_dn = mix(dn_rip, dn_grass, w_lush) * (1.0 - w_rock) * (1.0 - w_pave);
-	n = normalize(n + vec3(soft_dn.x, 0.0, soft_dn.y) * 0.16 * near);
 	if (tri < 0.01) {
 		n = normalize(n + vec3(dn_rock.x, 0.0, dn_rock.y) * 0.45 * near * w_rock);
 	}
@@ -352,7 +350,11 @@ void fragment() {
 	}
 	col = mix(col, snow, w_snow);
 	// wind-packed snow: only a whisper of the ripple relief, broad soft undulation instead
-	n = normalize(n + vec3(dn_rip.x, 0.0, dn_rip.y) * 0.05 * near * w_snow);
+	// ground relief (sand ripples / grass strokes) only where no snow lies on top; snow gets a
+	// faint wind-packed relief instead
+	vec2 soft_dn = mix(dn_rip, dn_grass, w_lush) * (1.0 - w_rock) * (1.0 - w_pave) * (1.0 - w_snow);
+	n = normalize(n + vec3(soft_dn.x, 0.0, soft_dn.y) * 0.16 * near);
+	n = normalize(n + vec3(dn_rip.x, 0.0, dn_rip.y) * 0.04 * near * w_snow);
 	rough = mix(rough, 0.6, w_snow);
 	spec = mix(spec, 0.5, w_snow);
 	rough = mix(rough, 0.25, w_ice);

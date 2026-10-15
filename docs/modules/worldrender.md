@@ -160,7 +160,7 @@ headless runs) the shader differences the heightmap per pixel — same result, m
 * Samples are the exact `WorldData.get_height` values (texel values + exact bilinear midpoints),
   so collision equals WorldData at every 1 m sample; between samples the physics triangles
   deviate from the bilinear surface by ≤ 1/16 of the local cell twist (p99 ≈ 2.5 cm on walkable
-  ground; measured worst 3.5 cm over 200 random rays around Ba Sing Se).
+  ground; worst 0.3–3.5 cm over 200 random rays around Ba Sing Se across runs).
 * Heights are computed on `WorkerThreadPool` tasks (≤ 3 in flight, nearest first); the main
   thread only creates shapes, ≤ 2 per frame (no hitches).
 * Kept within `focus_radius` (150 m) of the focus plus any requests; released with a 64 m
@@ -284,13 +284,16 @@ Relative numbers only — software rendering of every pixel on the CPU.
 | Distant vista (LOD) | 270–350 ms | 35 | 63 k |
 | Water Tribe coast | 300–520 ms | 74–77 | 89–107 k |
 | Ba Sing Se golden hour | 320–440 ms | 82–101 | 118–346 k |
+
+At 1280×720 the same views take 290–880 ms (volcano sunset 290 ms, vista 380 ms, Water Tribe
+500 ms, blizzard 880 ms).
 | Blizzard (14k particles) | 440–490 ms | 114 | 268 k |
 
 Breakdown (toggling subsystems, Water Tribe/Ba Sing Se): terrain ≈ 45–55 % (vertex work runs in
 the depth prepass, colour pass and shadow cascades), volumetric fog + SSAO (user settings) 15–
 25 %, sun shadows 10–20 %, water ≈ 5–10 %, cloud sea/smoke < 5 %. The Compatibility renderer
 runs the same views at 120–260 ms. Clipmap at "high": 10 levels, 152 pieces (≈ 40–60 drawn
-after culling), 153 k triangles if every piece were visible.
+after culling), 129 k triangles if every piece were visible (tile 22).
 
 ## Testing
 

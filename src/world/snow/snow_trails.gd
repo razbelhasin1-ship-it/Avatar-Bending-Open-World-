@@ -61,6 +61,8 @@ var _refill_timer := 0.0
 var _queue: Array[int] = []            # stamp indices waiting to be drawn
 var _clears: Array[Rect2] = []         # texture-space rects to zero
 var _items: Array[RID] = []
+var _items_frame := -1                 # Engine.get_frames_drawn() when _items were submitted
+var _draw_index := 0
 var _canvas: RID
 var _stamp_mat: ShaderMaterial
 var _refill_mat: ShaderMaterial
@@ -253,13 +255,16 @@ func update(focus_pos: Vector3, delta: float) -> void:
 	var p := Vector2(focus_pos.x, focus_pos.z)
 	if p.distance_to(window_center) > window_size * 0.125 or _needs_full_clear:
 		_move_window(p)
-	_free_items()
+	# items are freed only once a frame has drawn them: several updates within one frame
+	# (tools, tests, time skips) append instead of dropping queued GPU work
+	if Engine.get_frames_drawn() != _items_frame:
+		_free_items()
 	if not _gpu:
 		_queue.clear()
 		_clears.clear()
 		_refill_pending = 0.0
 		return
-	var draw_index := 0
+	var draw_index := _draw_index
 	var work := false
 	if _needs_full_clear:
 		_clears = [Rect2(0, 0, resolution, resolution)]
@@ -284,7 +289,9 @@ func update(focus_pos: Vector3, delta: float) -> void:
 		_draw_stamp(i, draw_index)
 		draw_index += 1
 		work = true
+	_draw_index = draw_index
 	if work:
+		_items_frame = Engine.get_frames_drawn()
 		viewport.render_target_update_mode = SubViewport.UPDATE_ONCE
 
 
@@ -403,6 +410,7 @@ func _free_items() -> void:
 	for item in _items:
 		RenderingServer.free_rid(item)
 	_items.clear()
+	_draw_index = 0
 
 
 func _puff_process() -> ParticleProcessMaterial:

@@ -99,8 +99,8 @@ func run(p: Playtest) -> void:
 	# refill during heavy snowfall: prints soften and fill in
 	world.set_weather(&"snow", 0.0)
 	var before := world.get_snow_sink_depth(pos + fwd * (2 * 0.72) + side * 0.11)
-	world.snow.refill_multiplier = 60.0
-	for i in 40:
+	# skip ~45 s of snowfall (the renderer sets the snowfall refill multiplier every frame)
+	for i in 90:
 		world.snow.update(walker.global_position, 0.5)
 		await p.frames(1)
 	var after := world.get_snow_sink_depth(pos + fwd * (2 * 0.72) + side * 0.11)
