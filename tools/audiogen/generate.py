@@ -125,7 +125,9 @@ def render_sound(d: SoundDef) -> list[tuple[str, dict]]:
 			y = M.master_loop(y, sr, target, -1.5 if stereo_ogg else -1.0)
 		else:
 			x = resample(d.fn(rng, v), D.SR, sr)
-			y = M.master_oneshot(x, sr, target, -1.0)
+			# Hits and bending transients may be limited a little harder (dense, punchy).
+			gr = 5.0 if d.category in ("impact", "bending") else 3.0
+			y = M.master_oneshot(x, sr, target, -1.0, max_gr_db=gr)
 		path = os.path.join(folder, fname)
 		if ext == "ogg":
 			if sr != D.SR:

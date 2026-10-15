@@ -25,16 +25,22 @@ def whoosh_heavy(rng, v):
 	return D.mix(w, (D.norm_peak(low), 0.35), (L.cloth(rng, dur, 0.9), 0.3))
 
 
-def _impact(rng, f_body, slap_band, crunch_amt, dur=0.35):
+def _impact(rng, f_body, slap_band, crunch_amt, dur=0.35, meat=0.7):
+	"""Martial-arts hit: sharp skin/cloth slap + meaty mid burst + short low thump,
+	glued with soft saturation (foley punch, not a kick drum)."""
 	n = D.ns(dur)
-	y = D.thump(dur, f_body * 2.0, f_body, dur * 0.3, sweep_t=0.012)
-	k = D.ns(0.045)
-	slap = D.butter(D.white(k, rng), "band", slap_band, 2) * D.exp_decay(k, 0.03)
-	D.place(y, slap, 0, 0.9)
+	thump = D.thump(dur, f_body * 2.2, f_body, 0.075, sweep_t=0.01)
+	k = D.ns(0.05)
+	slap = D.butter(D.butter(D.white(k, rng), "band", slap_band, 2), "band", slap_band, 1) * D.exp_decay(k, 0.022)
+	m = D.ns(0.1)
+	meat_burst = D.butter(D.white(m, rng), "band", (220.0, 950.0), 2) * D.exp_decay(m, 0.055)
+	snap = D.butter(D.white(D.ns(0.012), rng), "high", 3500.0, 2) * D.exp_decay(D.ns(0.012), 0.006)
+	y = D.mix((thump, 0.7), (D.norm_peak(slap), 1.0), (D.norm_peak(meat_burst), meat), (snap, 0.25))
 	if crunch_amt > 0:
 		D.place(y, L.crack(rng, 0.04, 900, 3200, 4), D.ns(0.002), crunch_amt)
-	tail = D.butter(D.white(n, rng), "band", (200, 1200), 2) * D.exp_decay(n, 0.08) * 0.15
-	return y + tail
+	tail = D.butter(D.white(n, rng), "band", (200, 1200), 2) * D.exp_decay(n, 0.08) * 0.1
+	y = D.mix(y, tail)
+	return D.saturate(D.norm_peak(y) * 1.7, 1.0)
 
 
 @sfx("punch_impact", "impact", variants=5)
@@ -51,18 +57,14 @@ def kick_impact(rng, v):
 
 @sfx("hit_flesh", "impact", variants=4)
 def hit_flesh(rng, v):
-	n = D.ns(0.22)
-	slap = D.butter(D.white(n, rng), "band", (500, 3500), 2) * D.exp_decay(n, 0.05)
-	wet = D.butter(D.white(n, rng), "band", (900, 2200), 2) * L.gamma_env(n, 0.012, 1.0) * 0.6
-	return D.mix(D.thump(0.25, 220, 120, 0.08, sweep_t=0.01), (slap, 0.8), (wet, 0.5), (L.crack(rng, 0.03, 1200, 3500, 3), 0.12))
+	return _impact(rng, rng.uniform(130, 160), (600, 4200), 0.1, 0.25, meat=0.9)
 
 
 @sfx("block_impact", "impact", variants=4)
 def block_impact(rng, v):
-	y = D.thump(0.25, 260, 150, 0.07, sweep_t=0.008)
+	hit = _impact(rng, rng.uniform(150, 190), (900, 5000), 0.0, 0.25, meat=0.5)
 	knock = I.woodblock(rng.uniform(480, 620), rng, 0.6, t60=0.05)
-	snap = D.butter(D.white(D.ns(0.02), rng), "band", (1500, 6000), 2) * D.exp_decay(D.ns(0.02), 0.012)
-	return D.mix((y, 0.8), (knock, 0.35), (snap, 0.5), (L.cloth(rng, 0.14, 1.1), 0.3))
+	return D.mix((hit, 0.8), (knock, 0.35), (L.cloth(rng, 0.14, 1.1), 0.35))
 
 
 @sfx("body_fall", "impact", variants=3)

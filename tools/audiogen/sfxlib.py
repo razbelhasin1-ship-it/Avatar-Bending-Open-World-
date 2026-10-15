@@ -32,10 +32,12 @@ def whoosh(rng: np.random.Generator, dur: float, f_lo: float = 250.0, f_hi: floa
 	if doppler > 0:
 		t = D.taxis(n, sr)
 		fc = fc * (1.0 + doppler * np.tanh((peak * dur - t) / (0.12 * dur)))
-	src = 0.65 * D.white(n, rng) + 0.35 * D.pink(n, rng) * 3.0
-	y = D.tv_filter(src, "bp", fc, q, sr=sr)
+	src = D.white(n, rng)
+	# Two cascaded band-passes: a steep moving band is what the ear hears as "swish".
+	y = D.tv_filter(D.tv_filter(src, "bp", fc, q, sr=sr), "bp", fc, q * 0.8, sr=sr) * 2.0
+	y += 0.35 * D.tv_filter(src, "bp", fc * 2.2, q, sr=sr)
 	if body > 0:
-		y += body * D.tv_filter(src, "lp", fc * 0.45, 0.8, sr=sr)
+		y += body * 0.6 * D.tv_filter(D.pink(n, rng) * 3.0, "lp", fc * 0.45, 0.8, sr=sr)
 	if whistle > 0:
 		y += whistle * D.tv_filter(D.white(n, rng), "bp", fc * 1.6, 14.0, sr=sr) * env
 	return y * env

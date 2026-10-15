@@ -165,19 +165,19 @@ def trim_silence(x: np.ndarray, thresh_db: float = -66.0, keep: float = 0.01, sr
 
 
 def master_oneshot(x: np.ndarray, sr: int, target_lufs: float, ceiling_db: float = -1.0, fade_in: float = 0.0015,
-		fade_out: float = 0.03, win: float = 0.3) -> np.ndarray:
+		fade_out: float = 0.03, win: float = 0.3, max_gr_db: float = 3.0) -> np.ndarray:
 	"""One-shot SFX: DC removal, trim, loudness match on max short-term loudness,
-	gentle limiting, short fades."""
+	gentle limiting (at most `max_gr_db` of gain reduction), short fades."""
 	y = D.butter(x, "high", 18.0, 2, sr)
 	y = trim_silence(y, -56.0, sr=sr)
 	y = D.fades(y, fade_in, fade_out, sr)
 	lm = max_momentary(y, sr, win)
 	y = y * D.undb(target_lufs - lm)
-	# Gentle limiting only: never squash transients by more than ~3 dB to hit the
-	# loudness target (very peaky sounds end up slightly under target instead).
+	# Gentle limiting only: never squash transients by more than max_gr_db to hit
+	# the loudness target (very peaky sounds end up slightly under target instead).
 	pk = D.db(float(np.max(peak_envelope(y))))
-	if pk > ceiling_db + 3.0:
-		y = y * D.undb(ceiling_db + 3.0 - pk)
+	if pk > ceiling_db + max_gr_db:
+		y = y * D.undb(ceiling_db + max_gr_db - pk)
 	y = limiter(y, sr, ceiling_db)
 	return D.fades(y, 0.0, 0.004, sr)
 

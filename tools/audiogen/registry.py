@@ -32,10 +32,11 @@ CATEGORY_TARGETS = {
 }
 
 
-# Output sample rates. Everything is synthesized at 44.1 kHz and resampled on
-# write: bright SFX keep 32 kHz (content up to 16 kHz), low/mid-only sounds
-# (earth, creatures, body hits) use 22.05 kHz to respect the size budget.
-SFX_RATE = 32000
+# Output sample rates. Everything is synthesized at 44.1 kHz: bright SFX
+# (UI bells, snow/ice/fire/water/air detail) are written at 44.1 kHz, sounds
+# whose content sits below ~10 kHz (earth, creatures, body hits) are resampled
+# to 22.05 kHz to respect the size budget.
+SFX_RATE = 44100
 LOW_RATE = 22050
 LOW_RATE_PREFIXES = ("earth_", "rock_", "bison_", "dog_", "dragon_", "wing_", "badgermole_", "creature_", "punch_",
 	"kick_", "hit_", "body_", "block_", "gong", "step_heavy", "land_heavy")

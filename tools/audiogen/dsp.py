@@ -497,11 +497,12 @@ def pitch_glide(points, n: int, sr: int = SR) -> np.ndarray:
 
 
 def bubble(f0: float, t60: float, rise: float, sr: int = SR, amp: float = 1.0) -> np.ndarray:
-	"""Single bubble (van den Doel): sinusoid with exponentially rising pitch and
-	exponential decay. `rise` is the relative pitch increase per second-scale."""
+	"""Single bubble (after van den Doel): an exponentially chirped sinusoid with
+	exponential decay. The pitch rises by a factor (1 + rise) over t60, the
+	resonance of a bubble shrinking as it nears the surface."""
 	n = ns(min(t60 * 1.2, 0.25), sr)
 	t = taxis(n, sr)
-	f = f0 * (1.0 + rise * t / max(t60, 1e-3))
+	f = f0 * np.exp(math.log1p(max(rise, 0.0)) * t / max(t60, 1e-3))
 	env = np.exp(-6.907755 * t / t60)
 	att = np.clip(t / 0.0008, 0, 1)
 	return amp * np.sin(TAU * phase(f, n, sr)) * env * att

@@ -37,8 +37,9 @@ def gusts(rng, n, rate=0.12, depth=0.6, floor=0.25):
 def wind_channel(rng, n, gust, base=350.0, span=2.2, q=0.9, howl=0.0, howl_f=(380.0, 900.0), bright=0.0):
 	src = D.pink(n, rng) * 0.8 + D.brown(n, rng) * 0.5
 	fc = base * 2 ** (span * (gust - 0.5))
-	y = D.tv_filter(src, "bp", fc, q, block=256)
-	y = D.norm_peak(y) * (0.35 + 0.65 * gust)
+	y = D.tv_filter(src, "bp", fc, q * 1.3, block=256)
+	# Gusts swell by ~15 dB: the level follows the gust envelope steeply.
+	y = D.norm_peak(y) * (0.14 + 0.86 * gust ** 1.7)
 	if bright > 0:
 		hi = D.butter(D.white(n, rng), "band", (2500, 9000), 2) * gust ** 2
 		y += bright * D.norm_peak(hi)
