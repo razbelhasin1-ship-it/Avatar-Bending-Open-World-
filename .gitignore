@@ -1,0 +1,15 @@
+# Godot 4
+.godot/
+/android/
+*.translation
+export_presets.cfg
+/build/
+
+# Local test output
+.playtest/
+*.tmp
+
+# Python
+__pycache__/
+*.pyc
+tools/worldgen/.cache/
