@@ -18,6 +18,7 @@ static var _inst: UiInput = null
 static func ensure(tree: SceneTree) -> UiInput:
 	if is_instance_valid(_inst):
 		return _inst
+	install_pad_menu_buttons()
 	_inst = UiInput.new()
 	_inst.name = "UiInput"
 	_inst.process_mode = Node.PROCESS_MODE_ALWAYS
@@ -25,6 +26,26 @@ static func ensure(tree: SceneTree) -> UiInput:
 		device = &"touch"
 	tree.root.add_child.call_deferred(_inst)
 	return _inst
+
+
+## Godot's built-in ui_accept / ui_cancel carry no controller buttons (the d-pad and left
+## stick already drive ui_up/down/left/right), so menus could be browsed but not confirmed
+## with a pad. Adds A = accept and B = back unless the project already maps a pad button.
+## Runtime-only: ui_* actions are not part of the rebindable set and are never saved.
+static func install_pad_menu_buttons() -> void:
+	for pair: Array in [[&"ui_accept", JOY_BUTTON_A], [&"ui_cancel", JOY_BUTTON_B]]:
+		var action: StringName = pair[0]
+		if not InputMap.has_action(action):
+			continue
+		var has_pad := false
+		for ev in InputMap.action_get_events(action):
+			if ev is InputEventJoypadButton:
+				has_pad = true
+		if not has_pad:
+			var jb := InputEventJoypadButton.new()
+			jb.button_index = pair[1]
+			jb.device = -1
+			InputMap.action_add_event(action, jb)
 
 
 func _input(event: InputEvent) -> void:

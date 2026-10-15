@@ -108,6 +108,19 @@ func test_input_device_tracking_and_labels() -> void:
 	expect_eq(g.get_label(), "E", "prompt glyph label")
 	g.forced_device = &"pad"
 	expect_eq(g.get_label(), "Y", "prompt glyph pad label")
+	# menus can be confirmed / backed out of with a controller
+	expect_eq(UiInput.action_label(&"ui_accept", &"pad"), "A", "pad A confirms in menus")
+	expect_eq(UiInput.action_label(&"ui_cancel", &"pad"), "B", "pad B goes back in menus")
+	var press := InputEventJoypadButton.new()
+	press.button_index = JOY_BUTTON_B
+	press.pressed = true
+	expect(press.is_action_pressed(&"ui_cancel"), "B press matches ui_cancel")
+	UiInput.install_pad_menu_buttons()
+	var pads := 0
+	for ev in InputMap.action_get_events(&"ui_cancel"):
+		if ev is InputEventJoypadButton:
+			pads += 1
+	expect_eq(pads, 1, "installing twice adds no duplicate")
 
 
 # --- Main menu ---------------------------------------------------------------------------------

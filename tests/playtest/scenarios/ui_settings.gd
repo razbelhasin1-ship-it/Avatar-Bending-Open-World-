@@ -27,8 +27,10 @@ func run(p: Playtest) -> void:
 	# press-to-bind: activate the cell, then press E (already used by Interact)
 	cell.grab_focus()
 	await p.tap(&"ui_accept")
-	await p.wait(0.6)
-	p.check(s.rebind_prompt.is_open, "bind cell opens the capture prompt")
+	# pace on state, not wall time: software rendering at 1080p can take longer per frame
+	# than the prompt's guard window
+	p.check(await p.wait_until(func() -> bool: return s.rebind_prompt.is_listening(), 20.0), "bind cell opens the capture prompt")
+	await p.wait(0.4)
 	await p.screenshot("settings_rebind_capture")
 	var e := InputEventKey.new()
 	e.physical_keycode = KEY_E
@@ -38,7 +40,8 @@ func run(p: Playtest) -> void:
 	var up := e.duplicate() as InputEventKey
 	up.pressed = false
 	Input.parse_input_event(up)
-	await p.wait(0.5)
+	await p.wait_until(func() -> bool: return not s.rebind_prompt.conflicts.is_empty(), 20.0)
+	await p.wait(0.3)
 	p.check(s.rebind_prompt.conflicts.has(&"interact"), "conflict with Interact detected")
 	await p.screenshot("settings_rebind_conflict")
 	s.rebind_prompt.swap_button.pressed.emit()

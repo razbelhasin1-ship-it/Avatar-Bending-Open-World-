@@ -97,6 +97,12 @@ func begin(p_action: StringName, p_device: String) -> void:
 	open()
 
 
+## True once the prompt accepts input (open, capturing, past the short guard that keeps
+## the activating press from being captured as the new binding).
+func is_listening() -> bool:
+	return is_open and _capturing and _guard <= 0.0
+
+
 func _initial_focus() -> Control:
 	return null
 

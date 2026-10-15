@@ -95,6 +95,11 @@ a white square. Always get UI textures through `UiTheme.texture(path)` / `icon()
   current device and re-draw on `Events.controls_changed`. Labels come from the live
   `InputMap` (`UiInput.action_label(action, device)`), the same entries
   `InputDefaults.prompt_for` reads.
+* Godot 4.7's built-in `ui_accept` / `ui_cancel` have no controller buttons (only the
+  d-pad/stick `ui_up/down/left/right` do), so `UiInput.ensure()` calls
+  `UiInput.install_pad_menu_buttons()`, which adds A to `ui_accept` and B to `ui_cancel`
+  at runtime when no pad button is mapped. These `ui_*` actions are not rebindable and
+  are never written to settings.
 
 ## Main menu — `MainMenu`
 
