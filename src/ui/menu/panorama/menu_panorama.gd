@@ -347,7 +347,7 @@ func _build_rays() -> void:
 	layer.layer = -1
 	add_child(layer)
 	rays_rect = ColorRect.new()
-	rays_rect.set_anchors_preset(Control.PRESET_FULL_RECT)
+	rays_rect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	rays_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_rays_mat = ShaderMaterial.new()
 	_rays_mat.shader = RAYS_SHADER

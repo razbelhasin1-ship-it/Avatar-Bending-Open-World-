@@ -93,9 +93,12 @@ func _entry_width(e: Dictionary) -> float:
 	var h := glyph_height
 	match String(e.get("type", "")):
 		"key":
+			var label := UiInput.entry_label(e)
+			if label in ["Left", "Right", "Up", "Down"]:
+				return h
 			var font := UiTheme.title_font(700)
 			var fs := int(h * 0.48)
-			var tw := font.get_string_size(UiInput.entry_label(e), HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+			var tw := font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
 			return maxf(h, tw + h * 0.6)
 		"mouse":
 			return h * 0.75
@@ -152,7 +155,16 @@ func _draw_keycap(r: Rect2, label: String) -> void:
 	# raised key: darker lip at the bottom
 	_rounded(inner, glyph_height * 0.16, Color(UiTheme.PARCHMENT, 0.92), Color(UiTheme.GOLD_HI, 0.0), 1.0)
 	_rounded(Rect2(inner.position, Vector2(inner.size.x, inner.size.y * 0.86)), glyph_height * 0.16, Color("fbf3e1"), Color(0, 0, 0, 0), 0.0)
-	_text(Rect2(inner.position, Vector2(inner.size.x, inner.size.y * 0.88)), label, UiTheme.INK)
+	var face := Rect2(inner.position, Vector2(inner.size.x, inner.size.y * 0.88))
+	var arrow_dirs := {"Left": Vector2.LEFT, "Right": Vector2.RIGHT, "Up": Vector2.UP, "Down": Vector2.DOWN}
+	if arrow_dirs.has(label):
+		var dir: Vector2 = arrow_dirs[label]
+		var c := face.get_center()
+		var s := face.size.y * 0.26
+		var side := Vector2(-dir.y, dir.x)
+		draw_colored_polygon(PackedVector2Array([c + dir * s, c - dir * s * 0.7 + side * s * 0.9, c - dir * s * 0.7 - side * s * 0.9]), UiTheme.INK)
+		return
+	_text(face, label, UiTheme.INK)
 
 
 func _draw_mouse(r: Rect2, button: int) -> void:

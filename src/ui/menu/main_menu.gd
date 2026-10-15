@@ -45,7 +45,7 @@ func _ready() -> void:
 	add_child(_layer)
 	ui = Control.new()
 	ui.name = "Root"
-	ui.set_anchors_preset(Control.PRESET_FULL_RECT)
+	ui.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	ui.theme = UiTheme.get_theme()
 	ui.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_layer.add_child(ui)

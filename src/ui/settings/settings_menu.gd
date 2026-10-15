@@ -33,7 +33,7 @@ var _last_preview := 0
 
 func _build() -> void:
 	var margin := MarginContainer.new()
-	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
+	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	for side: String in ["left", "right"]:
 		margin.add_theme_constant_override("margin_" + side, 150)
 	margin.add_theme_constant_override(&"margin_top", 70)
@@ -90,7 +90,7 @@ func _build_header() -> Control:
 	tabs_holder.add_child(_tab_stroke)
 	_tab_row = HBoxContainer.new()
 	_tab_row.add_theme_constant_override(&"separation", 6)
-	_tab_row.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_tab_row.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_tab_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	tabs_holder.add_child(_tab_row)
 	for i in SettingsSchema.TABS.size():
@@ -114,7 +114,7 @@ func _build_header() -> Control:
 
 func _build_page(t: String) -> ScrollContainer:
 	var sc := ScrollContainer.new()
-	sc.set_anchors_preset(Control.PRESET_FULL_RECT)
+	sc.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	sc.follow_focus = true
 	sc.name = "Page_" + t
