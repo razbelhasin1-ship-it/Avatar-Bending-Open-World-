@@ -276,19 +276,24 @@ func _lift(side: int, duration: float) -> void:
 func _swing_pose(side: int) -> void:
 	var u := swing_t[side]
 	var ue := u * u * (3.0 - 2.0 * u)
+	var rf := run_factor if moving else 0.0
 	var from := swing_from[side]
 	var to := swing_target[side]
-	foot_pos[side] = Vector3(lerpf(from.x, to.x, ue), 0.0, lerpf(from.z, to.z, ue))
+	# Runs keep the foot back early (heel kick) and whip it forward late.
+	var uh := lerpf(ue, smoothstep(0.1, 1.0, u), rf)
+	foot_pos[side] = Vector3(lerpf(from.x, to.x, uh), 0.0, lerpf(from.z, to.z, uh))
 	var lift := RigStyles.param(style, "lift", speed * (0.889 / maxf(leg, 0.2))) * leg
 	if not moving:
 		lift = minf(lift, 0.07 * leg + from.distance_to(to) * 0.25)
-	var uv := pow(u, lerpf(1.0, 0.7, run_factor))
-	foot_lift[side] = lift * pow(sin(PI * uv), 0.85)
+	var walk_y := pow(sin(PI * u), 0.85)
+	# Skewed bump peaking at u = 0.35 (foot up behind the body), normalized to 1.
+	var run_y := 3.65 * pow(u, 0.7) * pow(1.0 - u, 1.3) * 1.9
+	foot_lift[side] = lift * lerpf(walk_y, run_y, rf)
 	var target_yaw := _target_yaw(side) if moving else idle_yaw[side]
 	foot_yaw[side] = lerp_angle(swing_from_yaw[side], target_yaw, ue)
 	# Toe-off then heel-strike pitch.
 	var heel := float(style.get("heel", 0.0))
-	var early := -32.0 * (1.0 - smoothstep(0.0, 0.45, u)) * lerpf(0.6, 1.0, run_factor)
+	var early := -lerpf(32.0, 70.0, rf) * (1.0 - smoothstep(0.0, lerpf(0.45, 0.6, rf), u)) * lerpf(0.6, 1.0, run_factor)
 	var late := lerpf(16.0, 4.0, run_factor) * (1.0 - heel) * smoothstep(0.55, 0.95, u) * (1.0 - smoothstep(0.97, 1.0, u))
 	foot_pitch[side] = early + late if moving else early * 0.3
 
@@ -338,7 +343,6 @@ func _update_released(dt: float, xf: Transform3D) -> void:
 ## `pose` already holds the idle/stance pose of the current style.
 func write_pose(pose: RigPose, feet_weight: float = 1.0) -> void:
 	var heel := float(style.get("heel", 0.0)) * gait_w
-	var ball_len := foot_len * 0.66
 	for side in 2:
 		var sg := SK.SIDE_SIGN[side]
 		var rest := def.rest_pos[SK.FOOT[side]]
@@ -349,19 +353,28 @@ func write_pose(pose: RigPose, feet_weight: float = 1.0) -> void:
 		var fwd_shift := 0.0
 		if is_planted[side]:
 			var heel_a := deg_to_rad(16.0) * heel
+			var strike := 0.0
 			if moving:
 				# Heel-to-toe roll: heel rises around the locked ball late in stance,
-				# heel strike settles around the heel early in stance.
+				# heel strike settles around the heel contact early in stance.
 				var s := clampf(_foot_phase(side) / maxf(duty, 0.01), 0.0, 1.0)
 				heel_a = maxf(heel_a, deg_to_rad(lerpf(22.0, 34.0, run_factor)) * smoothstep(0.5, 1.0, s))
-				var strike := deg_to_rad(lerpf(12.0, 3.0, run_factor)) * (1.0 - heel) * (1.0 - smoothstep(0.0, 0.18, s))
-				var heel_len := foot_len * 0.17
-				raise += heel_len * sin(strike)
-				pitch += rad_to_deg(strike)
+				strike = deg_to_rad(lerpf(12.0, 3.0, run_factor)) * (1.0 - heel) * (1.0 - smoothstep(0.0, 0.18, s))
 			if heel_a > 0.0:
-				raise += ball_len * sin(heel_a)
-				fwd_shift += ball_len * (1.0 - cos(heel_a))
+				# Exact rotation of the ankle about the ball of the foot.
+				var bo := def.rest_pos[SK.TOES[side]] - rest
+				var ay := -bo.y
+				var az := -bo.z
+				raise += ay * cos(heel_a) + az * sin(heel_a) - ay
+				fwd_shift += az * (1.0 - cos(heel_a)) + ay * sin(heel_a)
 				pitch -= rad_to_deg(heel_a)
+			if strike > 0.0:
+				# Exact rotation of the ankle about the heel contact.
+				var ha := rest.y
+				var hz := foot_len * 0.17
+				raise += ha * (cos(strike) - 1.0) + hz * sin(strike)
+				fwd_shift -= ha * sin(strike) + hz * (1.0 - cos(strike))
+				pitch += rad_to_deg(strike)
 		var fdir := Basis(Vector3.UP, foot_yaw[side]) * Vector3(0, 0, -1)
 		gp = gp + fdir * fwd_shift
 		var ankle := Vector3(gp.x, rest.y + foot_lift[side] + clip_y + raise, gp.z)
@@ -394,7 +407,7 @@ func _write_gait_body(pose: RigPose, w: float) -> void:
 		var pl := maxf(exp(-pow(fposmod(phase, 0.5) / 0.08, 2.0)), 0.0)
 		bob -= drop * pl
 	var sway := -sin(ph) * RigStyles.param(st, "sway", rs)
-	var crouch := float(st.get("crouch", 0.0)) + 0.035 + 0.03 * run_factor
+	var crouch := float(st.get("crouch", 0.0)) + 0.035 + 0.045 * run_factor
 	var hips: Vector3 = pose.v[P.HIPS]
 	pose.v[P.HIPS] = hips.lerp(Vector3(sway, bob - crouch, 0.0), w)
 	var hy := -cos(ph) * RigStyles.param(st, "hip_yaw", rs)
@@ -415,13 +428,13 @@ func _write_gait_body(pose: RigPose, w: float) -> void:
 	var hrot: Vector3 = pose.v[P.HIPS_ROT]
 	pose.v[P.HIPS_ROT] = hrot.lerp(Vector3(lean * 0.25, hy + strafe, hr + bank * 0.4), w)
 	var sp: Vector3 = pose.v[P.SPINE]
-	pose.v[P.SPINE] = sp.lerp(Vector3(lean * 0.35, -hy * 0.5 - strafe * 0.5, -hr * 0.6 + bank * 0.3), w)
+	pose.v[P.SPINE] = sp.lerp(Vector3(lean * 0.45, -hy * 0.5 - strafe * 0.5, -hr * 0.6 + bank * 0.3), w)
 	var ch: Vector3 = pose.v[P.CHEST]
 	var chest_out := float(st.get("chest_out", 0.0))
-	pose.v[P.CHEST] = ch.lerp(Vector3(lean * 0.4 - chest_out, -hy * 0.7 - strafe * 0.5, -hr * 0.4 + bank * 0.2), w)
+	pose.v[P.CHEST] = ch.lerp(Vector3(lean * 0.5 - chest_out, -hy * 0.7 - strafe * 0.5, -hr * 0.4 + bank * 0.2), w)
 	var hd: Vector3 = pose.v[P.HEAD]
 	var head := float(st.get("head", 0.0))
-	pose.v[P.HEAD] = hd.lerp(Vector3(head - lean * 0.75, hy * 0.3, -bank * 0.3), w)
+	pose.v[P.HEAD] = hd.lerp(Vector3(head - lean * 0.6, hy * 0.3, -bank * 0.3), w)
 	_write_arms(pose, w, rs)
 
 
