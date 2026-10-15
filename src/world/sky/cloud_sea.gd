@@ -15,6 +15,8 @@ const SLAB_TOP := 625.0
 const VISIBLE_RANGE := 9000.0
 
 var material: ShaderMaterial
+## Turns the layer off entirely (cinematics, debugging); `update` keeps it hidden.
+var enabled: bool = true
 
 
 func _ready() -> void:
@@ -43,7 +45,7 @@ func update(cam_pos: Vector3, coverage: float) -> void:
 	if not WorldData.has_world_data():
 		return
 	var d := Vector2(cam_pos.x, cam_pos.z).distance_to(CENTER)
-	visible = d < VISIBLE_RANGE
+	visible = enabled and d < VISIBLE_RANGE
 	if not visible:
 		return
 	var y := SLAB_TOP + 0.5 if cam_pos.y >= SLAB_BOTTOM else SLAB_BOTTOM - 0.5

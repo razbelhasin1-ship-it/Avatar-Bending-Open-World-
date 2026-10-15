@@ -53,11 +53,12 @@ void trail_fragment(vec2 xz, out vec4 tr, out vec2 grad) {
 	// 1.5-texel stencil: wide enough that bilinear facets do not show in the shading
 	float e = trail_texel * 1.5;
 	float du = e / trail_window.z;
-	vec4 c = texture(trail_map, uv);
-	float dxp = trail_disp(texture(trail_map, uv + vec2(du, 0.0)));
-	float dxm = trail_disp(texture(trail_map, uv - vec2(du, 0.0)));
-	float dzp = trail_disp(texture(trail_map, uv + vec2(0.0, du)));
-	float dzm = trail_disp(texture(trail_map, uv - vec2(0.0, du)));
+	// explicit LOD: called inside the snow branch (the trail map has no mipmaps anyway)
+	vec4 c = textureLod(trail_map, uv, 0.0);
+	float dxp = trail_disp(textureLod(trail_map, uv + vec2(du, 0.0), 0.0));
+	float dxm = trail_disp(textureLod(trail_map, uv - vec2(du, 0.0), 0.0));
+	float dzp = trail_disp(textureLod(trail_map, uv + vec2(0.0, du), 0.0));
+	float dzm = trail_disp(textureLod(trail_map, uv - vec2(0.0, du), 0.0));
 	grad = vec2(dxp - dxm, dzp - dzm) / (2.0 * e) * f;
 	float gl = length(grad);
 	grad *= gl > 2.2 ? 2.2 / gl : 1.0;

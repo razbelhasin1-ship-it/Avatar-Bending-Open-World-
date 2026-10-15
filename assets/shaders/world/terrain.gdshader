@@ -156,14 +156,20 @@ void biome_weights(vec2 xz, out vec4 lush, out vec4 flags) {
 }
 
 // Detail pattern sampled with two scales/rotations (hides tiling); returns pattern in 0..1.
-float pattern2(vec2 p, int ch) {
-	vec4 a = texture(detail_tex, p);
-	vec4 b = texture(detail_tex, mat2(vec2(0.8, 0.6), vec2(-0.6, 0.8)) * p * 0.37 + 0.31);
+// Explicit gradients (gx, gy = screen derivatives of p): it is called inside distance branches,
+// where implicit derivatives are undefined on some GPUs/drivers.
+float pattern2(vec2 p, vec2 gx, vec2 gy, int ch) {
+	mat2 r = mat2(vec2(0.8, 0.6), vec2(-0.6, 0.8));
+	vec4 a = textureGrad(detail_tex, p, gx, gy);
+	vec4 b = textureGrad(detail_tex, r * p * 0.37 + 0.31, r * gx * 0.37, r * gy * 0.37);
 	return mix(a[ch], b[ch], 0.35);
 }
 
 void fragment() {
 	vec3 wp = world_pos;
+	// screen derivatives taken in uniform control flow, reused by every branch-local fetch
+	vec3 dwx = dFdx(wp);
+	vec3 dwy = dFdy(wp);
 	float dist = length(wp - CAMERA_POSITION_WORLD);
 	vec2 uv = world_uv(wp.xz);
 	float near = (1.0 - smoothstep(detail_distance * 0.55, detail_distance, dist)) * detail_strength;
@@ -207,30 +213,32 @@ void fragment() {
 	vec3 tri_w = pow(abs(n), vec3(4.0));
 	tri_w /= (tri_w.x + tri_w.y + tri_w.z);
 	if (near > 0.001) {
-		p_grass = pattern2(pxz * (1.0 / 2.6), 1);
-		p_pave = texture(detail_tex, pxz * (1.0 / 3.4)).b;
-		p_rip = pattern2(pxz * (1.0 / 5.0), 3);
-		vec4 na = texture(detail_nrm_a, pxz * (1.0 / 2.6));
-		vec4 nb = texture(detail_nrm_b, pxz * (1.0 / 3.4));
+		vec2 gx = dwx.xz;
+		vec2 gy = dwy.xz;
+		p_grass = pattern2(pxz * (1.0 / 2.6), gx / 2.6, gy / 2.6, 1);
+		p_pave = textureGrad(detail_tex, pxz * (1.0 / 3.4), gx / 3.4, gy / 3.4).b;
+		p_rip = pattern2(pxz * (1.0 / 5.0), gx / 5.0, gy / 5.0, 3);
+		vec4 na = textureGrad(detail_nrm_a, pxz * (1.0 / 2.6), gx / 2.6, gy / 2.6);
+		vec4 nb = textureGrad(detail_nrm_b, pxz * (1.0 / 3.4), gx / 3.4, gy / 3.4);
 		dn_grass = (na.ba * 2.0 - 1.0);
 		dn_pave = (nb.rg * 2.0 - 1.0);
-		dn_rip = (texture(detail_nrm_b, pxz * (1.0 / 5.0)).ba * 2.0 - 1.0);
+		dn_rip = (textureGrad(detail_nrm_b, pxz * (1.0 / 5.0), gx / 5.0, gy / 5.0).ba * 2.0 - 1.0);
 		if (tri > 0.01) {
 			// triplanar rock on cliffs: project on the three axes
-			float rx = texture(detail_tex, wp.zy * (1.0 / 6.0)).r;
-			float ry = texture(detail_tex, wp.xz * (1.0 / 6.0)).r;
-			float rz = texture(detail_tex, wp.xy * (1.0 / 6.0)).r;
+			float rx = textureGrad(detail_tex, wp.zy * (1.0 / 6.0), dwx.zy / 6.0, dwy.zy / 6.0).r;
+			float ry = textureGrad(detail_tex, wp.xz * (1.0 / 6.0), dwx.xz / 6.0, dwy.xz / 6.0).r;
+			float rz = textureGrad(detail_tex, wp.xy * (1.0 / 6.0), dwx.xy / 6.0, dwy.xy / 6.0).r;
 			p_rock = rx * tri_w.x + ry * tri_w.y + rz * tri_w.z;
-			vec2 nx = texture(detail_nrm_a, wp.zy * (1.0 / 6.0)).rg * 2.0 - 1.0;
-			vec2 ny = texture(detail_nrm_a, wp.xz * (1.0 / 6.0)).rg * 2.0 - 1.0;
-			vec2 nzv = texture(detail_nrm_a, wp.xy * (1.0 / 6.0)).rg * 2.0 - 1.0;
+			vec2 nx = textureGrad(detail_nrm_a, wp.zy * (1.0 / 6.0), dwx.zy / 6.0, dwy.zy / 6.0).rg * 2.0 - 1.0;
+			vec2 ny = textureGrad(detail_nrm_a, wp.xz * (1.0 / 6.0), dwx.xz / 6.0, dwy.xz / 6.0).rg * 2.0 - 1.0;
+			vec2 nzv = textureGrad(detail_nrm_a, wp.xy * (1.0 / 6.0), dwx.xy / 6.0, dwy.xy / 6.0).rg * 2.0 - 1.0;
 			// perturb in world space per projection (x: zy plane, y: xz plane, z: xy plane)
 			vec3 pert = vec3(0.0, nx.y, nx.x) * tri_w.x + vec3(ny.x, 0.0, ny.y) * tri_w.y + vec3(nzv.x, nzv.y, 0.0) * tri_w.z;
 			dn_rock = pert.xz;
 			n = normalize(n + pert * 0.55 * near * tri);
 		} else {
-			p_rock = pattern2(pxz * (1.0 / 6.0), 0);
-			dn_rock = texture(detail_nrm_a, pxz * (1.0 / 6.0)).rg * 2.0 - 1.0;
+			p_rock = pattern2(pxz * (1.0 / 6.0), gx / 6.0, gy / 6.0, 0);
+			dn_rock = textureGrad(detail_nrm_a, pxz * (1.0 / 6.0), gx / 6.0, gy / 6.0).rg * 2.0 - 1.0;
 		}
 		p_grass = mix(0.5, p_grass, near);
 		p_rock = mix(0.5, p_rock, near);
@@ -343,7 +351,7 @@ void fragment() {
 			vec3 packed = vec3(0.58, 0.68, 0.86);
 			snow = mix(snow, packed, smoothstep(0.02, 0.45, tr.r) * 0.8 * tr.a);
 			snow *= 1.0 + tr.g * 0.06 * tr.a;
-			float lumps = smoothstep(0.5, 0.8, texture(detail_tex, wp.xz * 1.7).g);
+			float lumps = smoothstep(0.5, 0.8, textureGrad(detail_tex, wp.xz * 1.7, dwx.xz * 1.7, dwy.xz * 1.7).g);
 			snow = mix(snow, vec3(0.99, 1.0, 1.0), tr.b * lumps * 0.5 * tr.a);
 			n = normalize(n + vec3(-tgrad.x, 0.0, -tgrad.y) * w_snow);
 		}

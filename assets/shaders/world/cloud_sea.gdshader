@@ -27,21 +27,22 @@ uniform vec3 shade_tint : source_color = vec3(0.62, 0.68, 0.82);
 
 varying vec3 world_pos;
 
-float density(vec3 p) {
+// Cloud density at p. Explicit LOD (no implicit derivatives: this runs inside the march loop)
+// and the terrain height under p is passed in so the sun-ward sample reuses it.
+float density(vec3 p, float ground, float lod) {
 	vec2 drift = wind_direction * world_time * 0.6;
 	vec2 uv = (p.xz + drift) / 1400.0;
-	float base = texture(cloud_tex, uv).r * 0.6 + texture(cloud_tex, uv * 2.7 + 0.37).g * 0.4;
-	float detail = texture(cloud_tex, (p.xz - drift * 1.7) / 260.0).a;
+	float base = textureLod(cloud_tex, uv, lod).r * 0.6 + textureLod(cloud_tex, uv * 2.7 + 0.37, lod).g * 0.4;
+	float detail = textureLod(cloud_tex, (p.xz - drift * 1.7) / 260.0, lod + 1.0).a;
 	// billows are tallest in the middle of the slab
 	float h = (p.y - slab_bottom) / (slab_top - slab_bottom);
 	float profile = smoothstep(0.0, 0.35, h) * smoothstep(1.0, 0.55, h);
 	float d = base * 0.78 + detail * 0.22 - (1.0 - coverage);
 	d = d * 2.6 * profile - (1.0 - profile) * 0.25;
 	// thin out near the terrain so peaks poke through cleanly
-	float ground = world_height(p.xz);
 	d *= smoothstep(0.0, 45.0, p.y - ground);
 	// regional mask with ragged edge
-	float rm = length(p.xz - region_center) / region_radius + (texture(cloud_tex, p.xz / 3000.0).b - 0.5) * 0.35;
+	float rm = length(p.xz - region_center) / region_radius + (textureLod(cloud_tex, p.xz / 3000.0, lod).b - 0.5) * 0.35;
 	d *= 1.0 - smoothstep(0.75, 1.0, rm);
 	return clamp(d, 0.0, 1.0);
 }
@@ -72,25 +73,23 @@ void fragment() {
 	vec3 acc = vec3(0.0);
 	vec3 sky_amb = mix(world_sky_horizon.rgb, world_sky_zenith.rgb, 0.5);
 	const int STEPS = 6;
+	// mip level from the footprint of a pixel at the slab distance (2.7 m per texel)
+	float lod = clamp(log2(max(t0 / 700.0 / 2.7, 1.0)), 0.0, 7.0);
+	// fixed trip count, no break/continue: uniform control flow on every backend
 	for (int i = 0; i < STEPS; i++) {
 		float t = t0 + seg * (float(i) + 0.5) / float(STEPS);
 		vec3 p = cam + dir * t;
-		float d = density(p);
-		if (d <= 0.001) {
-			continue;
-		}
+		float ground = world_height(p.xz);
+		float d = density(p, ground, lod);
 		// light: brighter towards the slab top and on the sun side (stepped, painterly)
 		float h = clamp((p.y - slab_bottom) / (slab_top - slab_bottom), 0.0, 1.0);
-		float d_sun = density(p + sun * 22.0);
+		float d_sun = density(p + sun * 22.0, ground, lod);
 		float lit = clamp(0.35 + h * 0.6 - d_sun * 0.55, 0.0, 1.0);
 		lit = mix(lit, floor(lit * 3.0 + 0.5) / 3.0, 0.4);
 		vec3 c = mix(shade_tint * sky_amb * 1.4, lit_tint * (world_sun_color.rgb * 0.75 + sky_amb * 0.55), lit);
 		float a = clamp(d * seg / float(STEPS) * 0.045, 0.0, 1.0);
 		acc += c * a * trans;
 		trans *= 1.0 - a;
-		if (trans < 0.03) {
-			break;
-		}
 	}
 	float alpha = (1.0 - trans) * opacity;
 	// distance haze: far cloud sea melts into the horizon colour

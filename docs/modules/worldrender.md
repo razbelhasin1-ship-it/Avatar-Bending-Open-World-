@@ -289,6 +289,10 @@ At 1280×720 the same views take 290–880 ms (volcano sunset 290 ms, vista 380 
 500 ms, blizzard 880 ms).
 | Blizzard (14k particles) | 440–490 ms | 114 | 268 k |
 
+Same tour per renderer at 960×540: Forward+ 265–880 ms (1280×720), Mobile 170–430 ms,
+Compatibility 115–395 ms (Compatibility issues ~1.5–2.5× more draw calls: no depth-prepass
+merging, per-light passes).
+
 Breakdown (toggling subsystems, Water Tribe/Ba Sing Se): terrain ≈ 45–55 % (vertex work runs in
 the depth prepass, colour pass and shadow cascades), volumetric fog + SSAO (user settings) 15–
 25 %, sun shadows 10–20 %, water ≈ 5–10 %, cloud sea/smoke < 5 %. The Compatibility renderer
@@ -310,7 +314,13 @@ after culling), 129 k triangles if every piece were visible (tile 22).
   crater, heavy creature paws, close-ups at ~3 m, refill during snowfall.
 * `tools/playtest.sh worldrender_terrain_check` — GPU height readback vs CPU, collision rays,
   LOD vista + wireframe.
-* `RENDERER=gl_compatibility tools/playtest.sh worldrender_tour` — fallback renderer.
+* `RENDERER=gl_compatibility tools/playtest.sh worldrender_tour` and `RENDERER=mobile ...` —
+  the full tour passes on all three renderers.
+
+Shader rule followed everywhere: no implicit-derivative `texture()` inside per-pixel branches
+or loops (explicit `textureGrad`/`textureLod` instead). The original cloud-sea march broke this
+and crashed llvmpipe's Mobile-renderer JIT; the fixed-trip, explicit-LOD version runs on all
+renderers.
 
 ## Design decisions
 

@@ -86,21 +86,20 @@ vec3 aurora_light(vec3 dir) {
 	float az = atan(dir.x, -dir.z);
 	float north = smoothstep(1.7, 0.4, abs(az));
 	float x = az * 2.6;
-	float fold = sin(x * 2.1 + sky_time * 0.03) * 0.05 + (texture(cloud_tex, vec2(x * 0.11 + sky_time * 0.002, 0.27)).r - 0.5) * 0.16;
+	float fold = sin(x * 2.1 + sky_time * 0.03) * 0.05 + (textureLod(cloud_tex, vec2(x * 0.11 + sky_time * 0.002, 0.27), 0.0).r - 0.5) * 0.16;
 	float h = dir.y - (0.16 + fold);
 	float hem = smoothstep(-0.02, 0.012, h);
 	float curtain = hem * exp(-max(h, 0.0) / 0.2);
-	float rays = texture(cloud_tex, vec2(x * 1.7 + sky_time * 0.006, 0.61)).b * 0.7 + 0.3;
+	float rays = textureLod(cloud_tex, vec2(x * 1.7 + sky_time * 0.006, 0.61), 0.0).b * 0.7 + 0.3;
 	vec3 col = mix(vec3(0.15, 0.95, 0.55), vec3(0.50, 0.32, 0.95), smoothstep(0.02, 0.3, h));
 	return col * curtain * rays * north;
 }
 
 // Cloud density and lighting for one view direction (plane projection).
 vec4 clouds(vec3 dir, vec3 light_dir, bool detail) {
-	if (dir.y <= 0.005) {
-		return vec4(0.0);
-	}
-	vec2 p = dir.xz / (dir.y + 0.12);
+	// no early return: textures below must be sampled in uniform control flow
+	float above = step(0.005, dir.y);
+	vec2 p = dir.xz / (max(dir.y, 0.005) + 0.12);
 	vec2 uv = p * 0.22 + cloud_offset;
 	float base = texture(cloud_tex, uv).r * 0.62 + texture(cloud_tex, uv * 0.47 + 0.21).g * 0.38;
 	if (detail) {
@@ -124,7 +123,7 @@ vec4 clouds(vec3 dir, vec3 light_dir, bool detail) {
 		vec2 cuv = p * 0.07 + cloud_offset * 0.35 + vec2(0.0, 0.31);
 		ci = smoothstep(0.55, 0.9, texture(cloud_tex, cuv).b) * cirrus * smoothstep(0.08, 0.35, dir.y) * (1.0 - stars * 0.85);
 	}
-	float a = clamp(dens * horizon_fade + ci * (1.0 - dens) * 0.6, 0.0, 1.0);
+	float a = clamp(dens * horizon_fade + ci * (1.0 - dens) * 0.6, 0.0, 1.0) * above;
 	vec3 ccol = mix(cloud_lit * 1.02, col, dens / max(a, 1e-3) * horizon_fade);
 	return vec4(ccol, a);
 }
@@ -160,7 +159,7 @@ void sky() {
 			float ph = (moon_phase - 0.5) * 6.2831853;
 			vec3 ldir = normalize(vec3(sin(ph), 0.15, -cos(ph)));
 			float illum = smoothstep(-0.06, 0.12, dot(sn, ldir));
-			float crater = texture(cloud_tex, q * 0.18 + 0.5).g;
+			float crater = textureLod(cloud_tex, q * 0.18 + 0.5, 0.0).g;
 			vec3 mcol = moon_color * mix(0.72, 1.0, crater) * (0.04 + illum);
 			col = mix(col, mcol * 1.6, disc * moon_visible);
 			col += moon_color * exp(-ang / moon_size * 1.3) * 0.12 * moon_visible;
