@@ -99,6 +99,7 @@ var _lod_manual := false
 var _lod_timer := 0.0
 var _lod_accum := 0.0
 var _materials: Dictionary = {}     # surface index -> [lod0, lod1, lod2]
+var _detail := 2
 var _leg_free_extra: PackedFloat32Array = PackedFloat32Array()
 var _look_pos := Vector3.ZERO
 var _look_w := 0.0
@@ -179,7 +180,7 @@ func set_flying(active: bool) -> float:
 	if active:
 		_landing_pending = false
 		if flight_w < 0.3:
-			d = play_action(&"takeoff")
+			d = _play(&"takeoff", {})
 			_takeoff_hold = float(species.tune.get("takeoff_leap", 0.5))
 	else:
 		_landing_pending = true
@@ -225,6 +226,13 @@ func set_swimming(active: bool, water_height: float = 0.0) -> void:
 func play_action(action_name: StringName, opts: Dictionary = {}) -> float:
 	if species == null:
 		return 0.0
+	# Flight transitions go through the flight state machine.
+	if can_fly() and (action_name == &"takeoff" or action_name == &"land"):
+		return set_flying(action_name == &"takeoff")
+	return _play(action_name, opts)
+
+
+func _play(action_name: StringName, opts: Dictionary) -> float:
 	var a := species.make_action(action_name, opts)
 	if a == null:
 		return 0.0
@@ -401,6 +409,9 @@ func _build(species_name: StringName, sp: CreatureSpecies, cfg: Dictionary) -> v
 	actions.finished.connect(func(n: StringName) -> void: action_finished.emit(n))
 	if cfg.has("lod") and int(cfg["lod"]) >= 0:
 		set_lod(int(cfg["lod"]))
+	_detail = detail
+	if not cfg.has("detail"):
+		Events.graphics_settings_changed.connect(_on_graphics_changed)
 	# Rest pose so the creature looks right before its first frame.
 	_solve_pose(0.0, true)
 
@@ -537,7 +548,7 @@ func _update_flight(dt: float) -> void:
 	if _landing_pending:
 		if (grounded and _manual_loco) or altitude() <= land_altitude():
 			_landing_pending = false
-			play_action(&"land")
+			_play(&"land", {})
 		else:
 			# Still descending: hold the flight pose.
 			flight_w = move_toward(flight_w, 1.0, dt)
@@ -689,6 +700,23 @@ func _auto_lod() -> void:
 		level = maxi(level, 2)
 	if level != lod:
 		_apply_lod(level)
+
+
+## Settings changed at runtime: refresh materials for the new detail level (fur shell
+## count). Mesh resolution is kept until the creature is recreated.
+func _on_graphics_changed() -> void:
+	var detail := _detail_level()
+	if detail == _detail or mesh_instance == null:
+		return
+	_detail = detail
+	var mesh := mesh_instance.mesh as ArrayMesh
+	for si in mesh.get_surface_count():
+		var sname := StringName(mesh.surface_get_name(si))
+		var mats: Array = []
+		for l in 3:
+			mats.append(species.material_for(sname, detail, l))
+		_materials[si] = mats
+	_apply_lod(lod)
 
 
 func _apply_lod(level: int) -> void:

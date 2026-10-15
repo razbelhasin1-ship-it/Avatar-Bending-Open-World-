@@ -125,7 +125,7 @@ func build_mesh(rig: CreatureRig, kit: MeshKit) -> void:
 			{"p": v.call(0, 1.53, 0.15), "w": 0.44 * k, "h": 0.4 * k, "hb": 0.43 * k},
 			{"p": v.call(0, 1.5, -0.3), "w": 0.4 * k, "h": 0.36 * k, "hb": 0.4 * k},
 			{"p": v.call(0, 1.52, -0.62), "w": 0.26 * k, "h": 0.25 * k, "hb": 0.28 * k}],
-			{"segs": 22, "sub": 2, "color": body_c, "cap0": "round", "cap1": "none", "fluff": 0.06, "lobes": 17.0, "fluff_lo": 1.8,
+			{"segs": 22, "sub": 2, "color": body_c, "cap0": "round", "cap1": "round", "cap_len": 0.5, "fluff": 0.06, "lobes": 17.0, "fluff_lo": 1.8,
 			"weights": s.chain_weighter([&"pelvis", &"spine", &"chest"], v.call(0, 1.55, -0.7)), "mark_row": 1, "seed": 61})
 	kit.loft([{"p": v.call(0, 1.56, -0.55), "w": 0.2 * k, "h": 0.2 * k}, {"p": v.call(0, 1.72, -0.78), "w": 0.15 * k, "h": 0.16 * k},
 			{"p": v.call(0, 2.04, -0.94), "w": 0.12 * k, "h": 0.13 * k}, {"p": v.call(0, 2.38, -1.03), "w": 0.11 * k, "h": 0.12 * k},

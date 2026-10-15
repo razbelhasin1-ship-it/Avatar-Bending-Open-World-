@@ -150,7 +150,7 @@ func build_mesh(rig: CreatureRig, kit: MeshKit) -> void:
 		{"p": v.call(0, 1.13, -1.45), "w": 0.86 * k, "h": 0.52 * k, "hb": 0.52 * k, "f": 1.4},
 		{"p": v.call(0, 1.13, -1.75), "w": 0.62 * k, "h": 0.42 * k, "hb": 0.42 * k},
 	]
-	kit.loft(body, {"segs": 30, "sub": 3, "color": fur, "fluff": 0.04, "lobes": 19.0, "fluff_lo": 2.0, "cap1": "none",
+	kit.loft(body, {"segs": 30, "sub": 3, "color": fur, "fluff": 0.04, "lobes": 19.0, "fluff_lo": 2.0, "cap1": "round", "cap_len": 0.4,
 			"seed": 41, "mark_row": 1, "weights": s.chain_weighter([&"pelvis", &"spine1", &"spine2", &"chest"], v.call(0, 1.12, -1.75))})
 	var head := [
 		{"p": v.call(0, 1.14, -1.55), "w": 0.6 * k, "h": 0.43 * k},

@@ -230,6 +230,10 @@ func test_flight_transitions() -> void:
 		expect(events.has([&"land", &"touchdown"]), "%s touchdown event" % sp)
 	var dog := _spawn(&"polar_bear_dog")
 	expect(dog.set_flying(true) == 0.0 and not dog.is_flying(), "non-flyers ignore set_flying")
+	var b2 := _spawn(&"sky_bison")
+	expect(b2.play_action(&"takeoff") > 0.0 and b2.is_flying(), "play_action(takeoff) enters flight")
+	b2.play_action(&"land")
+	expect(not b2.is_flying() and b2.is_landing(), "play_action(land) requests landing")
 
 
 # --- Actions ---------------------------------------------------------------------------
@@ -331,6 +335,16 @@ func test_lod_levels() -> void:
 	rig.set_lod(-1)
 	await frames(2)
 	expect(rig.lod <= 3, "auto LOD active")
+	var live := _spawn(&"polar_bear_dog")
+	var old_detail: int = Settings.get_value("graphics", "detail")
+	var old_preset: String = Settings.get_value("graphics", "preset")
+	Settings.set_value("graphics", "detail", 0)
+	Events.graphics_settings_changed.emit()
+	var lm := live.mesh_instance.get_surface_override_material(0) as ShaderMaterial
+	expect((lm.next_pass as ShaderMaterial).shader == CreatureMaterials.OUTLINE_SHADER, "runtime detail 0 drops shells")
+	Settings.set_value("graphics", "detail", old_detail)
+	Settings.set_value("graphics", "preset", old_preset)
+	Events.graphics_settings_changed.emit()
 	var mobile := _spawn(&"polar_bear_dog", {"detail": 0})
 	var mm := mobile.mesh_instance.get_surface_override_material(0) as ShaderMaterial
 	expect((mm.next_pass as ShaderMaterial).shader == CreatureMaterials.OUTLINE_SHADER, "detail 0 (mobile) has no shells")
