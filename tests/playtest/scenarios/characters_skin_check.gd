@@ -1,0 +1,36 @@
+extends RefCounted
+## Minimal skinning sanity check: raises one arm via the skeleton directly.
+func run(p: Playtest) -> void:
+	var root := Node3D.new()
+	p.get_tree().root.add_child(root)
+	var cam := Camera3D.new()
+	root.add_child(cam)
+	cam.position = Vector3(0.0, 1.2, -4.0)
+	cam.look_at(Vector3(0, 1.0, 0))
+	var sun := DirectionalLight3D.new()
+	root.add_child(sun)
+	sun.rotation_degrees = Vector3(-42, 150, 0)
+	var spec := CharacterOutfits.resolve({"preset": &"air_nomad"})
+	var res := CharacterMeshBuilder.build(spec)
+	var d: RigSkeletonDef = res["def"]
+	var sk := d.create_skeleton()
+	root.add_child(sk)
+	var mi := MeshInstance3D.new()
+	mi.mesh = res["mesh"]
+	sk.add_child(mi)
+	mi.skeleton = NodePath("..")
+	mi.skin = sk.create_skin_from_rest_transforms()
+	await p.wait(0.3)
+	sk.set_bone_pose_rotation(RigSkeletonDef.UPPERARM_R, Quaternion(Vector3.BACK, 1.4))
+	sk.set_bone_pose_rotation(RigSkeletonDef.THIGH_L, Quaternion(Vector3.RIGHT, 0.9))
+	await p.wait(0.3)
+	p.note("format %d" % (mi.mesh as ArrayMesh).surface_get_format(0))
+	var sref := mi.get_skin_reference()
+	p.note("skin ref %s binds %d" % [sref, mi.skin.get_bind_count()])
+	if sref:
+		var srid := sref.get_skeleton()
+		p.note("rs bones %d xf %s" % [RenderingServer.skeleton_get_bone_count(srid), RenderingServer.skeleton_bone_get_transform(srid, RigSkeletonDef.UPPERARM_R)])
+	p.note("global pose %s" % sk.get_bone_global_pose(RigSkeletonDef.UPPERARM_R))
+	var arr := (mi.mesh as ArrayMesh).surface_get_arrays(0)
+	p.note("bones sample %s weights %s" % [(arr[Mesh.ARRAY_BONES] as PackedInt32Array).slice(0, 12), (arr[Mesh.ARRAY_WEIGHTS] as PackedFloat32Array).slice(0, 12)])
+	await p.screenshot("skin_check")
