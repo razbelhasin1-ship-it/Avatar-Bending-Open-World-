@@ -50,6 +50,7 @@ const FONT_BRUSH_ALT := "res://assets/fonts/ZhiMangXing-Regular.ttf"
 static var _theme: Theme = null
 static var _fonts: Dictionary = {}
 static var _grain: Texture2D = null
+static var _textures: Dictionary = {}
 
 
 # --- Fonts ---------------------------------------------------------------------------------
@@ -122,17 +123,27 @@ static func with_alpha(c: Color, a: float) -> Color:
 
 # --- Textures --------------------------------------------------------------------------------
 
-## Element emblem (white SVG, tint with modulate). Null for NONE.
+## Element emblem (white SVG, tint with modulate). Null for NONE. Cached.
 static func emblem(element: int) -> Texture2D:
 	if not ElementDefs.is_valid(element):
 		return null
-	return load(ElementDefs.emblem_path(element)) as Texture2D
+	return texture(ElementDefs.emblem_path(element))
 
 
 ## UI icon by base name, e.g. icon("icon_health"), icon("ability_blast"). Null if missing.
 static func icon(icon_name: String) -> Texture2D:
-	var path := "res://assets/ui/%s.svg" % icon_name
-	return load(path) as Texture2D if ResourceLoader.exists(path) else null
+	return texture("res://assets/ui/%s.svg" % icon_name)
+
+
+## Loads and KEEPS a texture alive. Textures drawn with CanvasItem.draw_texture*() must
+## outlive the draw call (the command buffer only stores the RID; a freed resource
+## renders as a white square), so every UI texture goes through this cache.
+static func texture(path: String) -> Texture2D:
+	if _textures.has(path):
+		return _textures[path]
+	var t: Texture2D = load(path) as Texture2D if ResourceLoader.exists(path) else null
+	_textures[path] = t
+	return t
 
 
 ## Tileable paper/lacquer grain (generated once, 256x256, greyscale around 1.0).

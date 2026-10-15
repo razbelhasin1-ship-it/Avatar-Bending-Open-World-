@@ -54,7 +54,7 @@ var active := true:
 
 var _seq: Array[Dictionary] = []
 var _seq_i := 0
-var _wait := 0.8
+var _wait := 0.4
 var _refresh := 0.0
 var _clips_played := 0
 

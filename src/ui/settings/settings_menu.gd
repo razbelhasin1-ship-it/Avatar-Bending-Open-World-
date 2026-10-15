@@ -11,6 +11,8 @@ signal applied
 const TAB_ICONS := {"display": "icon_focus", "graphics": "icon_discovery", "audio": "icon_chi", "controls": "icon_lock", "gameplay": "icon_quest"}
 
 var tab := 0
+## Write user://settings.cfg on APPLY (tests turn this off).
+var persist := true
 ## "section.key" -> SettingRow
 var rows: Dictionary = {}
 var tab_pages: Array[ScrollContainer] = []
@@ -245,7 +247,8 @@ func is_dirty() -> bool:
 ## Saves and closes.
 func apply_and_close() -> void:
 	Settings.apply()
-	Settings.save()
+	if persist:
+		Settings.save()
 	_snapshot = Settings.snapshot()
 	applied.emit()
 	close()
