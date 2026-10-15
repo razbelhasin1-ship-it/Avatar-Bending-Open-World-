@@ -98,7 +98,8 @@ func commit() -> ArrayMesh:
 ## cap_len (round cap length relative to radius, default 1), weights (Callable(p) ->
 ## [b0, w0, b1, w1...]), per_vertex (bool: evaluate weights per vertex), color (Color),
 ## fluff (amplitude, fraction of radius), lobes (scallops around), fluff_freq (along,
-## per meter), seed (int), v_offset (meters added to UV2.y), mark_row (int, marking
+## per meter), fluff_lo (fluff multiplier on the lower half, e.g. shaggy bellies),
+## seed (int), v_offset (meters added to UV2.y), mark_row (int, marking
 ## texture row, see CreatureMaterials.mark_texture), fur (0..1 shell fur amount, stored in
 ## vertex color alpha; default 1).
 func loft(sections: Array, o: Dictionary = {}) -> void:
@@ -374,6 +375,7 @@ func _emit_rings(rings: Array[Dictionary], segs: int, o: Dictionary) -> void:
 	var fluff: float = o.get("fluff", 0.0)
 	var lobes: float = o.get("lobes", 9.0)
 	var fluff_freq: float = o.get("fluff_freq", 2.0)
+	var fluff_lo: float = o.get("fluff_lo", 1.0)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = int(o.get("seed", 1))
 	var jitter := PackedFloat32Array()
@@ -431,7 +433,8 @@ func _emit_rings(rings: Array[Dictionary], segs: int, o: Dictionary) -> void:
 			if fl > 0.0:
 				var ph := u * lobes + arc[i] * fluff_freq * 0.37 + jitter[int(arc[i] * fluff_freq) & 63] * 0.6
 				var lobe := pow(0.5 + 0.5 * cos(ph * TAU), 2.0)
-				rr += fl * (lobe - 0.35) * (0.7 + 0.6 * jitter[(j * 7 + i) & 63])
+				var side_k := 1.0 if y >= 0.0 else lerpf(1.0, fluff_lo, minf(1.0, -y * 1.5))
+				rr += fl * side_k * (lobe - 0.35) * (0.7 + 0.6 * jitter[(j * 7 + i) & 63])
 			row[j] = p + (right * (x * w) + up * (y * (h if y >= 0.0 else hb))) * rr
 		pos.append(row)
 	# Emit vertices.

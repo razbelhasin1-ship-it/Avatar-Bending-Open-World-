@@ -40,3 +40,34 @@ func run(p: Playtest) -> void:
 		await p.wait(0.13)
 		await p.screenshot("%s_run_%d" % [sp, i])
 	p.check(rig.gait.footsteps > 4, "footsteps emitted (%d)" % rig.gait.footsteps)
+	if rig.can_fly():
+		drv.idle()
+		await p.wait(1.5)
+		var start := rig.global_position
+		var dur := rig.set_flying(true)
+		p.check(dur > 0.0, "takeoff has a duration")
+		stage.frame(start + Vector3(L * 0.9, H * 0.6, L * 1.3), start + Vector3(0, H * 0.6, 0), 50.0)
+		drv.fly_line(Vector3.LEFT, 6.0, 8.0 * H / 4.0)
+		for i in 3:
+			await p.wait(0.5)
+			await p.screenshot("%s_takeoff_%d" % [sp, i])
+		drv.fly_circle(rig.global_position + Vector3(0, 0, -30), 30.0, 16.0, 12.0)
+		await p.wait(5.0)
+		for i in 3:
+			var pos := rig.global_position
+			var fwd := -rig.global_basis.z
+			stage.frame(pos + fwd * L * 1.2 + Vector3(0, H * 0.4, 0) + rig.global_basis.x * L * 1.4, pos, 55.0)
+			await p.wait(0.3)
+			await p.screenshot("%s_fly_%d" % [sp, i])
+			p.note("bank %.2f roll %.2f fw %.2f flying %s pitch %.2f" % [rig.flight_bank, rig.pose.body_roll, rig.flight_w, rig.flying, rig.pose.body_pitch])
+		var pos2 := rig.global_position
+		stage.frame(pos2 + Vector3(0, -H * 0.5, 0) + rig.global_basis.x * L * 2.0, pos2, 55.0)
+		await p.wait(0.1)
+		await p.screenshot("%s_fly_below" % sp)
+		drv.line(-rig.global_basis.z, 6.0)
+		rig.set_flying(false)
+		for i in 3:
+			await p.wait(0.6)
+			var pos3 := rig.global_position
+			stage.frame(pos3 + rig.global_basis.x * L * 1.6 + Vector3(0, H * 0.4, 0), pos3 + Vector3(0, H * 0.4, 0), 50.0)
+			await p.screenshot("%s_land_%d" % [sp, i])

@@ -185,6 +185,8 @@ static func _apply_common(m: ShaderMaterial, color: Color, opts: Dictionary) -> 
 	if opts.has("translucency"):
 		m.set_shader_parameter(&"translucency", float(opts["translucency"]))
 		m.set_shader_parameter(&"translucency_color", opts.get("translucency_color", Color(1.0, 0.45, 0.2)))
+	if opts.has("mark_soft"):
+		m.set_shader_parameter(&"mark_soft", float(opts["mark_soft"]))
 	if opts.has("marks"):
 		m.set_shader_parameter(&"mark_tex", opts["marks"])
 		m.set_shader_parameter(&"mark_rows", float(opts.get("mark_rows", 1)))
