@@ -191,7 +191,7 @@ static func _mouth(b: SkinMeshBuilder, d: RigSkeletonDef, hs: RigHeadShape, spec
 	var my := d.rest_pos[SK.MOUTH].y
 	var ph := hs.phi_at_height(my)
 	var surf := func(u: float, v: float) -> Array: return hs.face_surf(0.0, ph, u, v, 0.0)
-	var mw := head_h * (0.085 if d.p["female"] else 0.095)
+	var mw := head_h * (0.1 if d.p["female"] else 0.115)
 	var col := Color(0.36, 0.14, 0.12)
 	var smile: float = spec.get("smile", 0.15)
 	var lo := PackedVector2Array()
@@ -200,7 +200,7 @@ static func _mouth(b: SkinMeshBuilder, d: RigSkeletonDef, hs: RigHeadShape, spec
 	for i in n + 1:
 		var x := -1.0 + 2.0 * float(i) / float(n)
 		var y0 := smile * head_h * 0.02 * x * x
-		var t := head_h * 0.0075 * (1.0 - 0.6 * x * x)
+		var t := head_h * 0.0105 * (1.0 - 0.6 * x * x)
 		lo.append(Vector2(x * mw * 0.5, y0 - t))
 		hi.append(Vector2(x * mw * 0.5, y0 + t * 0.6))
 	RigShapes.band2d(b, surf, lo, hi, 0.0018, col, SkinMeshBuilder.w1(SK.MOUTH))

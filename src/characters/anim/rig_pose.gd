@@ -21,6 +21,10 @@ extends RefCounted
 ## * foot_rot_l/foot_rot_r: degrees (x = toes up +, y = toe-out +, z = outer edge up +).
 ## * toe_l/toe_r: toe bend degrees (+ = toes bent up).
 ## * mouth: 0 closed .. 1 open.  blink: 0 open .. 1 closed (face layer).
+## * feet_hips: 0..1. At 1, foot targets and knee poles are relative to the
+##   (rotating) pelvis instead of the ground: use for rolls, flips and tumbles.
+## Euler channels blend along the shortest arc, so clips can spin 360+ degrees
+## (keys are interpolated unwrapped) and still transition cleanly.
 
 const HIPS := 0
 const HIPS_ROT := 1
@@ -47,15 +51,18 @@ const FOOT_ROT_R := 21
 const TOE_L := 22
 const TOE_R := 23
 const MOUTH := 24
-const COUNT := 25
+const FEET_HIPS := 25
+const COUNT := 26
 
 const NAMES: PackedStringArray = [
 	"hips", "hips_rot", "spine", "chest", "neck", "head", "clav_l", "clav_r",
 	"hand_l", "hand_r", "elbow_l", "elbow_r", "wrist_l", "wrist_r", "fist_l", "fist_r",
-	"foot_l", "foot_r", "knee_l", "knee_r", "foot_rot_l", "foot_rot_r", "toe_l", "toe_r", "mouth",
+	"foot_l", "foot_r", "knee_l", "knee_r", "foot_rot_l", "foot_rot_r", "toe_l", "toe_r", "mouth", "feet_hips",
 ]
 ## Channel indices that hold floats (the rest are Vector3).
-const FLOAT_CHANNELS: PackedInt32Array = [FIST_L, FIST_R, TOE_L, TOE_R, MOUTH]
+const FLOAT_CHANNELS: PackedInt32Array = [FIST_L, FIST_R, TOE_L, TOE_R, MOUTH, FEET_HIPS]
+## Euler-angle channels (blended along the shortest arc).
+const EULER_CHANNELS: PackedInt32Array = [HIPS_ROT, SPINE, CHEST, NECK, HEAD, CLAV_L, CLAV_R, WRIST_L, WRIST_R, FOOT_ROT_L, FOOT_ROT_R]
 ## Left/right channel pairs for mirroring.
 const MIRROR_PAIRS: Array[Vector2i] = [
 	Vector2i(CLAV_L, CLAV_R), Vector2i(HAND_L, HAND_R), Vector2i(ELBOW_L, ELBOW_R),
@@ -72,7 +79,7 @@ const MASKS := {
 	&"arms": [CLAV_L, CLAV_R, HAND_L, HAND_R, ELBOW_L, ELBOW_R, WRIST_L, WRIST_R, FIST_L, FIST_R],
 	&"arm_l": [CLAV_L, HAND_L, ELBOW_L, WRIST_L, FIST_L],
 	&"arm_r": [CLAV_R, HAND_R, ELBOW_R, WRIST_R, FIST_R],
-	&"legs": [HIPS, HIPS_ROT, FOOT_L, FOOT_R, KNEE_L, KNEE_R, FOOT_ROT_L, FOOT_ROT_R, TOE_L, TOE_R],
+	&"legs": [HIPS, HIPS_ROT, FOOT_L, FOOT_R, KNEE_L, KNEE_R, FOOT_ROT_L, FOOT_ROT_R, TOE_L, TOE_R, FEET_HIPS],
 	&"head": [NECK, HEAD, MOUTH],
 }
 
@@ -119,6 +126,23 @@ func set_neutral() -> void:
 	v[TOE_L] = 0.0
 	v[TOE_R] = 0.0
 	v[MOUTH] = 0.0
+	v[FEET_HIPS] = 0.0
+
+
+static func is_euler_channel(i: int) -> bool:
+	return EULER_CHANNELS.has(i)
+
+
+## Shortest-arc lerp of Euler degrees (per component).
+static func lerp_euler(a: Vector3, b: Vector3, w: float) -> Vector3:
+	return a + Vector3(wrapf(b.x - a.x, -180.0, 180.0), wrapf(b.y - a.y, -180.0, 180.0), wrapf(b.z - a.z, -180.0, 180.0)) * w
+
+
+## Wraps every Euler channel into [-180, 180).
+func wrap_angles() -> void:
+	for i in EULER_CHANNELS:
+		var e: Vector3 = v[i]
+		v[i] = Vector3(wrapf(e.x, -180.0, 180.0), wrapf(e.y, -180.0, 180.0), wrapf(e.z, -180.0, 180.0))
 
 
 func copy_from(o: RigPose) -> void:
@@ -140,7 +164,10 @@ func blend(o: RigPose, w: float) -> void:
 		copy_from(o)
 		return
 	for i in COUNT:
-		v[i] = lerp(v[i], o.v[i], w)
+		if EULER_CHANNELS.has(i):
+			v[i] = lerp_euler(v[i], o.v[i], w)
+		else:
+			v[i] = lerp(v[i], o.v[i], w)
 
 
 ## Per-channel weighted blend with a mask (Array of channel indices, empty = all).
@@ -151,7 +178,10 @@ func blend_masked(o: RigPose, w: float, mask: Array) -> void:
 	if w <= 0.0:
 		return
 	for i: int in mask:
-		v[i] = lerp(v[i], o.v[i], w)
+		if EULER_CHANNELS.has(i):
+			v[i] = lerp_euler(v[i], o.v[i], w)
+		else:
+			v[i] = lerp(v[i], o.v[i], w)
 
 
 ## Adds `o * w` to the Euler/float channels listed (additive layers).

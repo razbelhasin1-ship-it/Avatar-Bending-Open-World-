@@ -133,15 +133,21 @@ func _skirt(s: RigSolver, model_to_world: Transform3D, dt: float) -> void:
 			_skirt_sway = Vector2.ZERO
 			_skirt_vel = Vector2.ZERO
 	_last_root = root
-	var fwd := maxf(maxf(s.thigh_swing[0], s.thigh_swing[1]), 0.0)
-	var back := minf(minf(s.thigh_swing[0], s.thigh_swing[1]), 0.0)
-	var f := skirt_bones[0]
-	var b := skirt_bones[1]
-	var l := skirt_bones[2]
-	var r := skirt_bones[3]
-	s.local_rot[f] = Basis(Vector3.RIGHT, fwd * 0.9 + _skirt_sway.x)
-	s.local_rot[b] = Basis(Vector3.RIGHT, back * 0.9 + _skirt_sway.x)
-	s.local_rot[l] = Basis(Vector3.BACK, -maxf(s.thigh_abduct[0], 0.0) * 0.8 + _skirt_sway.y)
-	s.local_rot[r] = Basis(Vector3.BACK, maxf(s.thigh_abduct[1], 0.0) * 0.8 + _skirt_sway.y)
-	for i in [f, b, l, r]:
-		s._fk(i)
+	# Panels [front-left, front-right, back-left, back-right]: each follows its
+	# own thigh's forward (or backward) swing and outward spread, plus a little
+	# of the other leg so the center seam stays covered.
+	for qi in 4:
+		var side := qi % 2
+		var front := qi < 2
+		var sw := s.thigh_swing[side]
+		var other := s.thigh_swing[1 - side]
+		var pitch: float
+		if front:
+			pitch = maxf(maxf(sw, 0.0), maxf(other, 0.0) * 0.45) * 1.02 + 0.05
+		else:
+			pitch = minf(minf(sw, 0.0), minf(other, 0.0) * 0.45) * 1.02 - 0.03
+		var spread := maxf(s.thigh_abduct[side], 0.0) * 0.95 + 0.03
+		var sg := SK.SIDE_SIGN[side]
+		var bi := skirt_bones[qi]
+		s.local_rot[bi] = Basis(Vector3.RIGHT, pitch + _skirt_sway.x) * Basis(Vector3.BACK, sg * spread + _skirt_sway.y)
+		s._fk(bi)

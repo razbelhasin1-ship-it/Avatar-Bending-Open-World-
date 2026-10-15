@@ -159,6 +159,7 @@ func snapshot(blend: float) -> void:
 		_xfade_w = 0.0
 		return
 	_xfade.copy_from(final)
+	_xfade.wrap_angles()
 	_xfade_w = 1.0
 	_xfade_rate = 1.0 / blend
 
@@ -343,6 +344,8 @@ func _finish(clip: AnimClip) -> void:
 		play(AnimLibrary.get_clip(clip.next), {"blend_in": 0.0})
 	elif clip.then_state != &"":
 		set_pose_state(clip.then_state, 0.0)
+		if clip.state_clip != &"" and AnimLibrary.has_clip(clip.state_clip):
+			_state_clip = AnimLibrary.get_clip(clip.state_clip)
 
 
 func _set_idle_feet(p: RigPose) -> void:

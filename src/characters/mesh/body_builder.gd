@@ -77,7 +77,7 @@ static func torso_loft(d: RigSkeletonDef, spec: Dictionary) -> RigLoft:
 		if y < hips_y:
 			var kx := _ss(0.25, 0.85, absf(pos.x) / hipw)
 			var ky := _ss(hips_y, float(p["hip_y"]) - 0.03 * h, y)
-			w = SkinMeshBuilder.wmix(w, {SK.THIGH[side]: 1.0}, kx * ky * 0.55)
+			w = SkinMeshBuilder.wmix(w, {SK.THIGH[side]: 1.0}, kx * ky * 0.35)
 		return w
 	var l := RigLoft.create(pts, Vector3(0, 0, -1), wfn)
 	var tf := func(y: float) -> float: return clampf((y - y0) / (y1 - y0), 0.0, 1.0)

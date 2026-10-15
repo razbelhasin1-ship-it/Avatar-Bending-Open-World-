@@ -109,8 +109,8 @@ static func _bands(steps: Array) -> Array:
 
 ## V-neck opening with trim strips along both edges.
 static func _vneck(spec: Dictionary, t_v: float, half: float, inner: Color, trim: Color, lift: float, cross: float = 0.0) -> void:
-	spec["torso_vneck"] = {"t": t_v, "half": half, "color": inner, "center": 0.25 + cross}
 	var pieces: Array = spec["pieces"]
+	pieces.append({"type": "vneck", "t": t_v, "half": half, "center": 0.25 + cross, "color": inner, "lift": lift - 0.0025})
 	var c := 0.25 + cross
 	pieces.append({"type": "strip", "part": "torso", "pts": [Vector2(t_v, c), Vector2(1.0, c - half)], "width": 0.011, "lift": lift, "color": trim})
 	pieces.append({"type": "strip", "part": "torso", "pts": [Vector2(t_v - 0.004, c), Vector2(1.0, c + half)], "width": 0.011, "lift": lift, "color": trim})

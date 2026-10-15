@@ -28,11 +28,12 @@ static func add_bones(d: RigSkeletonDef, spec: Dictionary) -> Array:
 		var hip_y: float = d.p["hip_y"]
 		var hd: float = float(d.p["hip_d"]) * h
 		var hw: float = float(d.p["hip_w"]) * h
-		var f := d.add_bone("skirt_f", SK.HIPS, Vector3(0, hip_y, -hd * 0.4))
-		var bk := d.add_bone("skirt_b", SK.HIPS, Vector3(0, hip_y, hd * 0.4))
-		var l := d.add_bone("skirt_l", SK.HIPS, Vector3(-hw * 0.5, hip_y, 0))
-		var r := d.add_bone("skirt_r", SK.HIPS, Vector3(hw * 0.5, hip_y, 0))
-		chains.append({"skirt": true, "bones": [f, bk, l, r]})
+		# Four quadrant panels; each follows its own thigh (see RigSecondary).
+		var fl := d.add_bone("skirt_fl", SK.HIPS, Vector3(-hw * 0.3, hip_y, -hd * 0.35))
+		var fr := d.add_bone("skirt_fr", SK.HIPS, Vector3(hw * 0.3, hip_y, -hd * 0.35))
+		var bl := d.add_bone("skirt_bl", SK.HIPS, Vector3(-hw * 0.3, hip_y, hd * 0.35))
+		var br := d.add_bone("skirt_br", SK.HIPS, Vector3(hw * 0.3, hip_y, hd * 0.35))
+		chains.append({"skirt": true, "bones": [fl, fr, bl, br]})
 	if need_cape:
 		var top := Vector3(0, float(d.p["shoulder_y"]), float(d.p["chest_d"]) * h * 1.1)
 		var c1 := d.add_bone("cape_1", SK.UPPER_CHEST, top)
@@ -54,7 +55,9 @@ static func build(outl: SkinMeshBuilder, flat: SkinMeshBuilder, d: RigSkeletonDe
 			"strip":
 				_strip(flat, d, pc, ctx)
 			"pads":
-				_pads(outl, d, pc)
+				_pads(outl, d, pc, ctx)
+			"vneck":
+				_vneck(flat, d, pc, ctx)
 			"cape":
 				_cape(outl, d, pc, ctx)
 			"knot":
@@ -89,9 +92,9 @@ static func _skirt(b: SkinMeshBuilder, d: RigSkeletonDef, pc: Dictionary, ctx: D
 	var hw: float = float(d.p["hip_w"]) * h
 	var hd: float = float(d.p["hip_d"]) * h
 	var hip_y: float = d.p["hip_y"]
-	var has_bones: bool = d.find("skirt_f") >= 0 and bool(pc.get("bones", true))
-	var bf := d.find("skirt_f")
-	var bb := d.find("skirt_b")
+	var has_bones: bool = d.find("skirt_fl") >= 0 and bool(pc.get("bones", true))
+	var panels := PackedInt32Array([d.find("skirt_fl"), d.find("skirt_fr"), d.find("skirt_bl"), d.find("skirt_br")])
+	var centers := PackedFloat32Array([-PI * 0.25, PI * 0.25, -PI * 0.75, PI * 0.75])
 	var top_y := top_c.y
 	var span := maxf(top_y - hem_y, 0.01)
 	var wfn := func(_t: float, _a: float, pos: Vector3) -> Dictionary:
@@ -109,12 +112,11 @@ static func _skirt(b: SkinMeshBuilder, d: RigSkeletonDef, pc: Dictionary, ctx: D
 		var sd := sin(ang) * sin(ang)
 		var w := {}
 		if has_bones:
-			var cf := maxf(cos(ang), 0.0)
-			var cb := maxf(-cos(ang), 0.0)
-			w[bf] = cf * cf
-			w[bb] = cb * cb
-			w[SK.THIGH[side]] = sd * 0.85
-			w[SK.HIPS] = sd * 0.15
+			# Partition of unity over the four quadrant panels (cos^2 falloff).
+			for qi in 4:
+				var dq := wrapf(ang - centers[qi], -PI, PI)
+				if absf(dq) < PI * 0.5:
+					w[panels[qi]] = cos(dq) * cos(dq)
 		else:
 			w[SK.THIGH[side]] = 0.55 + 0.25 * sd
 			w[SK.HIPS] = 0.45 - 0.25 * sd
@@ -135,7 +137,7 @@ static func _skirt(b: SkinMeshBuilder, d: RigSkeletonDef, pc: Dictionary, ctx: D
 	var ty1: float = lm["y1"]
 	var hx := d.rest_pos[SK.THIGH_L].x
 	var leg_r: float = 0.046 * h * float(d.p["limb"]) + float(ctx.get("leg_infl", 0.0))
-	var clear := 0.01 * h
+	var clear := 0.014 * h
 	var prof := PackedFloat32Array([0.0, 0.0, 0.0, 2.0])
 	var n_upper := 4
 	var y_end := minf(mid_y, top_y)
@@ -271,30 +273,62 @@ static func _strip(b: SkinMeshBuilder, d: RigSkeletonDef, pc: Dictionary, ctx: D
 	lo.emit_strip(b, pts, float(pc.get("width", 0.012)) * h, float(pc.get("lift", 0.012)) * h, pc.get("color", Color.WHITE))
 
 
-## Shoulder pads: stacked domes. Fields: color, trim, layers, size, drop.
-static func _pads(b: SkinMeshBuilder, d: RigSkeletonDef, pc: Dictionary) -> void:
+## Shoulder pads: layered curved plates hugging the deltoid (they follow the
+## arm loft surface, so they deform with the shoulder). Fields: color, trim,
+## layers, size.
+static func _pads(b: SkinMeshBuilder, d: RigSkeletonDef, pc: Dictionary, ctx: Dictionary) -> void:
 	var h: float = d.p["height"]
 	var layers: int = pc.get("layers", 1)
 	var size: float = float(pc.get("size", 1.0))
 	var col: Color = pc.get("color", Color.WHITE)
 	var trim: Color = pc.get("trim", col.darkened(0.3))
 	for side in 2:
-		var s := SK.SIDE_SIGN[side]
-		var sh := d.rest_pos[SK.UPPERARM[side]]
+		var arm: RigLoft = (ctx["arms"] as Array)[side]
+		var old := [arm.a0, arm.a1, arm.flip]
+		# Outer half of the arm (front -> outside -> back); a = 0 is outward on the left arm.
+		var mid := 0.0 if side == 0 else 0.5
+		var span := 0.3 * size
 		for i in layers:
 			var fi := float(i)
-			var c := sh + Vector3(s * (0.012 + 0.012 * fi) * h, (0.022 - 0.03 * fi) * h, 0.0)
-			var up := Vector3(s * (0.55 + 0.25 * fi), 1.0, 0.0).normalized()
-			var out := Vector3(0, 0, -1).cross(up) * -s
-			var r := Vector3(0.05, 0.022, 0.055) * h * size * (1.0 - 0.08 * fi)
-			var bas := RigShapes.axes(out, up, Vector3.BACK, r)
-			var w := {SK.UPPERARM[side]: 0.75 - 0.1 * fi, SK.CLAVICLE[side]: 0.25 + 0.1 * fi}
-			var colr := col if i % 2 == 0 else trim
-			RigShapes.sphere_fn(b,
-				func(th: float, ph: float) -> Vector3: return c + bas * Vector3(sin(ph) * sin(th), cos(ph), -sin(ph) * cos(th)),
-				func(_th: float, ph: float, _p: Vector3) -> Color: return trim if ph > 1.25 else colr,
-				func(_th: float, _ph: float, _p: Vector3) -> Dictionary: return w,
-				7, 14, PI * 0.5)
+			var t0 := 0.0 + fi * 0.07
+			var t1 := minf(0.2 + fi * 0.075 + 0.04 * size, 0.6)
+			var infl := (0.013 + 0.007 * (float(layers) - 1.0 - fi)) * h * size
+			arm.a0 = mid - span - 0.04 * fi
+			arm.a1 = mid + span + 0.04 * fi
+			var colr := col if i % 2 == 0 else col.darkened(0.15)
+			var bands := [{"t0": t0, "t1": t1 - 0.035, "color": colr, "inflate": infl}, {"t0": t1 - 0.035, "t1": t1, "color": trim, "inflate": infl + 0.002 * h}]
+			arm.flip = false
+			arm.emit(b, 6, 10, bands, false, false, t0, t1)
+			arm.flip = true
+			arm.emit(b, 4, 10, [{"t0": t0 + 0.01, "t1": t1, "color": col.darkened(0.5), "inflate": infl - 0.004 * h}], false, false, t0 + 0.01, t1)
+		arm.a0 = old[0]
+		arm.a1 = old[1]
+		arm.flip = old[2]
+
+
+## Crisp V-neck opening (undershirt showing) as a flat patch on the torso.
+## Fields: t (bottom of the V), half (a-units at the collar), center, color, lift.
+static func _vneck(b: SkinMeshBuilder, d: RigSkeletonDef, pc: Dictionary, ctx: Dictionary) -> void:
+	var h: float = d.p["height"]
+	var torso: RigLoft = ctx["torso"]
+	var t_v: float = pc.get("t", 0.8)
+	var half: float = pc.get("half", 0.07)
+	var ac: float = pc.get("center", 0.25)
+	var lift: float = float(pc.get("lift", 0.009)) * h
+	var col: Color = pc.get("color", Color.WHITE)
+	var poly := PackedVector2Array()
+	var n := 8
+	var corners := [Vector2(ac, t_v), Vector2(ac + half, 0.995), Vector2(ac - half, 0.995)]
+	for e in 3:
+		var a: Vector2 = corners[e]
+		var c: Vector2 = corners[(e + 1) % 3]
+		for k in n:
+			poly.append(a.lerp(c, float(k) / float(n)))
+	var surf := func(u: float, v: float) -> Array:
+		var sp := torso.surface_point(v, u, lift)
+		return sp
+	var w := torso.weights_at(t_v, ac, torso.center(t_v))
+	RigShapes.patch(b, surf, poly, 0.0, col, w, 4)
 
 
 ## Back cape / shawl. Fields: color, inner, length (fraction of height

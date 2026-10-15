@@ -160,11 +160,21 @@ func _solve_leg(side: int, pose: RigPose) -> void:
 	var kv: Vector3 = v[P.KNEE_L + side]
 	var rv: Vector3 = v[P.FOOT_ROT_L + side]
 	var target := def.rest_pos[ft] + Vector3(sg * fv.x, fv.y, -fv.z) * def.leg_len
-	target.y += ground_dy[side]
+	target.y += ground_dy[side] * (1.0 - clampf(v[P.FEET_HIPS], 0.0, 1.0))
 	var pole := Vector3(sg * kv.x, kv.y, -kv.z)
+	var fh: float = clampf(v[P.FEET_HIPS], 0.0, 1.0)
+	if fh > 0.001:
+		# Feet relative to the rotating pelvis (rolls, flips, tumbles).
+		var hb0 := g_basis[SK.HIPS]
+		var rel := def.rest_pos[ft] - def.rest_pos[SK.HIPS] + Vector3(sg * fv.x, fv.y, -fv.z) * def.leg_len
+		var t_h := g_pos[SK.HIPS] + hb0 * rel
+		target = target.lerp(t_h, fh)
+		pole = pole.lerp(hb0 * pole, fh)
 	# Foot orientation in model space (yaw/pitch/roll + ground tilt).
 	var r_foot := Basis(Vector3.UP, deg_to_rad(-sg * rv.y)) * Basis(Vector3.RIGHT, deg_to_rad(rv.x)) * Basis(Vector3.BACK, deg_to_rad(sg * rv.z))
-	var gw := ground_w[side]
+	if fh > 0.001:
+		r_foot = Basis(Quaternion(r_foot).slerp(Quaternion(g_basis[SK.HIPS] * r_foot), fh))
+	var gw := ground_w[side] * (1.0 - fh)
 	if gw > 0.001 and ground_n[side].dot(Vector3.UP) < 0.9999:
 		var q := Quaternion(Vector3.UP, ground_n[side].normalized())
 		r_foot = Basis(Quaternion.IDENTITY.slerp(q, gw)) * r_foot
@@ -174,7 +184,7 @@ func _solve_leg(side: int, pose: RigPose) -> void:
 	# Out of reach: a trailing foot lifts its heel around the ball (toe-off); a
 	# leading foot rotates toe-up around the heel (heel strike).
 	heel_lift[side] = 0.0
-	if hip.distance_to(target) > reach:
+	if hip.distance_to(target) > reach and fh < 0.5:
 		var leading := (target - hip).dot(g_basis[SK.HIPS] * Vector3.FORWARD) > 0.0
 		var pivot_off: Vector3
 		if leading:

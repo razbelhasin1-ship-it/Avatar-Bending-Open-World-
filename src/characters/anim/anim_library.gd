@@ -36,6 +36,18 @@ static func register(clip_name: StringName, clip: Dictionary) -> AnimClip:
 	return c
 
 
+## Registers `new_name` as a copy of an existing clip (events report new_name).
+static func alias(new_name: StringName, existing: StringName) -> AnimClip:
+	_ensure_builtin()
+	var src: AnimClip = _clips.get(existing, null)
+	if src == null:
+		push_warning("AnimLibrary.alias: unknown clip '%s'" % existing)
+		return null
+	var c := src.duplicate_as(new_name)
+	_clips[new_name] = c
+	return c
+
+
 static func unregister(clip_name: StringName) -> void:
 	_clips.erase(clip_name)
 

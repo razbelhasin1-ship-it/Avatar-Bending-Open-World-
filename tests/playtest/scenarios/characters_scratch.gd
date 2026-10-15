@@ -1,19 +1,72 @@
 extends RefCounted
-## Scratch locomotion check (development aid).
+## Scratch pose contact sheets (development aid).
+## SHEET="clip@t,clip@t;clip,clip" PRESET=fire_nation VIEW=front|side|34
 func run(p: Playtest) -> void:
 	var show: CharacterShowcase = await p.load_scene("res://scenes/dev/character_showcase.tscn")
-	var speed := float(OS.get_environment("SCRATCH_SPEED")) if OS.get_environment("SCRATCH_SPEED") != "" else 1.5
-	var presets := ["air_nomad", "earth_kingdom", "fire_nation", "water_tribe"]
-	var x := -1.8
-	for pr: String in presets:
-		show.spawn({"preset": StringName(pr)}, Vector3(x, 0, 0))
-		x += 1.2
-	show.run_for(0.5)
-	var vel := Vector3(0, 0, -speed)
-	show.run_for(1.5, vel, true)
-	for i in 6:
-		var z := show.rigs[0].position.z
-		show.frame_camera(Vector3(6.5, 1.0, z), Vector3(0, 0.85, z), 30.0)
-		await p.frames(2)
-		await p.screenshot("walk_%d" % i)
-		show.run_for(0.1, vel, true)
+	var sheets := OS.get_environment("SHEET").split(";", false)
+	var preset := OS.get_environment("PRESET")
+	if preset == "":
+		preset = "fire_nation"
+	var view := OS.get_environment("VIEW")
+	var labels: Array[Node] = []
+	var si := 0
+	for sheet in sheets:
+		show.clear_rigs()
+		for l in labels:
+			l.queue_free()
+		labels.clear()
+		await p.frames(1)
+		var items := sheet.split(",", false)
+		var n := items.size()
+		var spacing := 1.5
+		var i := 0
+		for it: String in items:
+			var pre := preset
+			if it.contains(":"):
+				pre = it.get_slice(":", 0)
+				it = it.get_slice(":", 1)
+			var parts := it.split("@")
+			var clip := StringName(parts[0])
+			var t := float(parts[1]) if parts.size() > 1 else -1.0
+			var pos := Vector3((float(i) - (n - 1) * 0.5) * spacing, 0, 0)
+			var yaw := 90.0 if view == "side" else (30.0 if view == "34" else 0.0)
+			var cfg := {"preset": StringName(pre.trim_suffix("_f"))}
+			if pre.ends_with("_f"):
+				cfg["body"] = "female"
+			var rig := show.spawn(cfg, pos, yaw)
+			var cl := AnimLibrary.get_clip(clip)
+			if cl == null:
+				p.check(false, "missing clip %s" % clip)
+				continue
+			if t < 0.0:
+				t = cl.event_time(&"impact")
+				if t < 0.0:
+					t = cl.event_time(&"release")
+				if t < 0.0:
+					t = 0.5
+			show.run_for(0.3)
+			if cl.loop and t > 0.0 and String(clip).ends_with("_loop") or clip in [&"ride", &"swim", &"fall", &"jump_air", &"air_tumble"]:
+				rig.play_action(clip, {"blend_in": 0.0, "start": t})
+			else:
+				rig.play_action(clip, {"blend_in": 0.0, "start": t})
+			rig.animator.paused = true
+			rig.advance(0.0)
+			var lab := Label3D.new()
+			lab.text = "%s @%.2f" % [clip, t]
+			lab.font_size = 36
+			lab.pixel_size = 0.003
+			lab.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+			lab.position = pos + Vector3(0, 2.05, 0)
+			lab.modulate = Color(0.1, 0.1, 0.1)
+			show.add_child(lab)
+			labels.append(lab)
+			i += 1
+		var dist := 2.2 + float(n) * 1.45
+		if OS.get_environment("CLOSE") != "":
+			dist = 0.9 + float(n) * 0.75
+			show.frame_camera(Vector3(0, 1.45, -dist), Vector3(0, 1.3, 0), 38.0)
+		else:
+			show.frame_camera(Vector3(0, 1.3, -dist), Vector3(0, 0.95, 0), 38.0)
+		await p.frames(3)
+		await p.screenshot("sheet_%s_%d" % [preset, si])
+		si += 1

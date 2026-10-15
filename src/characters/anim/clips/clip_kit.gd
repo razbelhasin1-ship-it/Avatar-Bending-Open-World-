@@ -83,3 +83,46 @@ static func reg_pair(stem: String, clip_r: Dictionary) -> void:
 static func reg_alias(names: Array, clip: Dictionary) -> void:
 	for n: Variant in names:
 		AnimLibrary.register(StringName(n), clip)
+
+
+## Concatenates clip dictionaries into one chain (keys, events, plants and root
+## remapped onto the combined timeline). Only explicit keys are kept, so the
+## chain flows from hit to hit without returning to the base pose in between.
+static func chain(parts: Array, extra: Dictionary = {}) -> Dictionary:
+	var total := 0.0
+	for p: Dictionary in parts:
+		total += float(p.get("length", 1.0))
+	var keys: Array = []
+	var events: Array = []
+	var plants: Array = []
+	var root: Array = []
+	var off := 0.0
+	var root_off := Vector3.ZERO
+	var mask := &"upper"
+	for p: Dictionary in parts:
+		var ln := float(p.get("length", 1.0))
+		if StringName(p.get("mask", &"full")) == &"full":
+			mask = &"full"
+		for k: Array in p.get("keys", []):
+			var nk := [(off + float(k[0]) * ln) / total, k[1]]
+			if k.size() > 2:
+				nk.append(k[2])
+			keys.append(nk)
+		var ev: Variant = p.get("events", [])
+		if ev is Array:
+			for e: Array in ev:
+				events.append([(off + float(e[0]) * ln) / total, e[1]])
+		for pl: Array in p.get("plants", []):
+			var np := pl.duplicate()
+			np[0] = (off + float(pl[0]) * ln) / total
+			plants.append(np)
+		var last := Vector3.ZERO
+		for r: Array in p.get("root", []):
+			root.append([(off + float(r[0]) * ln) / total, root_off + (r[1] as Vector3)])
+			last = r[1]
+		root_off += last
+		off += ln
+	var c := {"length": total, "mask": mask, "keys": keys, "events": events, "plants": plants, "root": root}
+	for k: String in extra:
+		c[k] = extra[k]
+	return c

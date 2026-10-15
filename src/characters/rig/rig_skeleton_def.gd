@@ -197,7 +197,7 @@ func build(props: Dictionary) -> RigSkeletonDef:
 	var hip_y: float = float(p["leg"]) * h
 	var knee_y := ankle_y + (hip_y - ankle_y) * 0.49
 	var chin_y := h - head_h
-	var shoulder_y := chin_y - 0.034 * h
+	var shoulder_y := chin_y - 0.029 * h
 	var neck_base_y := shoulder_y + 0.006 * h
 	var hips_y := hip_y + 0.026 * h
 	var sx: float = float(p["shoulder_x"]) * h

@@ -28,6 +28,8 @@ var blend_out := 0.15
 var next: StringName = &""
 ## Pose state to enter after finishing (e.g. &"knocked_down").
 var then_state: StringName = &""
+## Optional loop clip overriding that state's default clip (e.g. a prone death).
+var state_clip: StringName = &""
 ## Arbitrary metadata (style, tags, signature...).
 var meta: Dictionary = {}
 ## channel -> {"t": PackedFloat32Array, "v": Array (null = base), "e": Array[StringName]}
@@ -63,6 +65,7 @@ static func compile(clip_name: StringName, d: Dictionary) -> AnimClip:
 	c.blend_out = float(d.get("blend_out", 0.15))
 	c.next = StringName(d.get("next", &""))
 	c.then_state = StringName(d.get("then_state", &""))
+	c.state_clip = StringName(d.get("state_clip", &""))
 	c.meta = d.get("meta", {})
 	var ev: Variant = d.get("events", [])
 	if ev is Dictionary:
@@ -142,14 +145,35 @@ static func compile(clip_name: StringName, d: Dictionary) -> AnimClip:
 	return c
 
 
+## Copy of this clip under another name (tracks are shared, read-only).
+func duplicate_as(new_name: StringName) -> AnimClip:
+	var c := AnimClip.new()
+	c.name = new_name
+	c.length = length
+	c.loop = loop
+	c.mask_name = mask_name
+	c.mask = mask
+	c.events = events
+	c.plants = plants
+	c.root = root
+	c.blend_in = blend_in
+	c.blend_out = blend_out
+	c.next = next
+	c.then_state = then_state
+	c.state_clip = state_clip
+	c.meta = meta
+	c.tracks = tracks
+	return c
+
+
 ## Writes the clip pose at normalized time `t` into `out` (base = layer below).
 func evaluate(t: float, base: RigPose, out: RigPose) -> void:
 	out.copy_from(base)
 	for ci: int in tracks:
-		out.v[ci] = _eval_track(tracks[ci], t, base.v[ci])
+		out.v[ci] = _eval_track(tracks[ci], t, base.v[ci], P.EULER_CHANNELS.has(ci))
 
 
-func _eval_track(tr: Dictionary, t: float, base_val: Variant) -> Variant:
+func _eval_track(tr: Dictionary, t: float, base_val: Variant, euler: bool = false) -> Variant:
 	var ts: PackedFloat32Array = tr["t"]
 	var vs: Array = tr["v"]
 	var es: Array = tr["e"]
@@ -177,7 +201,26 @@ func _eval_track(tr: Dictionary, t: float, base_val: Variant) -> Variant:
 		p0 = _val(vs, j, base_val)
 	if j3 == j + 1:
 		p3 = _val(vs, j + 1, base_val)
-	return _hermite(p0, _val(vs, j, base_val), _val(vs, j + 1, base_val), p3, tt0, ts[j], ts[j + 1], tt3, u2)
+	var p1: Variant = _val(vs, j, base_val)
+	var p2: Variant = _val(vs, j + 1, base_val)
+	if euler and (vs[j] == null or vs[j + 1] == null):
+		# Blending between the base pose and a (possibly multi-turn) key: take
+		# the shortest arc so spins never unwind.
+		var a: Vector3 = p1
+		var b: Vector3 = p2
+		if vs[j] == null:
+			a = b + _wrap3(a - b)
+		else:
+			b = a + _wrap3(b - a)
+		p1 = a
+		p2 = b
+		p0 = a
+		p3 = b
+	return _hermite(p0, p1, p2, p3, tt0, ts[j], ts[j + 1], tt3, u2)
+
+
+static func _wrap3(d: Vector3) -> Vector3:
+	return Vector3(wrapf(d.x, -180.0, 180.0), wrapf(d.y, -180.0, 180.0), wrapf(d.z, -180.0, 180.0))
 
 
 static func _val(vs: Array, i: int, base_val: Variant) -> Variant:
