@@ -110,6 +110,7 @@ var _blink_phase := -1.0
 var _idle_t := 5.0
 var _air_t := 0.0
 var _takeoff_hold := 0.0
+var _landing_pending := false
 var _flash := 0.0
 var _probe_exclude: Array[RID] = []
 var _step_sound_t := 0.0
@@ -165,25 +166,47 @@ func set_flight(active: bool, vel: Vector3 = Vector3.ZERO, bank: float = 0.0, pi
 	set_flying(active)
 
 
-## Requests flight on/off. Plays "takeoff" / "land" (see action_event "leap" /
-## "touchdown"). Returns the transition duration (0 if unchanged or cannot fly).
+## Requests flight on/off. Taking off plays "takeoff" (action_event "leap" is when the
+## controller should start climbing). Landing keeps the flight pose while the creature
+## is higher than `land_altitude()` above the ground (the controller descends), then
+## plays "land" (action_event "touchdown"). Returns the transition duration (0 if
+## unchanged or the species cannot fly).
 func set_flying(active: bool) -> float:
 	if active == flying or not can_fly():
 		return 0.0
 	flying = active
 	var d := 0.0
 	if active:
+		_landing_pending = false
 		if flight_w < 0.3:
 			d = play_action(&"takeoff")
 			_takeoff_hold = float(species.tune.get("takeoff_leap", 0.5))
 	else:
-		d = play_action(&"land")
+		_landing_pending = true
+		var la := species.make_action(&"land", {})
+		d = la.duration if la != null else 0.0
 	flight_changed.emit(active)
 	return d
 
 
+## Height above ground under which a pending landing starts its touchdown animation.
+func land_altitude() -> float:
+	return float(species.tune.get("land_altitude", float(_dims.get("height", 3.0)) * 0.9))
+
+
+## Height of the rig origin above the ground below it.
+func altitude() -> float:
+	var p := global_position
+	return p.y - probe_ground(p, p.y + 0.5).y if is_inside_tree() else 0.0
+
+
 func is_flying() -> bool:
 	return flying
+
+
+## True while a requested landing waits for the creature to get near the ground.
+func is_landing() -> bool:
+	return _landing_pending or is_action_playing(&"land")
 
 
 func can_fly() -> bool:
@@ -372,6 +395,8 @@ func _build(species_name: StringName, sp: CreatureSpecies, cfg: Dictionary) -> v
 	_notifier = VisibleOnScreenNotifier3D.new()
 	_notifier.aabb = AABB(Vector3(-ext * 0.5, -1.0, -ext * 0.5), Vector3(ext, ext * 0.75, ext))
 	add_child(_notifier)
+	# Coming into view re-evaluates LOD on the next frame (no shell pop-in delay).
+	_notifier.screen_entered.connect(func() -> void: _lod_timer = 0.0)
 	actions.event_fired.connect(_on_action_event)
 	actions.finished.connect(func(n: StringName) -> void: action_finished.emit(n))
 	if cfg.has("lod") and int(cfg["lod"]) >= 0:
@@ -509,6 +534,14 @@ func _update_motion(dt: float) -> void:
 func _update_flight(dt: float) -> void:
 	if not can_fly():
 		return
+	if _landing_pending:
+		if (grounded and _manual_loco) or altitude() <= land_altitude():
+			_landing_pending = false
+			play_action(&"land")
+		else:
+			# Still descending: hold the flight pose.
+			flight_w = move_toward(flight_w, 1.0, dt)
+			return
 	var target := 1.0 if flying else 0.0
 	var rate := 1.0 / maxf(float(species.tune.get("flight_blend", 1.0)), 0.1)
 	if flying and _takeoff_hold > 0.0:

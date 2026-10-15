@@ -50,7 +50,7 @@ void fragment() {
 	c = creature_apply_marks(c, creature_mark_mask(UV));
 	c *= mix(1.0 - root_dark, 1.0 + tip_lighten, shell);
 	ALBEDO = creature_status(c);
-	ROUGHNESS = 0.9;
-	SPECULAR = 0.15;
+	ROUGHNESS = 1.0;
+	SPECULAR = 0.0;
 	EMISSION = creature_flash();
 }

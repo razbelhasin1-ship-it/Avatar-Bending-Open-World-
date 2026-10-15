@@ -21,6 +21,10 @@ var _len: PackedFloat32Array = PackedFloat32Array()
 var _x: PackedVector3Array = PackedVector3Array()
 var _v: PackedVector3Array = PackedVector3Array()
 var _ready := false
+var _prev_origin := Vector3.ZERO
+var _prev_vel := Vector3.ZERO
+## How much of the body's linear acceleration swings the chain (0 = none).
+var inertia := 0.6
 
 
 ## `tip` = rest position of the end of the last bone (skeleton space).
@@ -47,14 +51,26 @@ func update(skel: RigSkeleton, xf: Transform3D, delta: float) -> void:
 	if bones.is_empty():
 		return
 	var n := bones.size()
-	if not _ready or delta <= 0.0:
+	if not _ready or delta <= 0.0 or xf.origin.distance_to(_prev_origin) > 20.0:
 		for k in n:
 			var g := skel.glob[bones[k]]
 			_x[k] = xf * (g.origin + g.basis * _tip_dir[k] * _len[k])
 			_v[k] = Vector3.ZERO
 		_ready = true
+		_prev_origin = xf.origin
+		_prev_vel = Vector3.ZERO
 		return
 	var dt := minf(delta, 1.0 / 20.0)
+	# Carry the particles with the body's translation: steady motion causes no lag (no
+	# "windsock" tails at speed); only acceleration (scaled by `inertia`) and turning do.
+	var move := xf.origin - _prev_origin
+	var vel := move / maxf(delta, 1e-4)
+	var accel_kick := (vel - _prev_vel) * (1.0 - inertia)
+	_prev_origin = xf.origin
+	_prev_vel = vel
+	for k in n:
+		_x[k] += move
+		_v[k] += accel_kick
 	var inv := xf.affine_inverse()
 	var k_stiff := stiffness
 	for k in n:

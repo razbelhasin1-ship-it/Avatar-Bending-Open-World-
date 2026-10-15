@@ -449,6 +449,11 @@ func post_pose(rig: CreatureRig, _delta: float) -> void:
 				extra_raise += 0.35 * e * w * sin(a.t * 2.2) * (1.0 - fw)
 	fold = clampf(fold, 0.0, 1.0)
 	_wing_fold = fold
+	# Near the ground (takeoff/landing) the downstroke is shortened so the tips clear it.
+	if fw > 0.0 and fw < 1.0 or rig.is_landing():
+		var alt := rig.altitude() if rig.is_inside_tree() else 10.0
+		var floor_ang := -0.12 - 0.85 * clampf(alt / (6.0 * k), 0.0, 1.0)
+		flap = maxf(flap, floor_ang)
 	for w in wings:
 		w.pose(rig.skel, fold, (flap + extra_raise) * (1.0 - fold * 0.9) + extra_raise * fold, upstroke * (1.0 - fold),
 				sweep + 0.1 * (1.0 - fold) * sin(_flap * TAU), spread)

@@ -13,6 +13,10 @@ var creatures: Array[CreatureRig] = []
 var drivers: Dictionary = {}
 var orbit := true
 var _orbit_t := 0.0
+var _follow: Node3D = null
+var _follow_offset := Vector3.ZERO
+var _follow_look := Vector3.ZERO
+var _follow_local := true
 var _ground_color := Color(0.58, 0.66, 0.42)
 
 
@@ -67,13 +71,13 @@ func _build_stage() -> void:
 	ground.collision_mask = 0
 	var cs := CollisionShape3D.new()
 	var box := BoxShape3D.new()
-	box.size = Vector3(600, 2, 600)
+	box.size = Vector3(4000, 2, 4000)
 	cs.shape = box
 	cs.position = Vector3(0, -1, 0)
 	ground.add_child(cs)
 	var gm := MeshInstance3D.new()
 	var pm := PlaneMesh.new()
-	pm.size = Vector2(600, 600)
+	pm.size = Vector2(4000, 4000)
 	pm.subdivide_width = 1
 	pm.subdivide_depth = 1
 	gm.mesh = pm
@@ -204,12 +208,38 @@ func add_reference_human(pos: Vector3, yaw: float = 0.0) -> Node3D:
 
 func frame(cam_pos: Vector3, target: Vector3, fov: float = 50.0) -> void:
 	orbit = false
+	_follow = null
 	camera.fov = fov
 	camera.global_position = cam_pos
 	camera.look_at(target)
 
 
+## Keeps the camera on `target` every frame: `offset` from the target (in its yaw
+## frame when `local`), looking at target + `look`.
+func follow(target: Node3D, offset: Vector3, look: Vector3 = Vector3.ZERO, fov: float = 50.0, local: bool = true) -> void:
+	orbit = false
+	_follow = target
+	_follow_offset = offset
+	_follow_look = look
+	_follow_local = local
+	camera.fov = fov
+	_update_follow()
+
+
+func _update_follow() -> void:
+	if _follow == null or not is_instance_valid(_follow):
+		return
+	var yaw := _follow.global_rotation.y
+	var off := Basis(Vector3.UP, yaw) * _follow_offset if _follow_local else _follow_offset
+	var t := _follow.global_position
+	camera.global_position = t + off
+	camera.look_at(t + _follow_look)
+
+
 func _process(delta: float) -> void:
+	if _follow != null:
+		_update_follow()
+		return
 	if not orbit:
 		return
 	_orbit_t += delta * 0.05

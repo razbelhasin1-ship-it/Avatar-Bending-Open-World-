@@ -323,7 +323,8 @@ func default_locomotion_pose(rig: CreatureRig, pose: CreaturePose) -> void:
 	var spd := rig.gait.speed
 	pose.tail_wag += 0.12 * (1.0 - clampf(spd / 4.0, 0.0, 1.0))
 	pose.tail_wag_speed += 1.3
-	pose.tail_pitch += -0.25 + 0.2 * clampf(spd / 8.0, 0.0, 1.0)
+	# Plume hangs low when walking, streams out behind at a gallop.
+	pose.tail_pitch += -0.45 + 0.45 * clampf((spd - 3.0) / 7.0, 0.0, 1.0)
 
 
 func sound_for(action: StringName, event: StringName) -> StringName:

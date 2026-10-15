@@ -54,8 +54,8 @@ func build(rig: CreatureRig) -> void:
 	s.add(&"lid_l", &"head", v.call(-0.52, 2.88, -3.55))
 	s.add(&"lid_r", &"head", v.call(0.52, 2.88, -3.55))
 	s.add(&"tail1", &"pelvis", v.call(0, 2.50, 2.30))
-	s.add(&"tail2", &"tail1", v.call(0, 2.40, 2.95))
-	s.add(&"tail3", &"tail2", v.call(0, 2.25, 3.65))
+	s.add(&"tail2", &"tail1", v.call(0, 2.38, 2.98))
+	s.add(&"tail3", &"tail2", v.call(0, 2.2, 3.75))
 	# Six legs: front (chest), middle (spine1), hind (pelvis).
 	var rows := [["f", -1.45, &"chest", CreatureLeg.Group.FRONT], ["m", 0.05, &"spine1", CreatureLeg.Group.MIDDLE],
 			["h", 1.55, &"pelvis", CreatureLeg.Group.HIND]]
@@ -110,7 +110,7 @@ func build(rig: CreatureRig) -> void:
 	m.look_yaw_limit = 0.9
 	m.look_neck_share = 0.45
 	m.ear_flop = 0.0
-	var tail_spring := SpringChain.new().setup(s, m.tail, v.call(0, 2.05, 4.45))
+	var tail_spring := SpringChain.new().setup(s, m.tail, v.call(0, 2.0, 4.7))
 	tail_spring.stiffness = 30.0
 	tail_spring.damping = 8.0
 	tail_spring.falloff = 0.9
@@ -210,15 +210,15 @@ func build_mesh(rig: CreatureRig, kit: MeshKit) -> void:
 				"face": Vector3(side, 0.4, 0).normalized()})
 	# Broad flat beaver tail, slightly drooping.
 	var tail := [
-		{"p": v.call(0, 2.50, 2.30), "w": 0.72 * k, "h": 0.46 * k},
-		{"p": v.call(0, 2.40, 2.90), "w": 1.02 * k, "h": 0.28 * k, "n": 2.4},
-		{"p": v.call(0, 2.25, 3.60), "w": 1.2 * k, "h": 0.2 * k, "n": 2.8},
-		{"p": v.call(0, 2.11, 4.20), "w": 1.08 * k, "h": 0.16 * k, "n": 2.8},
-		{"p": v.call(0, 2.06, 4.48), "w": 0.62 * k, "h": 0.12 * k, "n": 2.4},
+		{"p": v.call(0, 2.5, 2.3), "w": 0.78 * k, "h": 0.48 * k},
+		{"p": v.call(0, 2.38, 2.95), "w": 1.18 * k, "h": 0.3 * k, "n": 2.4},
+		{"p": v.call(0, 2.2, 3.7), "w": 1.42 * k, "h": 0.22 * k, "n": 2.8},
+		{"p": v.call(0, 2.05, 4.35), "w": 1.3 * k, "h": 0.17 * k, "n": 2.8},
+		{"p": v.call(0, 2.0, 4.65), "w": 0.78 * k, "h": 0.13 * k, "n": 2.4},
 	]
-	kit.loft(tail, {"segs": 28, "sub": 3, "color": fur, "fluff": 0.05, "lobes": 17.0, "fluff_freq": 2.5, "cap1": "round",
+	kit.loft(tail, {"segs": 30, "sub": 3, "color": fur, "fluff": 0.05, "lobes": 19.0, "fluff_freq": 2.5, "cap1": "round",
 			"cap_len": 0.45, "seed": 27, "mark_row": 3,
-			"weights": s.chain_weighter([&"tail1", &"tail2", &"tail3"], v.call(0, 2.05, 4.45), 0.7)})
+			"weights": s.chain_weighter([&"tail1", &"tail2", &"tail3"], v.call(0, 2.0, 4.7), 0.7)})
 	# Six thick legs with big round feet.
 	for l in rig.legs:
 		CreatureParts.limb(kit, rig, l, [Vector2(0.45, 0.45) * k, Vector2(0.56, 0.56) * k, Vector2(0.48, 0.48) * k,
@@ -239,7 +239,7 @@ func build_mesh(rig: CreatureRig, kit: MeshKit) -> void:
 	for side in [-1.0, 1.0]:
 		kit.ellipsoid(v.call(0.14 * side, 2.72, -3.82), Vector3(0.075, 0.045, 0.03) * k, {"weights": head_w,
 				"color": Color(1, 1, 1, 0), "rings": 6, "segs": 10}, Basis.from_euler(Vector3(0, 0, 0.4 * side)))
-	kit.ellipsoid(v.call(0, 2.28, -3.2), Vector3(0.5, 0.1, 0.38) * k, {"weights": head_w,
+	kit.ellipsoid(v.call(0, 2.33, -3.3), Vector3(0.4, 0.06, 0.28) * k, {"weights": head_w,
 			"color": Color(1, 1, 1, 0), "rings": 8, "segs": 14})
 	kit.surface(&"nose")
 	kit.tube(PackedVector3Array([v.call(-0.58, 2.3, -3.42), v.call(-0.32, 2.21, -3.7), v.call(0.0, 2.2, -3.8),

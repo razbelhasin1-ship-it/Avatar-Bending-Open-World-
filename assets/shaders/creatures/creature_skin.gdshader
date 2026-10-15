@@ -77,8 +77,9 @@ void fragment() {
 	}
 	c *= 1.0 - belly_shade * smoothstep(0.1, -0.8, v_obj_normal.y);
 	ALBEDO = creature_status(c);
-	ROUGHNESS = 0.85;
+	// Highlights come from the toon light(); no glossy sky reflections on creatures.
+	ROUGHNESS = 1.0;
 	METALLIC = 0.0;
-	SPECULAR = 0.2;
+	SPECULAR = 0.0;
 	EMISSION = emission.rgb * emission_energy + creature_flash();
 }

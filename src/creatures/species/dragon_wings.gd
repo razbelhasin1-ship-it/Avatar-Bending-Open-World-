@@ -76,14 +76,14 @@ func add_bones(s: RigSkeleton, parent_name: StringName, k: float, sd: float) -> 
 		_rest_dir["fb%d" % f] = (p_tip[f] - p_knuckle[f]).normalized()
 	# Folded along the flank: humerus up/back, forearm forward, fingers back and down.
 	var m := func(x: float, y: float, z: float) -> Vector3: return Vector3(x * sd, y, z).normalized()
-	_fold_dir["arm"] = m.call(0.3, 0.5, 0.82)
-	_fold_dir["fore"] = m.call(0.16, -0.12, -1.0)
-	_fold_dir["fa0"] = m.call(0.2, -0.22, 1.0)
-	_fold_dir["fb0"] = m.call(0.1, -0.3, 1.0)
-	_fold_dir["fa1"] = m.call(0.24, -0.45, 1.0)
-	_fold_dir["fb1"] = m.call(0.08, -0.55, 1.0)
-	_fold_dir["fa2"] = m.call(0.26, -0.7, 1.0)
-	_fold_dir["fb2"] = m.call(0.06, -0.8, 1.0)
+	_fold_dir["arm"] = m.call(0.38, 0.3, 0.88)
+	_fold_dir["fore"] = m.call(0.1, -0.08, -1.0)
+	_fold_dir["fa0"] = m.call(0.14, -0.2, 1.0)
+	_fold_dir["fb0"] = m.call(0.04, -0.28, 1.0)
+	_fold_dir["fa1"] = m.call(0.2, -0.4, 1.0)
+	_fold_dir["fb1"] = m.call(0.02, -0.5, 1.0)
+	_fold_dir["fa2"] = m.call(0.26, -0.62, 1.0)
+	_fold_dir["fb2"] = m.call(0.0, -0.72, 1.0)
 
 
 ## Total span of this wing from the shoulder to the farthest tip.

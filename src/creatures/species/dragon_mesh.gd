@@ -106,7 +106,7 @@ static func build(sp: CreatureSpecies, rig: CreatureRig, kit: MeshKit) -> void:
 		var sx := "l" if side < 0.0 else "r"
 		var names: Array = []
 		var wsecs: Array = []
-		var radii := [0.05, 0.045, 0.036, 0.026, 0.006]
+		var radii := [0.032, 0.026, 0.02, 0.014, 0.004]
 		for i in 5:
 			var p: Vector3
 			if i < 4:
@@ -123,20 +123,20 @@ static func build(sp: CreatureSpecies, rig: CreatureRig, kit: MeshKit) -> void:
 		var base: Vector3 = v.call(f * 0.12, 3.28, -5.1 + absf(f) * 0.25)
 		_lock(kit, s, &"jaw", base, (Vector3(f * 0.25, -0.75, 0.65)).normalized(), (0.75 - absf(f) * 0.2) * k, 0.11 * k, mane_c, 0.5)
 	# --- Mane: flame-like locks down the neck and around the head (they flutter).
-	var n_locks := 16
+	var n_locks := 22
 	for i in n_locks:
 		var t := float(i) / (n_locks - 1)
-		var z := lerpf(-4.05, 1.0, t) * k
-		var base := _top_line(s, z, k) + Vector3(0, -0.06 * k, 0)
+		var z := lerpf(-4.1, 1.1, t) * k
+		var base := _top_line(s, z, k) + Vector3(0, -0.07 * k, 0)
 		var bone := _nearest_bone(s, base, ["head", "neck_4", "neck_3", "neck_2", "neck_1", "neck_0", "spine_0", "spine_1"])
 		var wob := sin(i * 2.7) * 0.5 + 0.5
-		var ln := lerpf(1.25, 0.6, t) * (0.8 + 0.35 * wob) * k
+		var ln := lerpf(1.55, 0.75, t) * (0.8 + 0.3 * wob) * k
 		for side in [-1.0, 1.0]:
-			var d := Vector3(side * (0.35 + 0.2 * wob), 0.55 + 0.25 * (1.0 - t), 1.0).normalized()
-			_lock(kit, s, bone, base + Vector3(side * 0.09 * k, 0, 0.04 * k * side), d, ln, (0.15 + 0.04 * wob) * k, mane_c,
-					0.25 + 0.3 * wob)
+			var d := Vector3(side * (0.28 + 0.18 * wob), 0.42 + 0.2 * (1.0 - t), 1.0).normalized()
+			_lock(kit, s, bone, base + Vector3(side * 0.08 * k, 0, 0.05 * k * side), d, ln, (0.1 + 0.03 * wob) * k, mane_c,
+					0.5 + 0.3 * wob)
 		if i % 2 == 0:
-			_lock(kit, s, bone, base + Vector3(0, 0.03 * k, 0), Vector3(0, 0.7, 1.0).normalized(), ln * 0.85, 0.14 * k, mane_c, 0.35)
+			_lock(kit, s, bone, base + Vector3(0, 0.04 * k, 0), Vector3(0, 0.55, 1.0).normalized(), ln * 0.9, 0.1 * k, mane_c, 0.45)
 	# Cheek tufts and tail-tip tuft.
 	for side in [-1.0, 1.0]:
 		for i in 3:
@@ -218,11 +218,13 @@ static func _lock(kit: MeshKit, s: RigSkeleton, bone: StringName, base: Vector3,
 	if side.length_squared() < 1e-4:
 		side = Vector3.RIGHT
 	var bend := (Vector3(0, -1.0, 0) * 0.7 + Vector3(0, 0, 1.0) * 0.3) * curl * length
+	var root := c.darkened(0.22)
+	var tip := c.lightened(0.25)
 	var secs := [
-		{"p": base, "w": width * 0.7, "h": width * 0.28, "c": Color(c.r, c.g, c.b, 0.0)},
-		{"p": base + dir * length * 0.35 + bend * 0.1, "w": width, "h": width * 0.3, "c": Color(c.r, c.g, c.b, 0.35)},
-		{"p": base + dir * length * 0.7 + bend * 0.4, "w": width * 0.6, "h": width * 0.22, "c": Color(c.r, c.g, c.b, 0.75)},
-		{"p": base + dir * length + bend, "w": width * 0.08, "h": width * 0.05, "c": Color(c.r * 0.95, c.g * 0.9, c.b * 0.85, 1.0)},
+		{"p": base, "w": width * 0.75, "h": width * 0.3, "c": Color(root.r, root.g, root.b, 0.0)},
+		{"p": base + dir * length * 0.3 + bend * 0.08, "w": width, "h": width * 0.32, "c": Color(c.r, c.g, c.b, 0.3)},
+		{"p": base + dir * length * 0.65 + bend * 0.4, "w": width * 0.62, "h": width * 0.24, "c": Color(c.r, c.g, c.b, 0.7)},
+		{"p": base + dir * length + bend, "w": width * 0.06, "h": width * 0.04, "c": Color(tip.r, tip.g, tip.b, 1.0)},
 	]
 	for sec: Dictionary in secs:
 		sec["up"] = side.cross(dir).normalized()
@@ -338,7 +340,7 @@ static func material(sp: CreatureSpecies, surface: StringName, _detail: int) -> 
 			return CreatureMaterials.skin("dragon/scales", scale_c, {
 				"shade_tint": Color(0.55, 0.38, 0.62), "rim": 0.5, "rim_color": Color(1.0, 0.85, 0.6),
 				"pattern": CreatureMaterials.Pattern.SCALES, "pattern_scale": 5.5, "pattern_strength": 0.28,
-				"specular": 0.1, "specular_size": 0.1, "marks": _marks(), "mark_rows": 5,
+				"specular": 0.04, "specular_size": 0.08, "marks": _marks(), "mark_rows": 5,
 				"mark_colors": [scale_c.darkened(0.35), sp.color("belly", D.BELLY), sp.color("belly", D.BELLY)],
 				"plate_spacing": 0.3 * sp.k, "plate_line": Color(0.62, 0.36, 0.1), "outline_width": 1.3, "belly_shade": 0.05})
 		&"wingbone":
@@ -350,7 +352,7 @@ static func material(sp: CreatureSpecies, surface: StringName, _detail: int) -> 
 				"shade_tint": Color(0.6, 0.4, 0.55)})
 		&"mane":
 			return CreatureMaterials.skin("dragon/mane", Color.WHITE, {"shade_tint": Color(0.75, 0.5, 0.5), "rim": 0.6,
-				"pattern": CreatureMaterials.Pattern.FUR, "pattern_scale": 14.0, "pattern_strength": 0.15,
+				"pattern": CreatureMaterials.Pattern.FUR, "pattern_scale": 24.0, "pattern_strength": 0.25, "specular": 0.0,
 				"flutter": 0.06 * sp.k, "flutter_freq": 2.4, "outline_width": 0.9, "belly_shade": 0.0})
 		&"horn":
 			return CreatureMaterials.hard("dragon/horn", sp.color("horn", D.HORN), {"pattern": CreatureMaterials.Pattern.SMOOTH,
