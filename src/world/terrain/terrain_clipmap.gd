@@ -44,6 +44,34 @@ static func levels_for(t: int, s0: float, view_distance: float) -> int:
 	return n
 
 
+## Geomorph range in cells (Chebyshev distance from the camera / spacing): starts after the
+## inner ring's outer edge ((T + 1) cells) and reaches 1 before the level's own outer edge
+## (2T cells), so ring boundaries always match exactly.
+func morph_range() -> Vector2:
+	return Vector2(float(tile_res + 1) + float(tile_res - 1) * 0.3, float(2 * tile_res) - 0.5)
+
+
+## CPU mirror of the vertex shader's morph factor for a vertex at `xz` on a level of spacing `s`.
+func morph_factor(xz: Vector2, cam: Vector2, s: float) -> float:
+	var r := morph_range()
+	var d := maxf(absf(xz.x - cam.x), absf(xz.y - cam.y)) / s
+	return clampf((d - r.x) / (r.y - r.x), 0.0, 1.0)
+
+
+## CPU mirror of the vertex shader's surface height (without snow trails): odd vertices blend
+## towards the midpoint of their coarse edge / diagonal by the morph factor.
+func vertex_height(xz: Vector2, cam: Vector2, s: float) -> float:
+	var g := Vector2(roundf((xz.x - GRID_ORIGIN) / s), roundf((xz.y - GRID_ORIGIN) / s))
+	var odd := Vector2(absf(g.x - 2.0 * floorf(g.x * 0.5)), absf(g.y - 2.0 * floorf(g.y * 0.5)))
+	var h := WorldData.get_height(xz.x, xz.y)
+	var m := morph_factor(xz, cam, s)
+	if m > 0.0 and odd.x + odd.y > 0.5:
+		var o := odd * s
+		var hc := 0.5 * (WorldData.get_height(xz.x - o.x, xz.y - o.y) + WorldData.get_height(xz.x + o.x, xz.y + o.y))
+		h = lerpf(h, hc, m)
+	return h
+
+
 ## Spacing of level `l` in metres.
 func spacing(l: int) -> float:
 	return base_spacing * pow(2.0, l)
@@ -77,11 +105,8 @@ func build() -> void:
 			lv["seam"] = _make_instance(_meshes.seam, scenario, mat_rid)
 			lv["trim_variant"] = 0
 		_levels.append(lv)
-	var t := tile_res
-	var morph_start := float(t + 1) + float(t - 1) * 0.3
-	var morph_end := float(2 * t) - 0.5
-	material.set_shader_parameter(&"morph_start", morph_start)
-	material.set_shader_parameter(&"morph_end", morph_end)
+	material.set_shader_parameter(&"morph_start", morph_range().x)
+	material.set_shader_parameter(&"morph_end", morph_range().y)
 	material.set_shader_parameter(&"grid_origin", GRID_ORIGIN)
 	_built = true
 	_center = Vector3.INF
