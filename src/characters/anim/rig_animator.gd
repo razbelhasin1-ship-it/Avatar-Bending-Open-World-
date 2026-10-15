@@ -91,6 +91,11 @@ var _blink_timer := 2.0
 var _blink_t := -1.0
 var talking := false
 var _talk_t := 0.0
+## Minimum fist closure per hand while gripping a prop.
+var grip := PackedFloat32Array([0.0, 0.0])
+## Per-hand carry clip (e.g. hold_pole_r) layered over locomotion/states.
+var hold_clips: Array = [null, null]
+var _hold_t := 0.0
 
 var foot_ik := true
 var ground_query: Callable
@@ -106,6 +111,7 @@ var _tmp2 := RigPose.new()
 var _neutral := RigPose.new()
 
 var _xf := Transform3D.IDENTITY
+var _pending_dt := 0.0
 
 
 func setup(r: Node3D, d: RigSkeletonDef, springs: Array) -> void:
@@ -222,7 +228,15 @@ func update(dt: float, xf: Transform3D, vel_world: Vector3, on_ground: bool, do_
 	_xf = xf
 	grounded = on_ground
 	var sdt := 0.0 if paused else dt * time_scale
+	# Clip time and events advance every frame (gameplay sync); the pose layers
+	# and locomotion only run on solve frames (reduced LODs), with the
+	# accumulated time.
 	_advance_times(sdt)
+	_pending_dt += sdt
+	if not do_solve:
+		return false
+	sdt = minf(_pending_dt, 0.25)
+	_pending_dt = 0.0
 	# 1. idle / stance.
 	combat_w = move_toward(combat_w, 1.0 if combat else 0.0, sdt * 4.0)
 	_neutral.set_neutral()
@@ -248,6 +262,13 @@ func update(dt: float, xf: Transform3D, vel_world: Vector3, on_ground: bool, do_
 	if _state_clip != null and _state_w > 0.0:
 		_state_clip.evaluate(_state_t, base, _tmp)
 		base.blend_masked(_tmp, _state_w, _state_mask)
+	# 3b. carried props (arm masks), under actions.
+	for side in 2:
+		var hc: AnimClip = hold_clips[side]
+		if hc != null:
+			_hold_t = fposmod(_hold_t + sdt * 0.5 / hc.length, 1.0)
+			hc.evaluate(_hold_t, base, _tmp)
+			base.blend_masked(_tmp, 1.0 - loco.gait_w * 0.3, hc.mask)
 	# 4. action.
 	if action != null:
 		if action_mirror:
@@ -265,8 +286,6 @@ func update(dt: float, xf: Transform3D, vel_world: Vector3, on_ground: bool, do_
 	if _xfade_w > 0.0:
 		final.blend(_xfade, _xfade_w)
 		_xfade_w = maxf(_xfade_w - sdt * _xfade_rate, 0.0)
-	if not do_solve:
-		return false
 	_ground(do_ik and foot_ik)
 	solver.blink = _blink_value()
 	solver.solve(final)
@@ -390,6 +409,10 @@ func _additive(dt: float) -> void:
 		final.v[P.CHEST] = (final.v[P.CHEST] as Vector3) + Vector3(pd * 0.15, yd * 0.25, 0.0)
 		final.v[P.NECK] = (final.v[P.NECK] as Vector3) + Vector3(pd * 0.35, yd * 0.3, 0.0)
 		final.v[P.HEAD] = (final.v[P.HEAD] as Vector3) + Vector3(pd * 0.5, yd * 0.45, 0.0)
+	# Hands close around held props.
+	for side in 2:
+		if grip[side] > 0.0:
+			final.v[P.FIST_L + side] = maxf(final.v[P.FIST_L + side], grip[side])
 	# Talking mouth.
 	if talking:
 		_talk_t += dt

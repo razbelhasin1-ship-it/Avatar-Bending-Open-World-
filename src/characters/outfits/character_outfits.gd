@@ -10,7 +10,9 @@ extends RefCounted
 ##   hair_style: String               hair_color: Color or int (HAIR_COLORS)
 ##   hair_extras: Array[String]       eye_color: Color
 ##   palette: Dictionary (overrides named colors, e.g. {"primary": Color(...)})
-##   accessories: Array[String]       tattoo: bool     beard: String
+##   accessories: Array[String] props "name" or "name@socket" (RigProps.NAMES),
+##                e.g. ["staff@back", "lantern@hand_l"]
+##   tattoo: bool     beard: String
 ##   style: StringName (animation style override)
 ##   seed: int (seeded variation of everything not given explicitly)
 ##   detail: int 0..3 (mesh detail; default Settings.detail_level())
@@ -119,8 +121,8 @@ static func resolve(config: Dictionary) -> Dictionary:
 	for key: String in ["torso_bands", "arm_bands", "leg_bands", "foot_bands", "neck_bands"]:
 		for band: Dictionary in spec.get(key, []):
 			band["inflate"] = float(band.get("inflate", 0.0)) * canon
-	spec["cache_key"] = "%s|%s|%s|%.1f|%s|%s|%s|%s|%d|%s|%s|%d|%s" % [preset, body, age, bulk, (spec["skin"] as Color).to_html(), hair_style, ",".join(PackedStringArray(hair_extras)),
-		(spec["hair_color"] as Color).to_html(), pal_i, (spec["eye_color"] as Color).to_html(), ",".join(PackedStringArray(acc)), spec["detail"], str(spec.get("beard", "")) + str(spec["tattoo"]) + str(over)]
+	spec["cache_key"] = "%s|%s|%s|%.1f|%s|%s|%s|%s|%d|%s|%d|%s" % [preset, body, age, bulk, (spec["skin"] as Color).to_html(), hair_style, ",".join(PackedStringArray(hair_extras)),
+		(spec["hair_color"] as Color).to_html(), pal_i, (spec["eye_color"] as Color).to_html(), spec["detail"], str(spec.get("beard", "")) + str(spec["tattoo"]) + str(over)]
 	return spec
 
 

@@ -119,6 +119,14 @@ static func _work() -> void:
 		[0.64, {"hand_r": Vector3(-0.12, -0.38, 0.44), "hand_l": Vector3(-0.28, -0.12, 0.56), "head": Vector3(4, 0, 0)}, &"snap"],
 		[0.75, {"hand_r": Vector3(-0.15, -0.45, 0.48), "hand_l": Vector3(-0.3, -0.25, 0.62), "head": Vector3(10, 0, 0)}],
 	]})
+	K.reg_pair("hold_pole", {"length": 3.0, "loop": true, "mask": &"arm_r", "keys": [
+		[0.0, {"hand_r": Vector3(0.12, -0.55, 0.45), "elbow_r": Vector3(0.25, -1.0, -0.3), "wrist_r": Vector3(0, 0, 0), "fist_r": 1.0}],
+		[0.5, {"hand_r": Vector3(0.12, -0.56, 0.44)}],
+	]})
+	K.reg_pair("hold_lantern", {"length": 3.0, "loop": true, "mask": &"arm_r", "keys": [
+		[0.0, {"hand_r": Vector3(0.05, -0.58, 0.5), "elbow_r": Vector3(0.2, -1.0, -0.2), "wrist_r": Vector3(0, 0, 0), "fist_r": 1.0}],
+		[0.5, {"hand_r": Vector3(0.06, -0.57, 0.5)}],
+	]})
 	K.reg_pair("interact", {"length": 0.85, "events": [[0.5, &"grab"]], "keys": [
 		[0.5, {"hips": Vector3(0, -0.1, 0.0), "spine": Vector3(26, 0, 0), "chest": Vector3(10, 8, 0), "head": Vector3(6, 0, 0), "hand_r": Vector3(-0.05, -0.45, 0.88),
 			"elbow_r": K.ELBOW_DOWN, "wrist_r": Vector3(10, 30, 0), "fist_r": 0.0}, &"inout"],

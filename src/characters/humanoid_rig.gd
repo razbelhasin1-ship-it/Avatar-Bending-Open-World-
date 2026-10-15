@@ -54,6 +54,7 @@ var _unique_mats: Array[ShaderMaterial] = []
 var _flash_tween: Tween = null
 var _exclude: Array[RID] = []
 var _foot_len := 0.26
+var _props: Dictionary = {}
 
 
 ## Creates a rig and builds it immediately.
@@ -106,6 +107,14 @@ func build(cfg: Dictionary) -> void:
 	animator.ground_query = _ground_at
 	animator.set_style(spec.get("style", RigStyles.DEFAULT))
 	_make_sockets()
+	_props.clear()
+	for acc: Variant in spec.get("accessories", []):
+		var parts := String(acc).split("@")
+		var prop := StringName(parts[0])
+		if RigProps.is_prop(prop):
+			attach_prop(prop, StringName(parts[1]) if parts.size() > 1 else (&"back" if prop == &"staff" else &"hand_r"))
+		else:
+			push_warning("HumanoidRig: unknown accessory '%s'" % acc)
 	if _notifier == null:
 		_notifier = VisibleOnScreenNotifier3D.new()
 		add_child(_notifier)
@@ -256,6 +265,56 @@ func set_talking(on: bool) -> void:
 ## shoulder blades), mouth.
 func get_socket(socket_name: StringName) -> Node3D:
 	return _sockets.get(socket_name, null)
+
+
+## Attaches a prop (a RigProps name such as &"staff", &"spear", &"hammer",
+## &"broom", &"fishing_rod", &"basket", &"sword", &"lantern", or any Node3D whose
+## handle runs along +Y from its grip at the origin) to a socket. Hand props
+## are gripped across the fist; the hand closes around them. Replaces any prop
+## already on that socket. Returns the prop node.
+func attach_prop(prop: Variant, socket_name: StringName = &"hand_r") -> Node3D:
+	var s := get_socket(socket_name)
+	if s == null:
+		push_warning("HumanoidRig: no socket '%s'" % socket_name)
+		return null
+	detach_prop(socket_name)
+	var node: Node3D = RigProps.make(prop) if (prop is StringName or prop is String) else prop
+	if node == null:
+		return null
+	s.add_child(node)
+	match socket_name:
+		&"hand_r":
+			node.transform = Transform3D(Basis(Vector3.BACK, PI * 0.5), Vector3(0, -0.02, 0))
+		&"hand_l":
+			node.transform = Transform3D(Basis(Vector3.BACK, -PI * 0.5), Vector3(0, -0.02, 0))
+		&"back":
+			node.transform = Transform3D(Basis(Vector3.BACK, -0.45), Vector3(0, 0.05, 0.05))
+	_props[socket_name] = node
+	if animator and socket_name in [&"hand_l", &"hand_r"]:
+		var side := 0 if socket_name == &"hand_l" else 1
+		animator.grip[side] = 0.9
+		# Poles and lanterns are carried with the forearm forward (vertical grip).
+		var hold := &""
+		if prop in [&"spear", &"staff", "spear", "staff"]:
+			hold = &"hold_pole_l" if side == 0 else &"hold_pole_r"
+		elif prop in [&"lantern", "lantern"]:
+			hold = &"hold_lantern_l" if side == 0 else &"hold_lantern_r"
+		animator.hold_clips[side] = AnimLibrary.get_clip(hold) if hold != &"" else null
+	return node
+
+
+func detach_prop(socket_name: StringName) -> void:
+	var old: Node3D = _props.get(socket_name, null)
+	if old and is_instance_valid(old):
+		old.queue_free()
+	_props.erase(socket_name)
+	if animator and socket_name in [&"hand_l", &"hand_r"]:
+		animator.grip[0 if socket_name == &"hand_l" else 1] = 0.0
+		animator.hold_clips[0 if socket_name == &"hand_l" else 1] = null
+
+
+func get_prop(socket_name: StringName) -> Node3D:
+	return _props.get(socket_name, null)
 
 
 ## World direction the palm of `side` (0 left, 1 right) faces.

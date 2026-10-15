@@ -1,9 +1,14 @@
 extends RefCounted
-## Scratch pose contact sheets (development aid).
-## SHEET="clip@t,clip@t;clip,clip" PRESET=fire_nation VIEW=front|side|34
+## Pose contact sheets for reviewing clips frozen at a normalized time.
+## SHEET="clip@t,preset:clip@t+prop/socket;clip,clip" (";" separates images)
+## PRESET=fire_nation (default preset; "<preset>_f" = female) VIEW=front|side|34
+## CLOSE=1 frames the upper body. Without SHEET a default review set is used.
 func run(p: Playtest) -> void:
 	var show: CharacterShowcase = await p.load_scene("res://scenes/dev/character_showcase.tscn")
-	var sheets := OS.get_environment("SHEET").split(";", false)
+	var sheet_env := OS.get_environment("SHEET")
+	if sheet_env == "":
+		sheet_env = "villager_earth:work_hammer@0.35+hammer/hand_r,villager_fire:sweep@0.2+broom/hand_r,villager_water:fish@0.1+fishing_rod/hand_r,villager_earth_f:carry@0.2+basket/hand_r;air_nomad:idle_air@0.2,guard:idle_soldier@0.2,merchant:talk_1@0.3,villager_air_f:wave_r@0.35;monk_elder:meditate_loop@0.2,villager_fire:sit_loop@0.2,water_tribe:kneel@0.9,earth_soldier:bow@0.6"
+	var sheets := sheet_env.split(";", false)
 	var preset := OS.get_environment("PRESET")
 	if preset == "":
 		preset = "fire_nation"
@@ -22,6 +27,10 @@ func run(p: Playtest) -> void:
 		var i := 0
 		for it: String in items:
 			var pre := preset
+			var prop_spec := ""
+			if it.contains("+"):
+				prop_spec = it.get_slice("+", 1)
+				it = it.get_slice("+", 0)
 			if it.contains(":"):
 				pre = it.get_slice(":", 0)
 				it = it.get_slice(":", 1)
@@ -34,6 +43,8 @@ func run(p: Playtest) -> void:
 			if pre.ends_with("_f"):
 				cfg["body"] = "female"
 			var rig := show.spawn(cfg, pos, yaw)
+			if prop_spec != "":
+				rig.attach_prop(StringName(prop_spec.get_slice("/", 0)), StringName(prop_spec.get_slice("/", 1)))
 			var cl := AnimLibrary.get_clip(clip)
 			if cl == null:
 				p.check(false, "missing clip %s" % clip)
@@ -45,8 +56,9 @@ func run(p: Playtest) -> void:
 				if t < 0.0:
 					t = 0.5
 			show.run_for(0.3)
-			if cl.loop and t > 0.0 and String(clip).ends_with("_loop") or clip in [&"ride", &"swim", &"fall", &"jump_air", &"air_tumble"]:
-				rig.play_action(clip, {"blend_in": 0.0, "start": t})
+			if String(clip).begins_with("idle"):
+				# Idles are the rig's own base layer (carry clips layer over it).
+				show.run_for(t * cl.length)
 			else:
 				rig.play_action(clip, {"blend_in": 0.0, "start": t})
 			rig.animator.paused = true

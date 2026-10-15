@@ -30,7 +30,8 @@ var _label: Label
 
 func _ready() -> void:
 	_build_stage()
-	_interactive = get_tree().current_scene == self and not OS.get_cmdline_user_args().has("--test")
+	# Top-level scene (run directly or via Router) and not driven by a playtest.
+	_interactive = get_parent() == get_tree().root and not OS.get_cmdline_user_args().has("--test")
 	if _interactive:
 		_clips = AnimLibrary.clip_names()
 		_spawn_interactive()

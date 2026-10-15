@@ -15,7 +15,7 @@ const C_WHITE_FUR := Color(0.95, 0.95, 0.96)
 const C_GOLD := Color(0.93, 0.73, 0.27)
 
 const INFO := {
-	&"air_nomad": {"style": &"air", "skins": [1, 2, 3], "hair_male": ["bald"], "hair_female": [["parted", "bun"], ["bangs", "long"]],
+	&"air_nomad": {"style": &"air", "accessories": ["staff@back"], "skins": [1, 2, 3], "hair_male": ["bald"], "hair_female": [["parted", "bun"], ["bangs", "long"]],
 		"hair_colors": [1, 2, 3], "eyes": [B.EYE_GREY, B.EYE_BROWN], "tattoo": true,
 		"palettes": [{"robe": Color(0.96, 0.55, 0.16), "shirt": Color(0.99, 0.79, 0.3), "wrap": Color(0.9, 0.83, 0.62), "shoe": Color(0.5, 0.33, 0.2)},
 			{"robe": Color(0.93, 0.47, 0.13), "shirt": Color(0.98, 0.74, 0.25), "wrap": Color(0.86, 0.78, 0.58), "shoe": Color(0.45, 0.3, 0.18)}]},
@@ -51,7 +51,7 @@ const INFO := {
 	&"merchant": {"style": &"civilian", "skins": [1, 2, 3], "hair_male": [["slick", "topknot"]], "hair_female": [["parted", "bun"]], "hair_colors": [0, 1, 4], "bulk": 0.5, "beard": "goatee", "beard_chance": 0.8, "eyes": [B.EYE_BROWN],
 		"palettes": [{"robe": Color(0.5, 0.3, 0.42), "trim": Color(0.88, 0.7, 0.32), "under": Color(0.9, 0.84, 0.7), "sash": Color(0.3, 0.2, 0.3), "hat": Color(0.3, 0.2, 0.28)},
 			{"robe": Color(0.28, 0.44, 0.42), "trim": Color(0.85, 0.72, 0.4), "under": Color(0.9, 0.86, 0.72), "sash": Color(0.55, 0.32, 0.18), "hat": Color(0.2, 0.25, 0.25)}]},
-	&"guard": {"style": &"soldier", "skins": [1, 2, 3, 4], "hair_male": ["short"], "hair_female": ["slick"], "hair_colors": [0, 1], "eyes": [B.EYE_BROWN],
+	&"guard": {"style": &"soldier", "accessories": ["spear@hand_r"], "skins": [1, 2, 3, 4], "hair_male": ["short"], "hair_female": ["slick"], "hair_colors": [0, 1], "eyes": [B.EYE_BROWN],
 		"palettes": [{"tunic": Color(0.5, 0.42, 0.24), "armor": Color(0.24, 0.38, 0.22), "pants": Color(0.26, 0.22, 0.16), "trim": Color(0.75, 0.62, 0.32), "shoe": Color(0.2, 0.16, 0.12)}]},
 	&"villager_air": {"style": &"civilian", "skins": [1, 2, 3], "hair_male": ["short", "cropped", "bald"], "hair_female": [["parted", "bun"], ["bangs", "long"]], "hair_colors": [1, 2, 3], "eyes": [B.EYE_GREY, B.EYE_BROWN],
 		"palettes": [{"robe": Color(0.92, 0.6, 0.25), "shirt": Color(0.95, 0.82, 0.48), "wrap": Color(0.85, 0.78, 0.6), "shoe": Color(0.48, 0.34, 0.22)},

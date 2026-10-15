@@ -66,6 +66,11 @@ static func mirror(clip: Dictionary) -> Dictionary:
 				en = en.substr(0, en.length() - 2) + "_l"
 			evs.append([e[0], StringName(en)])
 		c["events"] = evs
+	var mask := String(clip.get("mask", "full"))
+	if mask.ends_with("_l"):
+		c["mask"] = StringName(mask.trim_suffix("_l") + "_r")
+	elif mask.ends_with("_r"):
+		c["mask"] = StringName(mask.trim_suffix("_r") + "_l")
 	return c
 
 

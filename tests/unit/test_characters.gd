@@ -294,6 +294,31 @@ func test_sockets_follow_bones() -> void:
 	expect(hand.global_position.z < -0.35, "hand extended forward on the jab (z=%.2f)" % hand.global_position.z)
 
 
+func test_props_attach_and_carry_pose() -> void:
+	var guard := _make({"preset": &"guard"})
+	var spear := guard.get_prop(&"hand_r")
+	expect(spear != null, "guard preset carries a spear")
+	expect(guard.animator.grip[1] > 0.5 and guard.animator.hold_clips[1] != null, "grip + carry pose on the right hand")
+	expect_eq(AnimLibrary.get_clip(&"hold_pole_l").mask_name, &"arm_l")
+	expect(_make({"preset": &"air_nomad"}).get_prop(&"back") != null, "air nomad staff on the back")
+	_step(guard, 0.6)
+	await frames(2)
+	var up := spear.global_basis.y.normalized()
+	expect(up.y > 0.8, "spear carried upright (up.y=%.2f)" % up.y)
+	expect(spear.global_position.distance_to(guard.get_socket(&"hand_r").global_position) < 0.05, "prop rides the hand socket")
+	_step(guard, 1.0, Vector3(0, 0, -1.4))
+	await frames(1)
+	expect(spear.global_basis.y.normalized().y > 0.7, "still upright while walking")
+	guard.detach_prop(&"hand_r")
+	expect(guard.get_prop(&"hand_r") == null and guard.animator.grip[1] == 0.0 and guard.animator.hold_clips[1] == null, "detach releases the hand")
+	var custom := Node3D.new()
+	expect(guard.attach_prop(custom, &"hand_l") == custom and custom.get_parent() == guard.get_socket(&"hand_l"), "custom node props")
+	for n in RigProps.NAMES:
+		var p := RigProps.make(StringName(n))
+		expect(p.get_child_count() > 0, "prop %s has meshes" % n)
+		p.free()
+
+
 func test_root_motion_and_lod() -> void:
 	var rig := _make({"preset": &"air_nomad"})
 	_step(rig, 0.1)
@@ -334,3 +359,32 @@ func test_style_changes_body_language() -> void:
 	expect(w_earth > w_air + 0.1, "earth horse stance is wider than the air stance")
 	var hips_e: float = (air.animator.final.v[RigPose.HIPS] as Vector3).y
 	expect(hips_e < -0.1, "earth stance is low")
+
+
+func test_update_cost_budget() -> void:
+	var rigs: Array[HumanoidRig] = []
+	for i in 12:
+		var r := _make({"preset": [&"villager_earth", &"water_tribe", &"fire_soldier"][i % 3], "seed": i})
+		r.position = Vector3(float(i % 4) * 1.5, 0, float(i / 4) * 1.5)
+		rigs.append(r)
+	for r in rigs:
+		_step(r, 0.2)
+	var t0 := Time.get_ticks_usec()
+	for f in 60:
+		for r in rigs:
+			r.position += Vector3(0, 0, -1.4) / 60.0
+			r.set_locomotion(Vector3(0, 0, -1.4), true)
+			r.advance(1.0 / 60.0)
+	var full_ms := float(Time.get_ticks_usec() - t0) / 1000.0 / 60.0 / rigs.size()
+	for r in rigs:
+		r.set_lod(2)
+	t0 = Time.get_ticks_usec()
+	for f in 60:
+		for r in rigs:
+			r.position += Vector3(0, 0, -1.4) / 60.0
+			r.set_locomotion(Vector3(0, 0, -1.4), true)
+			r.advance(1.0 / 60.0)
+	var far_ms := float(Time.get_ticks_usec() - t0) / 1000.0 / 60.0 / rigs.size()
+	print("rig update cost: LOD0 %.3f ms, LOD2 %.3f ms per rig per frame" % [full_ms, far_ms])
+	expect(far_ms < full_ms, "LOD2 is cheaper than LOD0")
+	expect(full_ms < 3.0, "LOD0 rig update under 3 ms on the CI machine (%.2f)" % full_ms)
