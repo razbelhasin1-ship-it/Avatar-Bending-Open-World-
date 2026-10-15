@@ -57,8 +57,9 @@ static func ridge(ci: CanvasItem, x0: float, x1: float, y: float, amp: float, bo
 	while x <= x1 + step:
 		var h := (n.get_noise_1d(x) * 0.5 + 0.5) * amp
 		for p: Array in peaks:
-			var d := (x - float(p[0])) / float(p[2])
-			h += float(p[1]) * exp(-d * d)
+			# pointed summit (sharper than a gaussian), shoulders ease out
+			var d := absf(x - float(p[0])) / float(p[2])
+			h += float(p[1]) * exp(-pow(d, 1.25)) * (0.85 + 0.15 * n.get_noise_1d(x * 3.0))
 		top.append(Vector2(minf(x, x1), y - h))
 		x += step
 	var poly := top.duplicate()

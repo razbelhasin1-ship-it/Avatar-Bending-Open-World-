@@ -67,6 +67,7 @@ func _ready() -> void:
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.theme = UiTheme.get_theme()
 	add_child(root)
+	UiTheme.apply_safe_area(root)
 	_build()
 	_connect_events()
 	vitals.set_element(GameState.element)

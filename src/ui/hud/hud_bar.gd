@@ -18,6 +18,7 @@ func _init(fill_a: Color = Color(0.8, 0.2, 0.14), fill_b: Color = Color(0.98, 0.
 	_mat.shader = SHADER
 	_mat.set_shader_parameter(&"fill_a", fill_a)
 	_mat.set_shader_parameter(&"fill_b", fill_b)
+	_mat.set_shader_parameter(&"trail_color", Color(fill_b.lightened(0.35), 0.6))
 	_mat.set_shader_parameter(&"seed", randf() * 10.0)
 	material = _mat
 	color = Color.WHITE
@@ -27,6 +28,7 @@ func _init(fill_a: Color = Color(0.8, 0.2, 0.14), fill_b: Color = Color(0.98, 0.
 func set_colors(fill_a: Color, fill_b: Color) -> void:
 	_mat.set_shader_parameter(&"fill_a", fill_a)
 	_mat.set_shader_parameter(&"fill_b", fill_b)
+	_mat.set_shader_parameter(&"trail_color", Color(fill_b.lightened(0.35), 0.6))
 
 
 ## Sets the fill (0..1). Losses leave a trail; `instant` snaps the trail too.

@@ -27,8 +27,10 @@ func _ready() -> void:
 	chi_bar.position = Vector2(118, 62)
 	chi_bar.size = Vector2(320, 13)
 	add_child(chi_bar)
-	_health_text = UiTheme.make_label("", UiTheme.title_font(600, 1), UiTheme.SIZE_TINY - 2, Color(UiTheme.PARCHMENT, 0.85))
-	_health_text.position = Vector2(124, 4)
+	_health_text = UiTheme.make_label("", UiTheme.title_font(700, 1), UiTheme.SIZE_TINY - 1, UiTheme.PARCHMENT)
+	_health_text.position = Vector2(124, 2)
+	_health_text.add_theme_color_override(&"font_outline_color", Color(0.04, 0.03, 0.02, 0.85))
+	_health_text.add_theme_constant_override(&"outline_size", 5)
 	add_child(_health_text)
 
 

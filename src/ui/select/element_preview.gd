@@ -176,6 +176,11 @@ func _ink_everything(n: Node) -> void:
 func _process(delta: float) -> void:
 	if rig == null:
 		return
+	if not is_visible_in_tree():
+		viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
+		return
+	if active and viewport.render_target_update_mode != SubViewport.UPDATE_ALWAYS:
+		viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	if companion and STAGING[element]["flying"]:
 		companion.set_flight(true, Vector3(0, 0.3, -4.5), sin(fx.time * 0.7) * 0.25, 0.08)
 	elif companion:

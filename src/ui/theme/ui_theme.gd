@@ -451,6 +451,22 @@ static func safe_area_margins(vp: Viewport) -> Vector4:
 			(screen.x - safe.end.x) * sx, (screen.y - safe.end.y) * sy)
 
 
+## Insets a full-rect Control by the display safe area (notches) on phones/tablets.
+static func apply_safe_area(c: Control) -> void:
+	var m := safe_area_margins(c.get_viewport())
+	if m == Vector4.ZERO:
+		return
+	c.offset_left = m.x
+	c.offset_top = m.y
+	c.offset_right = -m.z
+	c.offset_bottom = -m.w
+
+
+## Row/button height: the design value, raised to the touch target on touch devices.
+static func touch_height(design_px: float) -> float:
+	return maxf(design_px, TOUCH_TARGET) if Settings.touch_controls_enabled() else design_px
+
+
 ## Configures a Label quickly (font, size, color, alignment).
 static func style_label(l: Label, font: Font, size: int, color: Color = PARCHMENT, align := HORIZONTAL_ALIGNMENT_LEFT) -> Label:
 	l.add_theme_font_override(&"font", font)

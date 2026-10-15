@@ -42,6 +42,12 @@ func _ready() -> void:
 		backdrop.color = Color(0, 0, 0, dim)
 	add_child(backdrop)
 	move_child(backdrop, 0)
+	if blur:
+		# fresh screen copy here, so stacked overlays blur what is actually beneath them
+		var bbc := BackBufferCopy.new()
+		bbc.copy_mode = BackBufferCopy.COPY_MODE_VIEWPORT
+		add_child(bbc)
+		move_child(bbc, 0)
 	_build()
 
 

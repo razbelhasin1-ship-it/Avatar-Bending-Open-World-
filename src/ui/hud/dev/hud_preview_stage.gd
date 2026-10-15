@@ -18,10 +18,12 @@ func build(element: int) -> void:
 	var sm := ShaderMaterial.new()
 	sm.shader = SKY_SHADER
 	sm.set_shader_parameter(&"cloud_tex", CLOUD_TEX)
-	sm.set_shader_parameter(&"zenith_color", Color(0.22, 0.42, 0.72))
-	sm.set_shader_parameter(&"horizon_color", Color(0.78, 0.86, 0.94))
-	sm.set_shader_parameter(&"sun_dir", Vector3(0.4, 0.45, -0.8).normalized())
-	sm.set_shader_parameter(&"cloud_coverage", 0.42)
+	sm.set_shader_parameter(&"zenith_color", Color(0.16, 0.32, 0.62))
+	sm.set_shader_parameter(&"horizon_color", Color(0.86, 0.78, 0.70))
+	sm.set_shader_parameter(&"haze_color", Color(0.86, 0.78, 0.70))
+	sm.set_shader_parameter(&"sun_dir", Vector3(0.5, 0.22, -0.8).normalized())
+	sm.set_shader_parameter(&"sun_glow", 0.7)
+	sm.set_shader_parameter(&"cloud_coverage", 0.45)
 	var sky := Sky.new()
 	sky.sky_material = sm
 	var env := Environment.new()
@@ -29,24 +31,28 @@ func build(element: int) -> void:
 	env.sky = sky
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
 	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	env.tonemap_exposure = 0.85
+	env.ambient_light_energy = 0.7
 	env.fog_enabled = true
-	env.fog_density = 0.0016
-	env.fog_light_color = Color(0.62, 0.72, 0.86)
+	env.fog_density = 0.006
+	env.fog_light_color = Color(0.70, 0.66, 0.66)
+	env.fog_sun_scatter = 0.3
 	Settings.configure_environment(env)
 	var we := WorldEnvironment.new()
 	we.environment = env
 	add_child(we)
 	var sun := DirectionalLight3D.new()
-	sun.light_energy = 1.3
+	sun.light_energy = 1.25
+	sun.light_color = Color(1.0, 0.86, 0.7)
 	sun.shadow_enabled = true
 	add_child(sun)
-	sun.look_at_from_position(Vector3.ZERO, Vector3(-0.4, -0.6, 0.7), Vector3.UP)
+	sun.look_at_from_position(Vector3.ZERO, Vector3(-0.5, -0.32, 0.8), Vector3.UP)
 	var ground := MeshInstance3D.new()
 	var pm := PlaneMesh.new()
 	pm.size = Vector2(200, 200)
 	ground.mesh = pm
 	var gm := StandardMaterial3D.new()
-	gm.albedo_color = Color(0.72, 0.79, 0.88) if element == ElementDefs.Element.WATER else Color(0.38, 0.46, 0.30)
+	gm.albedo_color = Color(0.58, 0.66, 0.78) if element == ElementDefs.Element.WATER else Color(0.30, 0.38, 0.24)
 	gm.roughness = 1.0
 	ground.material_override = gm
 	add_child(ground)
@@ -62,7 +68,7 @@ func build(element: int) -> void:
 		var bm := BoxMesh.new()
 		bm.size = Vector3(randf_range(2, 5), randf_range(2, 7), randf_range(2, 4))
 		b.mesh = bm
-		b.material_override = ToonMaterials.make(Color(0.72, 0.84, 0.95) if element == ElementDefs.Element.WATER else Color(0.55, 0.52, 0.48))
+		b.material_override = ToonMaterials.make(Color(0.50, 0.68, 0.86) if element == ElementDefs.Element.WATER else Color(0.50, 0.46, 0.42))
 		b.position = Vector3(randf_range(-22, 22), bm.size.y * 0.5, randf_range(-40, -14))
 		b.rotation.y = randf() * TAU
 		add_child(b)

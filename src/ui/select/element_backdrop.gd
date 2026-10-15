@@ -60,8 +60,8 @@ func _paint_earth(r: Rect2) -> void:
 	P.sky(self, r, [[0.0, Color(0.16, 0.30, 0.42)], [0.2, Color(0.42, 0.56, 0.58)], [0.38, Color(0.98, 0.82, 0.52)], [1.0, Color(0.88, 0.70, 0.44)]])
 	P.glow(self, Vector2(W * 0.13, H * 0.33), H * 0.45, Color(1.0, 0.84, 0.50, 0.8))
 	P.glow(self, Vector2(W * 0.13, H * 0.33), H * 0.06, Color(1.0, 0.97, 0.85, 1.0))
-	var far := P.ridge(self, -20, W + 20, H * 0.36, H * 0.07, H, Color(0.56, 0.62, 0.64), 11, 0.0022, false, 6.0,
-			[[W * 0.05, H * 0.16, W * 0.045], [W * 0.27, H * 0.06, W * 0.05], [W * 0.70, H * 0.08, W * 0.05], [W * 0.90, H * 0.17, W * 0.05]], 3)
+	var far := P.ridge(self, -20, W + 20, H * 0.36, H * 0.09, H, Color(0.56, 0.62, 0.64), 11, 0.004, false, 5.0,
+			[[W * 0.05, H * 0.15, W * 0.035], [W * 0.27, H * 0.06, W * 0.03], [W * 0.70, H * 0.08, W * 0.035], [W * 0.90, H * 0.16, W * 0.04]], 5)
 	P.ridge_rim(self, far, Color(1.0, 0.88, 0.62, 0.4), 2.0)
 	P.ridge(self, -20, W + 20, H * 0.40, H * 0.06, H, Color(0.44, 0.52, 0.46), 12, 0.003, false, 6.0, [], 3)
 	# Ba Sing Se outer wall with gate towers
@@ -123,8 +123,13 @@ func _add_cloud_layer() -> void:
 				var cx := ox + W * float(c[0])
 				var cy := H * float(c[1])
 				var rr := H * float(c[2])
+				# opaque flat clouds (cartoon style): shaded underside first, lit puffs on top
 				for j in 5:
-					_cloud_layer.draw_circle(Vector2(cx + (j - 2) * rr * 0.9, cy - sin(j * 1.3) * rr * 0.4), rr * (0.8 + 0.25 * sin(j * 2.1)), Color(1, 1, 1, 0.55), true, -1.0, true))
+					var pc := Vector2(cx + (j - 2) * rr * 0.9, cy - sin(j * 1.3) * rr * 0.4)
+					_cloud_layer.draw_circle(pc + Vector2(rr * 0.08, rr * 0.22), rr * (0.8 + 0.25 * sin(j * 2.1)), Color(0.70, 0.80, 0.92), true, -1.0, true)
+				for j in 5:
+					var pc2 := Vector2(cx + (j - 2) * rr * 0.9, cy - sin(j * 1.3) * rr * 0.4)
+					_cloud_layer.draw_circle(pc2, rr * (0.8 + 0.25 * sin(j * 2.1)), Color(0.95, 0.97, 1.0), true, -1.0, true))
 	_cloud_layer.anchor_right = 2.0
 	add_child(_cloud_layer)
 

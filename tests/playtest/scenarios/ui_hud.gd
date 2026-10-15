@@ -65,7 +65,8 @@ func run(p: Playtest) -> void:
 	Events.interaction_prompt.emit("", false)
 	# region title card
 	hud.title_card.show_title("The Northern Water Tribe", "Arrival", ElementDefs.Element.WATER)
-	await p.wait(1.4)
+	await p.wait_until(func() -> bool: return hud.title_card._seal.modulate.a >= 0.99 and hud.title_card._title.visible_ratio >= 1.0, 20.0)
+	await p.wait(0.4)
 	await p.screenshot("title_card")
 	hud.title_card.skip()
 	# dialogue with choices

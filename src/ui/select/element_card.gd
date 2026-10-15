@@ -69,7 +69,7 @@ func _ready() -> void:
 	_content.add_child(v)
 	_name = UiTheme.make_label(String(d.get("name", "")).to_upper(), UiTheme.title_font(700, 6), 32, UiTheme.PARCHMENT, HORIZONTAL_ALIGNMENT_CENTER)
 	v.add_child(_name)
-	_tagline = UiTheme.make_label(String(d.get("tagline", "")), UiTheme.body_font(), 20, light, HORIZONTAL_ALIGNMENT_CENTER)
+	_tagline = UiTheme.make_label(String(d.get("tagline", "")), UiTheme.body_font(), 20, light.lerp(UiTheme.PARCHMENT, 0.4), HORIZONTAL_ALIGNMENT_CENTER)
 	_tagline.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_tagline.custom_minimum_size = Vector2(SIZE.x - 48, 0)
 	v.add_child(_tagline)

@@ -26,7 +26,7 @@ var _hl := 0.0
 func _init(p_spec: Dictionary = {}) -> void:
 	spec = p_spec
 	theme_type_variation = &"RowPanel"
-	custom_minimum_size = Vector2(0, HEIGHT)
+	custom_minimum_size = Vector2(0, UiTheme.touch_height(HEIGHT))
 	mouse_filter = Control.MOUSE_FILTER_PASS
 
 

@@ -18,7 +18,8 @@ func sequence() -> Array[Dictionary]:
 
 func _setup() -> void:
 	_rock_mesh = make_rock_mesh(7)
-	_rock_mat = ToonMaterials.make(Color(0.50, 0.43, 0.36))
+	# in the show-intro motif the rock is a dark red-brown mass, like the opening titles
+	_rock_mat = ToonMaterials.make(Color(0.42, 0.20, 0.13) if motif else Color(0.50, 0.43, 0.36))
 
 
 func on_event(clip: StringName, event: StringName) -> void:

@@ -65,6 +65,7 @@ func _ready() -> void:
 	_ui.theme = UiTheme.get_theme()
 	_ui.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_layer.add_child(_ui)
+	UiTheme.apply_safe_area(_ui)
 	_build_washes()
 	_build_motif()
 	_build_title()

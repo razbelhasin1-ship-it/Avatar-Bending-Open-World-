@@ -206,7 +206,7 @@ func _build_footer() -> Control:
 func _footer_button(text: String, variation: StringName) -> Button:
 	var b := Button.new()
 	b.text = text
-	b.custom_minimum_size = Vector2(230, 66)
+	b.custom_minimum_size = Vector2(230, UiTheme.touch_height(66))
 	if variation != &"":
 		b.theme_type_variation = variation
 	UiFx.wire(b, {"press_sound": UiFx.CONFIRM if text == "APPLY" else UiFx.CLICK})

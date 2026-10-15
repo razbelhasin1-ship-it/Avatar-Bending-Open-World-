@@ -41,6 +41,7 @@ func _ready() -> void:
 	root.mouse_filter = Control.MOUSE_FILTER_STOP
 	root.visible = false
 	add_child(root)
+	UiTheme.apply_safe_area(root)
 	var bg := ColorRect.new()
 	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE

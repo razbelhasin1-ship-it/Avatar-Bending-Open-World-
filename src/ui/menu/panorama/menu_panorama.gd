@@ -250,7 +250,21 @@ func _build_landmarks() -> void:
 	volcano.position = Vector3(520, -40, -4300)
 	add_child(volcano)
 	landmarks["volcano"] = volcano
+	# glowing crater so the cone reads as a volcano through the haze
+	var crater := Sprite3D.new()
+	crater.name = "CraterGlow"
+	crater.texture = BackdropPainter.glow_texture()
+	crater.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	crater.shaded = false
+	crater.pixel_size = 2.4
+	crater.modulate = Color(1.0, 0.42, 0.12, 0.9)
+	crater.position = volcano.position + Vector3(0, 940, 0)
+	add_child(crater)
+	landmarks["crater"] = crater
 	plume = PanoramaLandmarks.smoke_plume(volcano.position + Vector3(0, 930, 0), SUN_DIR, Settings.effects_scale())
+	var pmat := (plume.draw_pass_1 as QuadMesh).material as ShaderMaterial
+	pmat.set_shader_parameter(&"alpha_scale", 1.35)
+	pmat.set_shader_parameter(&"dark_color", Color(0.20, 0.16, 0.17))
 	add_child(plume)
 	landmarks["plume"] = plume
 	# Pine forests on the near ranges give scale and depth.
@@ -331,7 +345,7 @@ func _build_life() -> void:
 	petals.position = Vector3(-12, -3, -22)
 	camera.add_child(petals)
 	# Birds: gulls over the open water, crows along the wall.
-	var gulls := BirdFlock.create(&"gull", 9, Vector3(130, 0, -430), 110.0, 46.0, 5)
+	var gulls := BirdFlock.create(&"gull", 9, Vector3(60, 0, -210), 70.0, 34.0, 5)
 	gulls.max_distance = 2500.0
 	add_child(gulls)
 	var crows := BirdFlock.create(&"crow", 6, Vector3(-420, 0, -720), 150.0, 210.0, 9)
