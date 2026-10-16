@@ -92,7 +92,7 @@ func _districts() -> void:
 
 func _reserve() -> void:
 	for b in avenues:
-		plan.reserve_line(L.xz(50.0, b), L.xz(300.0, b), RAMP_HALF + 1.0)
+		plan.reserve_line(L.xz(26.0, b), L.xz(300.0, b), RAMP_HALF + 1.0)
 	for ch: Array in CHUTES:
 		var pts := chute_path(float(ch[0]), float(ch[1]))
 		for i in pts.size() - 1:
@@ -185,8 +185,9 @@ func _bridge() -> void:
 		var a: Vector3 = br["a"]          # rim end
 		var b: Vector3 = br["b"]          # city end
 		var dir := Vector3(a.x - b.x, 0, a.z - b.z).normalized()
-		# the deck runs from the gatehouse's outer face to the rim, over the whole chasm
-		var city := Vector3(b.x, h(&"gate"), b.z) + dir * 6.0
+		# the deck runs from inside the gatehouse passage (the cliff edge falls away under its outer
+		# half) to the rim, over the whole chasm
+		var city := Vector3(b.x, h(&"gate"), b.z) + dir * 1.0
 		var rim := Vector3(a.x, WorldData.get_height(a.x, a.z), a.z) + dir * 4.0
 		var mid := (city + rim) * 0.5
 		var yaw := SettlementLayout.yaw_dir(Vector2(dir.x, dir.z))
@@ -215,13 +216,20 @@ func _palace() -> void:
 	plan.reserve(pod.x, pod.z, 30.0)
 	plan.add(&"throne_hall", at.call(0.0, 11.0, 3.5), yaw, {"w": 28.0, "d": 16.0}, 2, "", 18.0)
 	for sx: float in [-1.0, 1.0]:
-		var pg: Vector3 = at.call(sx * 32.0, 18.0)
-		plan.add(&"pagoda", pg, yaw, {"tiers": 4, "w": 8.0}, 2, "pagoda:4:8", 7.0)
-		plan.reserve(pg.x, pg.z, 8.0)
-		var gd: Vector3 = at.call(sx * 32.0, -14.0)
-		plan.add(&"garden", gd, yaw, {"w": 16.0, "d": 18.0, "v": int(sx > 0.0), "plants": 2}, 1, "", 11.0)
-		plan.reserve(gd.x, gd.z, 10.0)
-		plan.anchor(&"gardener", SettlementLayout.world(gd, yaw, Vector3(3.0, 0, 4.0)), yaw, {"tags": ["palace", "garden"]})
+		# pagodas and gardens where they keep clear of the summit stairs' landings
+		for o: Vector2 in [Vector2(32.0, 18.0), Vector2(33.0, 7.0), Vector2(27.0, 26.0)]:
+			var pg: Vector3 = at.call(sx * o.x, o.y)
+			if SettlementLayout.fits(plan, pg, yaw, Vector2(11.0, 11.0)):
+				plan.add(&"pagoda", pg, yaw, {"tiers": 4, "w": 8.0}, 2, "pagoda:4:8", 7.0)
+				plan.reserve(pg.x, pg.z, 8.0)
+				break
+		for o: Vector2 in [Vector2(32.0, -14.0), Vector2(34.0, -4.0)]:
+			var gd: Vector3 = at.call(sx * o.x, o.y)
+			if SettlementLayout.fits(plan, gd, yaw, Vector2(16.0, 18.0)):
+				plan.add(&"garden", gd, yaw, {"w": 16.0, "d": 18.0, "v": int(sx > 0.0), "plants": 2}, 1, "", 11.0)
+				plan.reserve(gd.x, gd.z, 10.0)
+				plan.anchor(&"gardener", SettlementLayout.world(gd, yaw, Vector3(3.0, 0, 4.0)), yaw, {"tags": ["palace", "garden"]})
+				break
 		plan.anchor(&"guard_post", at.call(sx * 6.0, -18.0), yaw, {"tags": ["palace", "stair"]})
 	var gate: Vector3 = at.call(0.0, -38.0)
 	plan.add(&"palace_gate", gate, yaw, {"w": 22.0, "d": 9.0}, 2, "palace_gate:22", 12.0)
@@ -262,7 +270,12 @@ func _chutes() -> void:
 			# local frame: origin at the segment middle on the ground, chute along -Z
 			var la := Vector3(0, a.y - gm, dir.length() * 0.5)
 			var lb := Vector3(0, b.y - gm, -dir.length() * 0.5)
-			var spec := {"a": la, "b": lb, "ga": ground(a.x, a.z) - gm, "gb": ground(b.x, b.z) - gm, "v": ci}
+			# no support pillar where a segment end hangs over a stair avenue (the chute spans it)
+			var pa := L.polar(a.x, a.z)
+			var pb := L.polar(b.x, b.z)
+			var ga := la.y if on_avenue(wrapf(pa.y, -180.0, 180.0), pa.x, RAMP_HALF + 1.5) else ground(a.x, a.z) - gm
+			var gb := lb.y if on_avenue(wrapf(pb.y, -180.0, 180.0), pb.x, RAMP_HALF + 1.5) else ground(b.x, b.z) - gm
+			var spec := {"a": la, "b": lb, "ga": ga, "gb": gb, "v": ci}
 			plan.add(&"omashu_chute", Vector3(m.x, gm, m.z), yaw, spec, 2, "", dir.length() * 0.5)
 		ci += 1
 		# a delivery stop at the bottom

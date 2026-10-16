@@ -104,6 +104,12 @@ static func stair(kit: BuildingKit, spec: Dictionary) -> void:
 	var sw := W - 4.0
 	if spec.get("steps", true):
 		kit.stairs(Vector3(0, 0, 0), Vector3(0, H, -R), sw, {"role": FnStyle.PAVING, "rise": 0.19})
+	# a landing beyond the top over uneven ground (spec landing: its length)
+	var landing := float(spec.get("landing", 0.0))
+	if landing > 0.0:
+		kit.box(Vector3(0, H - 2.0, -R - landing * 0.5), Vector3(sw + 4.0, 4.0, landing), FnStyle.BASALT_2)
+		if kit.lod < 2:
+			kit.box(Vector3(0, H + 0.01, -R - landing * 0.5), Vector3(sw, 0.02, landing - 0.4), FnStyle.PAVING, false)
 	var nseg := maxi(int(R / 6.0), 2)
 	for sx: float in [-1.0, 1.0]:
 		var x: float = sx * (sw * 0.5 + 1.0)

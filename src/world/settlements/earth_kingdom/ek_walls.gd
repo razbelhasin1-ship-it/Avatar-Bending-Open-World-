@@ -407,6 +407,9 @@ static func wall_stair(kit: BuildingKit, spec: Dictionary) -> void:
 	if y0 > 0.05:
 		kit.box(Vector3((-hl + run_end) * 0.5, (y0 - 1.5) * 0.5, zc), Vector3(run_end + hl + 0.05, y0 + 1.5, ww), stone, false)
 	kit.stairs(Vector3(-hl, y0, zc), Vector3(run_end, y1, zc), ww, {"role": _st, "rise": 0.2})
+	# infill between the steps and the battered wall face (flush with the nosings; it sinks into
+	# the wall's batter lower down) so there is no gap to fall into on the wall side
+	kit.beam(Vector3(-hl, y0 - 0.6, z0 - 1.0), Vector3(run_end, y1 - 0.6, z0 - 1.0), 2.2, 1.2, stone, true)
 	# outer parapet riding on the step ends + a green coping
 	var zr := z0 + w + 0.3
 	kit.beam(Vector3(-hl, y0 + 0.5, zr), Vector3(run_end, y1 + 0.5, zr), 0.6, 1.0, stone, true)
@@ -414,7 +417,7 @@ static func wall_stair(kit: BuildingKit, spec: Dictionary) -> void:
 		kit.beam(Vector3(-hl, y0 + 1.05, zr), Vector3(run_end, y1 + 1.05, zr), 0.75, 0.12, EkStyle.COPING)
 	if top:
 		# landing back onto the wall walk (the chord's inner parapet has a gap here)
-		kit.box(Vector3((run_end + hl) * 0.5, (y1 - 1.5) * 0.5, z0 + (ww - 1.2) * 0.5), Vector3(hl - run_end, y1 + 1.5, ww + 1.2), stone)
+		kit.box(Vector3((run_end + hl) * 0.5, (y1 - 1.5) * 0.5, z0 + (ww - 2.6) * 0.5), Vector3(hl - run_end, y1 + 1.5, ww + 2.6), stone)
 		kit.box(Vector3((run_end + hl) * 0.5, y1 + 0.5, zr), Vector3(hl - run_end, 1.0, 0.6), stone, true)
 		if kit.lod == 0:
 			kit.box(Vector3((run_end + hl) * 0.5, y1 + 0.02, z0 + (ww - 1.2) * 0.5), Vector3(hl - run_end, 0.04, ww + 1.2), _st, false)

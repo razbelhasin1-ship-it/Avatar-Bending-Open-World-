@@ -153,6 +153,8 @@ static func pier(kit: BuildingKit, spec: Dictionary) -> void:
 	var W := float(spec.get("W", 7.0))
 	var dep := float(spec.get("depth", 10.0))
 	kit.box(Vector3(0, -0.3, -L * 0.5), Vector3(W, 0.6, L), FnStyle.BASALT_2)
+	# a root reaching 1.2 m under the quay edge (no seam where the curved quay meets the pier)
+	kit.box(Vector3(0, -0.32, 0.6), Vector3(W, 0.6, 1.2), FnStyle.BASALT_2)
 	kit.box(Vector3(0, 0.02, -L * 0.5), Vector3(W - 0.4, 0.04, L - 0.4), FnStyle.PAVING, false)
 	var np := maxi(int(L / 8.0), 2)
 	for i in np + 1:

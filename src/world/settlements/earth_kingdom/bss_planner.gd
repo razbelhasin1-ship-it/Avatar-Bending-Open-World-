@@ -136,6 +136,7 @@ func _city_wall(wall_id: StringName, chord: float, base: float, gate: Array, tow
 	var wl := String(wall_id).trim_suffix("_wall")
 	plan.data[StringName("%s_top" % wl)] = top
 	var walk := PackedVector3Array()
+	var stair_path := PackedVector3Array()
 	var i_global := 0
 	for span: Array in ring_spans(r, avenue_gaps(gate_half)):
 		var chs := SettlementLayout.chords(L, r, float(span[0]), float(span[1]), chord)
@@ -149,21 +150,35 @@ func _city_wall(wall_id: StringName, chord: float, base: float, gate: Array, tow
 			var lo := minf(minf(ground(a.x, a.y), ground(b.x, b.y)), ground(m.x, m.y))
 			var spec := {"L": snappedf(length * (1.0 + (T * 0.5 + bat) / r) + 0.12, 0.1), "H": H, "T": T,
 				"bottom": snappedf(minf(lo - base - 2.0, -1.5), 0.5), "v": i_global % 4,
-				"banner": i_global % 7 == 3, "door": i_global % 5 == 2 and ci > stair_chords}
-			# wall stair clockwise of the gate: the chords right after the span start
-			if ci < stair_chords:
+				"banner": i_global % 7 == 3, "door": i_global % 5 == 2 and ci > stair_chords + 1}
+			# wall stair clockwise of the gate: the chords after the first one past the gatehouse (the
+			# stair's foot stays clear of the gatehouse, the way onto it runs along the wall)
+			var si := ci - 1
+			if si >= 0 and si < stair_chords:
 				var hl := length * 0.5
-				var y0 := H * ci / stair_chords
-				var y1 := H * (ci + 1) / stair_chords
+				var y0 := H * si / stair_chords
+				var y1 := H * (si + 1) / stair_chords
 				var sspec := {"L": snappedf(length, 0.1), "y0": snappedf(y0, 0.1), "y1": snappedf(y1, 0.1), "z0": T * 0.5 + 1.0 + bat * 0.35,
-					"w": STAIR_W, "top": ci == stair_chords - 1}
+					"w": STAIR_W, "top": si == stair_chords - 1}
 				plan.add(&"wall_stair", Vector3(m.x, base, m.y), yaw_out(bm), sspec, 1, EkWalls.arch_of(&"wall_stair", sspec), length * 0.5)
 				var inner := L.xz(r - T * 0.5 - 3.6, bm)
 				plan.reserve_line(L.xz(r - T * 0.5 - 3.6, float(span[0])), inner, 3.6)
-				if ci == stair_chords - 1:
+				# the walking line up the stair (its centre over every chord, then the landing)
+				var zc := float(sspec["z0"]) + (STAIR_W + 0.6) * 0.5
+				var run_end := hl - (STAIR_W if si == stair_chords - 1 else 0.0)
+				var o := Vector3(m.x, base, m.y)
+				if si == 0:
+					stair_path = PackedVector3Array()
+					var ap := SettlementLayout.world(o, yaw_out(bm), Vector3(-hl - 6.0, 0, zc))
+					stair_path.append(Vector3(ap.x, ground(ap.x, ap.z), ap.z))
+					stair_path.append(SettlementLayout.world(o, yaw_out(bm), Vector3(-hl + 0.4, 0, zc)))
+				stair_path.append(SettlementLayout.world(o + Vector3(0, y1, 0), yaw_out(bm), Vector3(run_end, 0, zc)))
+				if si == stair_chords - 1:
 					spec["gap"] = [snappedf(hl - STAIR_W, 0.1), snappedf(hl, 0.1)]
-					plan.data.get_or_add("wall_stairs", []).append({"wall": wall_id, "foot": p3(r - T * 0.5 - 3.2, float(span[0]) + 0.6, base),
-						"top": SettlementLayout.world(Vector3(m.x, top, m.y), yaw_out(bm), Vector3(hl - STAIR_W * 0.5, 0, T * 0.5 - 2.0)),
+					stair_path.append(SettlementLayout.world(o + Vector3(0, y1, 0), yaw_out(bm), Vector3(hl - STAIR_W * 0.5, 0, zc)))
+					var top_p := SettlementLayout.world(Vector3(m.x, top, m.y), yaw_out(bm), Vector3(hl - STAIR_W * 0.5, 0, T * 0.5 - 2.0))
+					stair_path.append(top_p)
+					plan.data.get_or_add("wall_stairs", []).append({"wall": wall_id, "foot": stair_path[0], "top": top_p, "path": stair_path,
 						"bearing": float(span[0])})
 			plan.add(&"city_wall", Vector3(m.x, base, m.y), yaw_out(bm), spec, 2, EkWalls.arch_of(&"city_wall", spec), length * 0.5 + 2.0)
 			plan.reserve(m.x, m.y, T * 0.5 + 1.5)

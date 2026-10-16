@@ -14,7 +14,7 @@ const DOCK_POI := &"fn_crimson_harbor"
 const QUAY_FACE := 160.0
 const RAMP_LEN := 40.0
 ## Piers into the basin (bearings) and which side their warship lies on (0 none).
-const PIERS := [[214.0, 1], [234.0, -1], [254.0, 1], [274.0, -1], [294.0, 1], [314.0, -1], [334.0, 0]]
+const PIERS := [[214.0, -1], [234.0, -1], [254.0, -1], [274.0, -1], [294.0, -1], [314.0, -1], [334.0, 0]]
 const PIER_L := 34.0
 ## Warships at anchor in the basin: [r, bearing, heading offset, length].
 ## (The ferry from Full Moon Bay crosses the basin's east half to its berth at bearing ~199.)
@@ -39,7 +39,7 @@ const STREETS := [[&"quay", 201.0], [&"lower", 229.5], [&"lower", 258.5], [&"low
 
 var th := {}
 var arcs := {}
-## Ramp avenues merged when closer than 5 degrees: [[bearing, half width m], ...].
+## Ramp avenues: [[bearing, half width m], ...].
 var ramp_axes: Array = []
 
 
@@ -88,20 +88,11 @@ func h(tier_id: StringName) -> float:
 
 
 func _axes() -> void:
-	var bs: Array[float] = []
+	# one stair per terrain ramp: the two ramps at the main gate road run side by side
 	for rp: Dictionary in L.ramps:
-		bs.append(wrapf(float(rp["bearing"]), 0.0, 360.0))
-	bs.sort()
-	var i := 0
-	while i < bs.size():
-		if i + 1 < bs.size() and absf(bs[i + 1] - bs[i]) < 5.0:
-			ramp_axes.append([(bs[i] + bs[i + 1]) * 0.5, 7.0 + RingLayout.arc_len(bs[i + 1] - bs[i], 300.0) * 0.5])
-			i += 2
-		else:
-			ramp_axes.append([bs[i], 7.0])
-			i += 1
-	for a: Array in ramp_axes:
-		avenues.append(wrapf(float(a[0]), -180.0, 180.0))
+		var b := wrapf(float(rp["bearing"]), 0.0, 360.0)
+		ramp_axes.append([b, float(rp.get("width", 12.0)) * 0.5 + 1.0])
+		avenues.append(wrapf(b, -180.0, 180.0))
 
 
 ## Spans of the ring at radius r inside the bearing arc [b0, b1] (0..360), cut by the gaps.
@@ -138,6 +129,12 @@ func _districts() -> void:
 func _reserve() -> void:
 	for a: Array in ramp_axes:
 		plan.reserve_line(L.xz(160.0, float(a[0])), L.xz(410.0, float(a[0])), float(a[1]) + 1.0)
+	# the gate passages through the upper tier to the town wall
+	for g: Dictionary in L.record.get("gates", []):
+		var b := wrapf(float(g.get("bearing", 0.0)), 0.0, 360.0)
+		var c := p3(TOWN_WALL_R, b, NAN)
+		plan.reserve(c.x, c.z, 16.0)
+		plan.reserve_line(L.xz(TOWN_WALL_R - 34.0, b), L.xz(TOWN_WALL_R + 20.0, b), 8.0)
 	for p: Dictionary in WorldData.get_ports():
 		if StringName(p.get("id", "")) == PORT:
 			var q: Vector3 = p["quay"]
@@ -179,7 +176,7 @@ func _steps() -> void:
 		# walls face the basin: the lower side is inward
 		var faces := step_wall(arc_spans(nominal, _ramp_gaps(0.5), arc), h(lo), h(hi), nominal + 16.0, nominal - 16.0, nominal, 12.0, 2.4, &"crenel", 0)
 		plan.data[StringName("%s_faces" % hi)] = faces
-		for a: Array in ramp_axes:
+		for a: Array in _stair_axes(nominal):
 			var b := float(a[0])
 			if b < arc.x or b > arc.y:
 				continue
@@ -190,6 +187,27 @@ func _steps() -> void:
 			for sx: float in [-1.0, 1.0]:
 				var gr := nominal + RAMP_LEN * 0.5 + 3.0
 				plan.anchor(&"guard_post", p3(gr, b + sx * RingLayout.half_angle(W + 2.0, gr), h(hi)), yaw_in(b), {"tags": ["stair", String(hi)]})
+
+
+## The stairs of a step at radius r: one per ramp, or one wide stair where two ramps overlap there
+## (the twin ramps of the main gate road run together near the quay).
+func _stair_axes(r: float) -> Array:
+	var axes := ramp_axes.duplicate()
+	axes.sort_custom(func(p: Array, q: Array) -> bool: return float(p[0]) < float(q[0]))
+	var out := []
+	var i := 0
+	while i < axes.size():
+		var a: Array = axes[i]
+		if i + 1 < axes.size():
+			var nb: Array = axes[i + 1]
+			var sep := RingLayout.arc_len(float(nb[0]) - float(a[0]), r)
+			if sep < float(a[1]) + float(nb[1]) - 1.0:
+				out.append([(float(a[0]) + float(nb[0])) * 0.5, sep * 0.5 + float(a[1])])
+				i += 2
+				continue
+		out.append(a)
+		i += 1
+	return out
 
 
 # --- the navy basin ----------------------------------------------------------------------------
@@ -280,7 +298,7 @@ func _docks() -> void:
 
 func _admiralty() -> void:
 	var y := h(&"upper")
-	var b := 270.0
+	var b := 255.0                      # between the ramp avenues at 240 and 270
 	var c := p3(362.0, b, y)
 	var yaw := yaw_in(b)
 	plan.reserve(c.x, c.z, 19.0)
@@ -378,8 +396,21 @@ func _town_wall() -> void:
 		var c := p3(TOWN_WALL_R, b, NAN)
 		var spec := {"W": W, "Wt": Wt, "D": 12.0, "H": 13.0 if main else 10.0, "Ho": 8.5 if main else 7.0, "bottom": -3.0}
 		plan.add(&"gate_fort", c, yaw_out(b), spec, 2, "", 16.0)
-		plan.reserve(c.x, c.z, W * 0.5 + Wt + 1.0)
-		plan.reserve_line(L.xz(TOWN_WALL_R - 30.0, b), L.xz(TOWN_WALL_R + 20.0, b), W * 0.5 + 1.0)
+		# where the road outside runs higher than the tier, a short stair up into the passage
+		# (a landing over the steep lip, slightly above the passage floor)
+		var foot := p3(TOWN_WALL_R - 11.0, b, NAN)
+		var pass_y := ground(c.x, c.z) + 0.15
+		if pass_y - foot.y > 0.75:
+			plan.add(&"fn_stair", foot, yaw_out(b), {"H": snappedf(pass_y - foot.y, 0.05), "R": 7.0, "W": W - 1.0, "half": 7.0, "landing": 5.0},
+					2, "", 7.0)
+		# and where the road outside climbs steeply away from the passage, a flight up to it
+		var high := -INF
+		for rr: float in [TOWN_WALL_R + 8.0, TOWN_WALL_R + 10.0, TOWN_WALL_R + 12.0, TOWN_WALL_R + 14.0]:
+			high = maxf(high, p3(rr, b, NAN).y)
+		if high - pass_y > 1.0:
+			var ofoot := p3(TOWN_WALL_R + 3.0, b, pass_y)
+			plan.add(&"fn_stair", ofoot, yaw_in(b) + PI, {"H": snappedf(high + 0.25 - pass_y, 0.05), "R": 7.0, "W": W - 1.0, "half": 7.0, "landing": 4.0},
+					2, "", 7.0)
 		plan.data.get_or_add("gates", []).append({"id": g.get("id", &""), "position": c, "yaw": yaw_out(b),
 			"outside": p3(TOWN_WALL_R + 18.0, b, NAN), "inside": p3(TOWN_WALL_R - 18.0, b, NAN)})
 		for sx: float in [-1.0, 1.0]:

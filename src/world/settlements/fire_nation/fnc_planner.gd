@@ -16,11 +16,13 @@ const KATA_TAG := &"flame_kata_grounds"
 ## The Dragon's Throat: the gatehouse radius on the gorge axis, the stair from the city floor
 ## (top) down to the gorge road (foot), the curtain chord length.
 const GATE_R := 442.0
-const STAIR_TOP_R := 403.0
-const STAIR_FOOT_R := 422.0
+const STAIR_TOP_R := 407.0
+const STAIR_FOOT_R := 427.0
+const STAIR_LANDING := 6.0
+const ROAD_ID := &"fn_capital_harbor"
 const CURTAIN := 7.0
 ## The palace's grand stair at bearing 180: (top radius, foot radius).
-const PALACE_STAIR := Vector2(56.0, 76.0)
+const PALACE_STAIR := Vector2(53.0, 76.0)
 ## House bands: [tier, front radius, depth, facing_in, kinds, style].
 const BANDS := [
 	[&"palace_terrace", 64.0, 26.0, true, {&"fn_townhouse": 3, &"noble_house": 2}, FnStyle.NOBLE],
@@ -390,17 +392,27 @@ func _gorge_gate() -> void:
 					2, "", CURTAIN * 0.5)
 			s += CURTAIN
 			k += 1
-	# the stair from the Lower City down to the gorge road
-	var top_p := p3(STAIR_TOP_R, b, h(&"lower_city"))
-	var foot := p3(STAIR_FOOT_R, b)
+	# the stair from the Lower City down to the gorge road: a landing over the crumbling lip of the
+	# caldera floor (slightly above it), then the flight down, above the gorge's steep walls
+	var top_p := p3(STAIR_TOP_R, b, h(&"lower_city") + 0.15)
+	# the foot on the road (it bends off the gorge axis there), the flight aimed at the top
+	var foot := _road_at(ROAD_ID, STAIR_FOOT_R)
+	if not foot.is_finite():
+		foot = p3(STAIR_FOOT_R, b)
 	foot.y = ground(foot.x, foot.z)
 	var run := Vector2(top_p.x - foot.x, top_p.z - foot.z).length()
-	plan.add(&"fn_stair", foot, yaw_in(b), {"H": snappedf(top_p.y - foot.y, 0.05), "R": run, "W": 14.0, "half": run}, 2, "", 12.0)
-	plan.reserve_line(L.xz(STAIR_TOP_R - 4.0, b), L.xz(GATE_R + 30.0, b), 8.0)
-	var arch_at := p3(STAIR_TOP_R - 3.0, b, h(&"lower_city"))
+	var syaw := SettlementLayout.yaw_dir(Vector2(top_p.x - foot.x, top_p.z - foot.z).normalized())
+	plan.add(&"fn_stair", foot, syaw, {"H": snappedf(top_p.y - foot.y, 0.05), "R": run, "W": 14.0, "half": run, "landing": STAIR_LANDING},
+			2, "", 14.0)
+	plan.reserve_line(L.xz(STAIR_TOP_R - STAIR_LANDING - 4.0, b), L.xz(GATE_R + 30.0, b), 8.0)
+	top_p = p3(STAIR_TOP_R - STAIR_LANDING + 1.0, b, h(&"lower_city"))
+	var arch_at := p3(STAIR_TOP_R - STAIR_LANDING - 2.5, b, h(&"lower_city"))
 	if cam.ok(arch_at.x, arch_at.z, 9.0, arch_at.y + 11.0):
 		plan.add(&"fn_gate", arch_at, yaw_in(b), {"span": 12.0, "height": 8.0}, 2, "fn_gate:12:8", 9.0)
-	plan.data["gorge_gate"] = {"position": c, "yaw": yaw, "outside": c + dir3 * 22.0, "inside": c - dir3 * 22.0, "stair_top": top_p, "stair_foot": foot}
+	var inside := _road_at(ROAD_ID, GATE_R - 9.0)
+	var outside := _road_at(ROAD_ID, GATE_R + 13.0)
+	plan.data["gorge_gate"] = {"position": c, "yaw": yaw, "outside": outside if outside.is_finite() else c + dir3 * 13.0,
+		"inside": inside if inside.is_finite() else c - dir3 * 9.0, "stair_top": top_p, "stair_foot": foot}
 	plan.add_district(&"fnc_gorge_gate", String(gorge.get("name", "The Dragon's Throat")), c, 48.0)
 	plan.districts.push_front(plan.districts.pop_back())
 	plan.data.get_or_add("exclusions", []).append([Vector3(c.x, 0, c.z), 56.0, ContentExclusions.TAG_TREES | ContentExclusions.TAG_ROCKS | ContentExclusions.TAG_PROPS])
@@ -415,6 +427,20 @@ func _gorge_gate() -> void:
 		plan.anchor(&"guard_post", SettlementLayout.world(top_p, yaw_in(b), Vector3(sx * 8.5, 0, -4.0)), yaw_out(b), {"tags": ["gorge_gate", "stair"]})
 	var q := SettlementLayout.world(c, yaw, Vector3(5.0, 0, 15.0))
 	plan.anchor(&"quest_giver", Vector3(q.x, ground(q.x, q.z), q.z), yaw + PI, {"tags": ["gatekeeper", "gorge"]})
+
+
+## Where a WorldData road first crosses radius r from the city centre (INF if it does not).
+func _road_at(road_id: StringName, r: float) -> Vector3:
+	for rd in WorldData.get_roads():
+		if StringName(rd.get("id", "")) != road_id:
+			continue
+		var pts: PackedVector3Array = rd.get("points", PackedVector3Array())
+		for i in pts.size() - 1:
+			var ra := L.polar(pts[i].x, pts[i].z).x
+			var rb := L.polar(pts[i + 1].x, pts[i + 1].z).x
+			if (ra - r) * (rb - r) <= 0.0 and absf(rb - ra) > 0.001:
+				return pts[i].lerp(pts[i + 1], (r - ra) / (rb - ra))
+	return Vector3.INF
 
 
 func _patrols() -> void:
