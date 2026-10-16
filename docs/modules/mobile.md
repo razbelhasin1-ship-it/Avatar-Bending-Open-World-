@@ -164,7 +164,7 @@ are the renderer regression probes.
 tools/export/export_web.sh [release|debug]     # -> build/web (≈ 40 MB wasm + 55 MB pck; 10 + 53 MB gzipped)
 python3 tools/export/serve_web.py --host 0.0.0.0   # http://<pc-ip>:8060 from a phone on the same Wi-Fi
 NODE_PATH=/opt/node-tools/node_modules node tools/export/web_smoke.mjs --out .playtest/web
-tools/export/export_android.sh [debug|release] # -> build/android/avatar-four-nations-debug.apk
+tools/export/export_android.sh [debug|release] # -> build/android/avatar-four-nations-debug.apk (≈ 82 MB)
 ```
 
 **World data.** Every preset has `include_filter="assets/world/*"`: the heightmap
@@ -347,7 +347,8 @@ All minimal and additive; desktop behaviour is unchanged unless noted.
 * **iOS** exports an Xcode project only; it needs an App Store Team ID and a Mac to build.
 * **Web** is single-threaded (no SharedArrayBuffer needed): world streaming runs one content
   build per frame on the main thread, so first arrival in a region takes noticeably longer
-  than on desktop (≈ 5 min under SwiftShader). First download ≈ 63 MB gzipped.
+  than on desktop (3–5 min from element select to control under SwiftShader). First download
+  ≈ 63 MB gzipped.
 * **First-use shader hitches**: the first casts of each technique compile pipelines
   (arena p95 ≈ 0.5–0.7 s under llvmpipe on the first round, normal once warm). Not addressed
   (would need a per-element warm-up pass owned by the bending / fx modules).
