@@ -124,9 +124,11 @@ captains: phase change at the health threshold (war cry burst, new attacks, fast
   pressure (feint steps in). Tokens are held by instance id, validated every query and expire
   after 6 s: a freed or dead enemy never keeps one.
 * **Fair play**: an enemy outside the player's camera view circles toward it instead of
-  attacking; after 2.5 s off-screen it may attack with a 1.45x telegraph. Attack origins are the
-  attacker (guards judge where the enemy stands). Every attack has a hard cap (6 s), every state
-  a timeout (`EnemyBase.STATE_TIMEOUT`).
+  attacking; after 2.5 s off-screen it may attack with a 1.45x telegraph (`flanking`). No new
+  attack (or combo follow-up) starts while the player is knocked down or getting up. Melee /
+  slam hits use the attacker as `HitInfo.origin`, so a held guard judges where the enemy stands
+  (the hit shape's centre can lie behind a close target). Every attack has a hard cap (6 s),
+  every state a timeout (`EnemyBase.STATE_TIMEOUT`).
 * **Never stand still**: circlers always move (tested: > 80 % of strafing frames moving);
   stuck detection flips the circle direction; returning enemies snap home after 4 s stuck when
   the player is far.
@@ -146,7 +148,21 @@ captains: phase change at the health threshold (war cry burst, new attacks, fast
    charge is the telegraph; tap = short telegraph then release).
 3. **Recover** (`recover` s): no blocking, dodging or turning: the punish window.
 
-Measured (arena playtest, normal difficulty): glint -> strike 0.45-1.1 s for every attack.
+Measured (`enemies_arena` fairness report, normal difficulty, first attack of each duel):
+
+| Enemy | First attack | Telegraph | Glint -> strike | Recovery |
+| --- | --- | --- | --- | --- |
+| bandit brawler | club swing (-> backswing) | 0.44 s | 0.55 s | 0.45 s |
+| bandit skirmisher | knife flurry | 0.34 s | 0.40 s | 0.20 s (then backs off) |
+| bandit archer | arrow | 0.60 s | 0.65 s | 0.40 s |
+| Fire Nation spearman | spear thrust | 0.52 s | 0.62 s | 0.55 s |
+| firebender soldier | Fire Blast | 0.52 s | 0.72 s | 0.55 s |
+| rogue earthbender | rock punches | 0.41 s | 0.62 s | 0.50 s |
+| Raider Chief Dun | Quake Stomp (4.2 m ring) | 0.68 s | 0.90 s | 0.90 s |
+| komodo rhino | bite | 0.50 s | 0.87 s | 0.60 s |
+
+The fastest tell (the skirmisher's knives) is 0.40 s from glint to blade; heavies and areas
+give 0.7-0.9 s with a ground ring.
 
 ## Damage and reactions (`EnemyDamage`)
 
@@ -162,8 +178,13 @@ Measured (arena playtest, normal difficulty): glint -> strike 0.45-1.1 s for eve
   downed enemy never turn the knockdown into a stagger. Water douses firebenders (longer
   stun, steam, fire cooldowns). Poise break always staggers.
 * Knockdown 0.9-2.2 s on the floor (after landing when launched), then get-up with i-frames.
-* Death: ragdoll-like death reaction, collision off, `Events.enemy_killed`, rewards, fade and
-  sink after 5 s, `despawn_ready` at 6.6 s.
+  Beasts are bowled over: the creature rolls onto its side and back up on the get-up.
+* Surrender: the bandit kneels with open hands (looping kneel), drops its hand weapons, hands
+  over its loot, is skipped by lock-on and ignores further hits; it leaves after 30 s or when
+  the player is 40 m away. Flee: runs from the player and vanishes out of sight (half XP); a
+  cornered runner turns and fights to the end.
+* Death: death reaction, collision off, `Events.enemy_killed`, rewards, fade and sink after
+  5 s, `despawn_ready` at 6.6 s.
 
 ## Encounters (`EncounterDirector`, `EncounterSite`, `EncounterSites`, `EncounterProvider`)
 
@@ -204,6 +225,12 @@ glints / rings / projectiles are pooled (`FxLib`), health bars are 3-4 unshaded 
 only in combat, telegraph lights respect `FxLib.tier()`, outpost geometry is merged by the
 building kit with LOD1 beyond 120 m.
 
+Measured worst case (`test_cost_of_a_full_budget_fight`, headless, this dev container): 15
+engaged enemies + the player = **7.3 ms per physics frame**, of which ~5.9 ms is HumanoidRig
+animation at LOD 0 (no camera in the test, so no rig auto-LOD), brain 0.7 ms, physics 0.35 ms,
+attacks 0.24 ms, perception 0.1 ms. In the game the rig's own auto-LOD (distance + on-screen)
+cuts the animation share; the mobile budget is 7 enemies.
+
 ## Tests and tools
 
 * `tests/unit/test_enemies.gd`: archetype data completeness (roles, clips, readable telegraphs),
@@ -212,16 +239,27 @@ building kit with LOD1 beyond 120 m.
   (max 2, circlers keep moving), token release on death / free, reactions by weight class and
   hyper armor, knockdown -> get-up i-frames, shields, agile dodge of slow projectiles, a bender
   casting the real ability + parry stagger, leash / return / heal, death rewards + events,
-  surrender / flee, captain phase change, world sites on the real world data, director spawn /
-  despawn / respawn / combat state, dormancy, off-screen fairness, guard origin of area
-  attacks, and a 3000-frame no-stuck fuzz over 10 archetypes.
+  surrender / flee, captain phase change, world sites on the real world data (on land, dry, no
+  road / field / town paving inside outposts), director spawn / despawn / respawn / combat
+  state, dormancy, guard origin of area attacks, off-screen enemies circling into view before
+  attacking, toppling heavies vs brutes (and no knockdown -> stagger downgrade), the cost of a
+  full-budget fight, and a 3000-frame no-stuck fuzz over 10 archetypes (25 tests).
 * `EnemySim` steps players, enemies, projectiles and constructs at 1/60 s with a sim clock.
 * `scenes/dev/enemy_arena.tscn` (`--scene=res://scenes/dev/enemy_arena.tscn --element=earth`):
   the combat arena with enemy groups (F5 respawn, F6 next group, F9 passive toggle).
-* Playtests: `enemies_arena` (one duel per archetype, observer camera, fairness report;
-  `ARCH=a,b ELEMENT=fire`), `enemies_camp` (a real outpost near the Earth Kingdom home region),
-  `enemies_observe` (log a group vs an idle / blocking player), `enemies_posesheet` (weapon clip
-  poses at the telegraph hold and the strike).
+* Playtests:
+  * `enemies_arena`: one duel per archetype with the real player through InputMap actions
+    (telegraph -> parry / dodge / guard -> counter -> charged heavy knockdown -> get-up ->
+    defeat), observer-camera screenshots + the player's own view, a fairness report;
+    `ARCH=a,b ELEMENT=fire`. Each archetype gets the player element that suits the matchup.
+  * `enemies_camp`: the Fire Nation Scout Camp outpost in the real world (710 m from the Earth
+    Kingdom home spawn): approach, spotted (alert marks, ally call, combat music state), group
+    fight (token cap, circling), cleared (XP, loot, bonus toast, saved flag, combat off).
+    `SITE=<id> ELEMENT=<element>`.
+  * `enemies_lowhealth`: a bandit surrenders (kneel, dropped club, spared) and an archer flees.
+  * `enemies_observe` (log a group vs an idle / blocking player), `enemies_posesheet` (weapon
+    clip poses at the telegraph hold and the strike).
+  * Mobile: `RENDERER=mobile MOBILE=1 ARCH=fire_soldier tools/playtest.sh enemies_arena`.
 
 ## Design decisions
 
@@ -233,3 +271,25 @@ building kit with LOD1 beyond 120 m.
 * Weight classes (`mass`, `poise_resist`, `armor`) make the elements matter: earth heavies break
   shields and floor brutes, air blasts send archers flying, water douses fire.
 * Sites are deterministic data (`EncounterSites`), so saves only store cleared timestamps.
+* Fair play beats difficulty: enemies wait for the player to see them, never pile on a downed
+  player and never get a reflex parry; difficulty changes telegraph length, cooldowns, attacker
+  count and projectile lead, not reaction-time cheats.
+
+## Changes outside the module
+
+* `src/player/player_targeting.gd`: `_valid()` takes an untyped argument so a lock / soft target
+  freed while referenced (a despawned or fled enemy) reads as invalid instead of raising a
+  script error.
+* `tests/unit/test_worldscene.gd`: the hook test tolerates other modules' hooks (wave-2 branch).
+
+## Known limitations
+
+* The player's own lock-on camera can put a close melee attacker behind the player model; the
+  glint usually shows above the shoulder, the arena screenshots use an observer camera. The
+  camera framing belongs to the player module.
+* Enemies have no off-screen indicator: off-screen fairness relies on the circle-into-view rule,
+  the longer flank telegraph and the wind-up sounds.
+* Only one WorldData camp POI (Dustwind Raider Camp) is hostile; the other camps are friendly
+  (hunters, wardens). The other encounters are authored outposts, patrols and dens.
+* Navigation is steering + whiskers (no navmesh): enemies can get stuck behind large concave
+  obstacles; they flip direction and, when going home with the player far away, snap home.

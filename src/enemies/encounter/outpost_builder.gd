@@ -13,7 +13,8 @@ extends RefCounted
 const R_TENTS := 9.5
 const R_FENCE := 13.0
 const TENT_DARK := Color(0.38, 0.1, 0.08)
-const DIRT := Color(0.47, 0.38, 0.27)
+## Vertex colours are lit like the props (bright sun): keep the trampled earth dark.
+const DIRT := Color(0.25, 0.19, 0.12)
 
 
 static func build(site: EncounterSite, lod: int = 0) -> Dictionary:
@@ -68,7 +69,7 @@ static func dirt(ctx: Dictionary, c: Vector3, r: float, col: Color = DIRT) -> vo
 		outer.append(ground(ctx, Vector3(c.x + cos(a) * ro, 0, c.z + sin(a) * ro)) + Vector3.UP * 0.04)
 	var cc := ground(ctx, Vector3(c.x, 0, c.z)) + Vector3.UP * 0.07
 	var g := kit.g()
-	var edge := col.lerp(Color(0.42, 0.45, 0.28), 0.35)
+	var edge := col.lerp(Color(0.2, 0.24, 0.1), 0.45)
 	for k in n:
 		var k2 := (k + 1) % n
 		g.flat_tri(cc, inner[k2], inner[k], col)
@@ -143,7 +144,7 @@ static func _pirate_cove(ctx: Dictionary) -> void:
 	var kit: BuildingKit = ctx["kit"]
 	var rng: RandomNumberGenerator = ctx["rng"]
 	for a: float in [60.0, 130.0, 200.0]:
-		dirt(ctx, ring(a, R_TENTS - 4.0), 1.8, Color(0.6, 0.53, 0.4))
+		dirt(ctx, ring(a, R_TENTS - 4.0), 1.8, Color(0.36, 0.31, 0.22))
 		var p := ground(ctx, ring(a, R_TENTS - 1.0))
 		_tent(kit, p, face_center(p), {"w": 3.0, "d": 3.6, "h": 2.3, "role": Color(0.55, 0.47, 0.36) if int(a) % 20 == 0 else Color(0.36, 0.42, 0.5)})
 	# Beached rowboat on its side by the camp.

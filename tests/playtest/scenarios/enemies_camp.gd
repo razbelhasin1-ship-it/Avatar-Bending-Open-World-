@@ -274,13 +274,16 @@ func _group_shot(name: String) -> void:
 	var r := 3.0
 	for q in pts:
 		r = maxf(r, _flat(q, c))
-	var to := c - pl.global_position
-	to.y = 0.0
-	var fwd := to.normalized() if to.length_squared() > 0.01 else -pl.global_basis.z
-	var side := Vector3(-fwd.z, 0, fwd.x)
-	var dist := 5.0 + r * 1.6
-	var pos := c - fwd * dist * 0.7 + side * dist * 0.55 + Vector3.UP * (4.5 + r * 0.6)
-	pos.y = maxf(pos.y, WorldData.get_height(pos.x, pos.z) + 4.0)
+	# From above the camp interior (trees are kept out of it), looking at the group.
+	var inward := site.center - c
+	inward.y = 0.0
+	if inward.length_squared() < 4.0:
+		inward = -pl.global_basis.z
+	inward = inward.normalized()
+	var side := Vector3(-inward.z, 0, inward.x)
+	var dist := 5.0 + r * 1.3
+	var pos := c + inward * dist * 0.75 + side * dist * 0.45 + Vector3.UP * (6.0 + r * 0.5)
+	pos.y = maxf(pos.y, WorldData.get_height(pos.x, pos.z) + 5.0)
 	cam.look_at_from_position(pos, c + Vector3.UP * 1.0, Vector3.UP)
 	cam.make_current()
 	await p.screenshot(name)
