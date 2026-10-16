@@ -64,12 +64,15 @@ func run(pt: Playtest) -> void:
 	# Each technique from its button, at the posts.
 	for i in 3:
 		var id: StringName = ids[i]
-		await _place(Vector3(0, 0, -1.5 if id == &"fire_burst" else 1.5))
+		# In reach of the posts (they stand ~7.5 m north of the origin).
+		var z := {&"fire_burst": -4.4, &"flame_sweep": -1.5, &"fire_ring": -3.2}
+		await _place(Vector3(0, 0, float(z.get(id, 0.0))))
 		await t.tap_button(ov, StringName("tech_%d" % i), 6, 0.06)
 		await p.wait_game(0.45 if id == &"fire_burst" else 0.62)
 		await p.screenshot("mobile_%d_%s" % [i + 1, id])
 		p.check(used.has(id), "%s cast from its touch button" % id)
 		await _tick_until(func() -> bool: return not pl.controller.is_busy(), 3.0)
+		p.check(int(hits.get(id, 0)) > 0, "%s hit the posts (%d)" % [id, int(hits.get(id, 0))])
 	# Lightning: hold the button through the charge, lift to strike.
 	await _place(Vector3(0, 0, 4.0))
 	var at := t.button_center(ov, &"tech_3")

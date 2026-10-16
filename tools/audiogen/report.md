@@ -7,7 +7,7 @@ motion), `dRMS` = RMS change across the loop point (dB) next to the 95th percent
 measure between adjacent 50 ms windows inside the file (music that restarts on a downbeat hit
 legitimately steps up at the wrap). OGG rows are measured on the decoded file.
 
-Files: 284, total size: 34.17 MB
+Files: 290, total size: 34.89 MB
 
 ## amb (target -26 LUFS)
 
@@ -73,6 +73,11 @@ Files: 284, total size: 34.17 MB
 | fire_ignite_2.wav | 44100 | 0.50 | 1 | -1.6 | -1.0 | -20.3 | -18.3 | -18.3 | 3215 |  |  |
 | fire_ignite_3.wav | 44100 | 0.44 | 1 | -3.0 | -2.9 | -20.0 | -18.2 | -18.2 | 2676 |  |  |
 | fire_ignite_4.wav | 44100 | 0.41 | 1 | -2.9 | -2.9 | -19.6 | -18.2 | -18.2 | 2802 |  |  |
+| fire_lightning_1.wav | 44100 | 2.20 | 1 | -1.0 | -1.0 | -23.5 | -17.1 | -25.0 | 1972 |  |  |
+| fire_lightning_2.wav | 44100 | 1.54 | 1 | -1.0 | -1.0 | -22.7 | -18.0 | -24.3 | 1714 |  |  |
+| fire_lightning_crackle_1.wav | 44100 | 0.59 | 1 | -1.6 | -1.0 | -22.7 | -18.3 | -19.7 | 5523 |  |  |
+| fire_lightning_crackle_2.wav | 44100 | 0.50 | 1 | -1.0 | -1.0 | -23.2 | -19.4 | -20.6 | 5589 |  |  |
+| fire_lightning_crackle_3.wav | 44100 | 0.40 | 1 | -1.3 | -1.0 | -21.3 | -18.3 | -18.3 | 5667 |  |  |
 | fire_ring_1.wav | 44100 | 1.30 | 1 | -5.4 | -3.9 | -22.0 | -17.6 | -20.2 | 2464 |  |  |
 | fire_ring_2.wav | 44100 | 1.30 | 1 | -5.8 | -5.5 | -22.1 | -17.6 | -19.9 | 2274 |  |  |
 | fire_whoosh_1.wav | 44100 | 0.63 | 1 | -1.3 | -1.3 | -21.1 | -18.0 | -18.3 | 1856 |  |  |
@@ -222,6 +227,7 @@ Files: 284, total size: 34.17 MB
 | air_shield_loop.wav | 44100 | 4.00 | 1 | -8.7 | -8.6 | -22.8 | -21.3 | -22.0 | 1561 | 0.50 | 0.50 (2.30) |
 | air_tornado_loop.wav | 44100 | 5.00 | 1 | -1.0 | -1.0 | -10.6 | -18.3 | -19.1 | 1657 | 0.20 | 1.47 (4.83) |
 | fire_charge_loop.wav | 44100 | 3.00 | 1 | -1.0 | -1.0 | -10.1 | -21.1 | -22.5 | 1575 | 0.02 | 8.71 (5.50) |
+| fire_lightning_loop.wav | 44100 | 3.00 | 1 | -5.4 | -4.2 | -20.9 | -20.6 | -22.0 | 946 | 0.13 | 1.63 (1.72) |
 | fire_loop.wav | 44100 | 5.00 | 1 | -1.0 | -1.0 | -9.4 | -20.4 | -22.7 | 1638 | 0.04 | 0.11 (5.96) |
 | water_heal_loop.wav | 44100 | 5.00 | 1 | -5.5 | -5.5 | -24.3 | -21.0 | -24.0 | 1486 | 0.18 | 1.56 (7.98) |
 | water_shield_loop.wav | 44100 | 4.00 | 1 | -4.3 | -4.3 | -21.5 | -19.8 | -22.0 | 695 | 0.10 | 3.26 (4.78) |

@@ -101,7 +101,7 @@ const ALL_SFX: Array[StringName] = [
 	&"earth_raise", &"earth_launch", &"earth_impact", &"earth_wall_rise", &"earth_crumble", &"earth_stomp",
 	&"earth_quake", &"earth_spikes", &"earth_armor", &"rock_debris",
 	&"fire_ignite", &"fire_blast", &"fire_whoosh", &"fire_impact", &"fire_explosion", &"fire_loop",
-	&"fire_charge_loop", &"fire_ring", &"fire_extinguish",
+	&"fire_charge_loop", &"fire_ring", &"fire_extinguish", &"fire_lightning", &"fire_lightning_crackle", &"fire_lightning_loop",
 	&"water_whip", &"water_splash", &"water_blast", &"water_shield_loop", &"water_surge", &"water_draw",
 	&"ice_form", &"ice_shatter", &"ice_impact", &"water_wave", &"water_heal_loop",
 	&"bison_call", &"bison_groan", &"dragon_roar", &"wing_flap_large", &"dog_bark", &"dog_growl",

@@ -79,6 +79,12 @@ func run(pt: Playtest) -> void:
 	p.hold(&"move_back")
 	await p.wait_game(1.4)
 	p.release(&"move_back")
+	# Turn back to watch it (the camera behind the player, facing the fire).
+	var to_fire := spot - pl.global_position
+	to_fire.y = 0.0
+	if to_fire.length() > 0.5:
+		pl.teleport(Transform3D(Basis(Vector3.UP, atan2(-to_fire.x, -to_fire.z)), pl.global_position))
+	pl.camera_rig.snap_behind(pl)
 
 	# 3) Spread within the budget.
 	var center := spot
@@ -221,7 +227,20 @@ func _obs(shot: String, focus: Vector3, side: float = 1.0, dist: float = 8.0, he
 	var right := Vector3(-fwd.z, 0.0, fwd.x)
 	var eye := focus + right * side * dist - fwd * dist * 0.4
 	eye.y = WorldData.get_height(eye.x, eye.z) + height
-	cam.look_at_from_position(eye, focus + Vector3.UP * 0.6, Vector3.UP)
+	var look := focus + Vector3.UP * 0.6
+	# Never behind a trunk / wall: pull the camera in front of whatever is in between.
+	var q := PhysicsRayQueryParameters3D.create(look, eye)
+	q.exclude = [pl.get_rid()]
+	var hit := pl.get_world_3d().direct_space_state.intersect_ray(q)
+	if not hit.is_empty():
+		eye = look.lerp(hit["position"], 0.85)
+	cam.look_at_from_position(eye, look, Vector3.UP)
 	cam.make_current()
+	# The companion (the dragon lands next to the player) stays out of the shot.
+	var comp: Node3D = pl.get_companion()
+	if comp != null:
+		comp.visible = false
 	await p.screenshot(shot)
+	if comp != null and is_instance_valid(comp):
+		comp.visible = true
 	pl.camera_rig.make_current()
