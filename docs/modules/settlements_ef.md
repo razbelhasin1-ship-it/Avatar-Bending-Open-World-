@@ -127,12 +127,18 @@ lights; embers rise over the palace's flame pillars, the Plaza of the Sun and th
 
 | id | cells | worst cell build | LOD0 tris avg / max | LOD1 avg | LOD2 avg |
 | --- | --- | --- | --- | --- | --- |
-| ba_sing_se | 112 | 175 ms | 22.0k / 72k | 6.0k | 0.8k |
-| omashu | 28 | 148 ms | 44.1k / 95k | 13.1k | 2.0k |
-| ek_villages | 34 | 55 ms | 23.2k / 60k | 8.1k | 1.0k |
-| fire_nation_capital | 41 | 134 ms | 33.1k / 81k | 13.8k | 1.9k |
-| fire_harbor | 23 | 98 ms | 30.6k / 86k | 12.2k | 1.4k |
-| fn_villages | 18 | 48 ms | 10.7k / 35k | 4.0k | 0.8k |
+| ba_sing_se | 112 | 138 ms | 22.0k / 72k | 6.0k | 0.8k |
+| omashu | 28 | 148 ms | 44.2k / 93k | 13.0k | 2.0k |
+| ek_villages | 34 | 78 ms | 23.2k / 60k | 8.1k | 1.0k |
+| fire_nation_capital | 41 | 169 ms | 34.9k / 84k | 13.8k | 1.9k |
+| fire_harbor | 23 | 99 ms | 31.9k / 83k | 12.2k | 1.5k |
+| fn_villages | 18 | 40 ms | 10.7k / 35k | 4.0k | 0.8k |
+
+(Worst-cell times vary ±30 % with machine load; plans: Ba Sing Se ≈ 0.31 s, the capital ≈ 0.22 s,
+Omashu ≈ 0.13 s.) With the mobile renderer and the low preset the tour views render the same
+cities with the smaller LOD ranges (`settlements_ef_tour` with `RENDERER=mobile PRESET=low`), and
+the Compatibility renderer was checked on the palace courtyard, the harbour and a Ba Sing Se
+gate.
 
 Cells build on worker threads (the frame never waits); archetypes (`arch`) are cached per LOD
 and merged. LOD0 draws only to `lod0_end` (110–300 m), LOD1 to `lod1_end`, the 4x far cells
