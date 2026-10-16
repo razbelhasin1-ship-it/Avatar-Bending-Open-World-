@@ -16,6 +16,10 @@ var player_results: Array = []
 
 func run(pt: Playtest) -> void:
 	p = pt
+	if Settings.is_mobile_device():
+		Settings.apply_preset("mobile")
+		Settings.set_value("display", "render_scale", 0.75)
+		Settings.apply()
 	var elements: Array[int] = []
 	if OS.get_environment("ALL") != "":
 		elements.assign(ElementDefs.ALL)

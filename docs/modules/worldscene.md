@@ -252,6 +252,32 @@ hidden until a companion exists (`Events.companion_spawned`). Tests can add hook
 * Directors poll at 2-5 Hz; no per-frame allocations in the hot paths.
 * Arena dressing is one kit mesh (4 material slots) + budgeted lights.
 
+## Testing
+
+* `tools/test.sh test_worldscene` (15 tests): spawns / arrival paths / training sites per
+  element (home region, flat circle), ferry routes (two-way, berth to berth, quay faces inland)
+  + polyline helpers, region hysteresis + first visits + autosave veto, POI discovery (XP once,
+  toast), respawn point choice (home, discovered shrine, visited capitals), and headless
+  integration: new game on real ground, continue (position, yaw, health, hour, abilities),
+  arrival plays and any key skips onto the player camera, death -> 50 % at the safe point (and
+  a save while dead points there), fall-out / world-edge rescue, `travel_to` + a full ferry trip
+  (depart / transit / arrive, rode on deck, quay, camera, cleanup), two world round trips leave
+  identical root nodes and no held actions, a hook installing a companion, tutorial steps per
+  element (bindings resolved on every device), the tutorial lessons + skip + partner + completion
+  -> ENTER THE WORLD, nothing saved.
+* Playtests (`tools/playtest.sh <name> <out> 960x540`):
+  * `worldscene_flow` - boot -> main menu -> ENTER THE WORLD -> element select (ui navigation)
+    -> arrival -> gameplay in the home region -> move + attack -> pause -> SAVE GAME -> RETURN TO
+    MAIN MENU (root nodes unique, no held input, mouse visible) -> CONTINUE -> same place /
+    element / abilities / hour. `ELEMENT=water` or `ELEMENT=air,earth` (default all four). Backs up
+    and restores real saves.
+  * `worldscene_arrival` - the flight per element at 4 %, 30 %, 60 %, 90 % + first gameplay frame.
+  * `worldscene_tutorial` - every lesson completed through simulated input (mouse-look events,
+    InputMap actions; the harness re-places the player before target lessons), then completion
+    and ENTER THE WORLD. `ELEMENT=fire`, `ALL=1`, `QUICK=1` (site overview only).
+  * `worldscene_travel` - ferry landing prompt, destination choice by number key, the sailing
+    interlude, arrival, death -> respawn, `travel_to`.
+
 ## Known limitations
 
 * Settlements (buildings, piers, walls) are another module: spawns stand on the generator's

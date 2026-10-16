@@ -14,6 +14,12 @@ var frame_ms: Array = []
 
 func run(pt: Playtest) -> void:
 	p = pt
+	if Settings.is_mobile_device():
+		# MOBILE=1: the phone preset regardless of a local settings.cfg (not saved)
+		Settings.apply_preset("mobile")
+		Settings.set_value("display", "render_scale", 0.75)
+		Settings.apply()
+		p.note("mobile preset, renderer %s, touch %s" % [Settings.rendering_method(), Settings.touch_controls_enabled()])
 	_backup_saves()
 	var only := OS.get_environment("ELEMENT")
 	var elements: Array[int] = []
