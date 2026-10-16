@@ -149,30 +149,38 @@ func _plazas() -> void:
 		if rb < 560.0:
 			spots.append([P.p3(rb + 35.0, b, (s["top"] as Vector3).y), b, 9.0])
 	if plan.data.has("spawn"):
+		# the water element's spawn plaza: framed around the player (local -Z = the spawn's facing)
 		var sp: Vector3 = plan.data["spawn"]
-		spots.append([Vector3(sp.x, P.h(&"upper"), sp.z), L.polar(sp.x, sp.z).y, 12.0])
+		spots.append([Vector3(sp.x, P.h(&"upper"), sp.z), L.polar(sp.x, sp.z).y, 12.0, float(plan.data.get("spawn_yaw", 0.0))])
 	for s: Array in spots:
 		var c: Vector3 = s[0]
 		var b: float = s[1]
 		var r: float = s[2]
+		var spawn := s.size() > 3
 		if P._in_other_canal(Vector2(c.x, c.z), &"", 4.0):
 			continue
-		plan.add(&"plaza", c, NwtPlanner.yaw_in(b), {"r": r}, 1, "plaza:%d" % int(r), r)
+		var yaw: float = s[3] if spawn else NwtPlanner.yaw_in(b)
+		plan.add(&"plaza", c, yaw, {"r": r}, 1, "plaza:%d" % int(r), r)
 		plan.reserve(c.x, c.z, r + 1.0)
-		var centre_kind: StringName = &"sculpture" if int(absf(b)) % 2 == 0 else &"brazier"
 		var v := int(absf(b) * 7.0 + r) % 5
-		plan.add(centre_kind, c, NwtPlanner.yaw_in(b), {"v": v}, 1, "%s:%d" % [centre_kind, v], 2.0)
+		if spawn:
+			# keep the spawn point and the ways out clear: two braziers behind the player's shoulders
+			for sx: float in [-1.0, 1.0]:
+				plan.add(&"brazier", NwtDistricts.world(c, yaw, Vector3(sx * 5.0, 0, 3.0)), yaw, {"v": 0}, 1, "brazier:0", 1.0)
+		else:
+			var centre_kind: StringName = &"sculpture" if int(absf(b)) % 2 == 0 else &"brazier"
+			plan.add(centre_kind, c, yaw, {"v": v}, 1, "%s:%d" % [centre_kind, v], 2.0)
 		for k in 4:
 			var a := TAU * (k + 0.5) / 4.0
-			var q := c + Vector3(cos(a), 0, sin(a)) * (r - 1.2)
+			var q := NwtDistricts.world(c, yaw, Vector3(cos(a), 0, sin(a)) * (r - 1.2))
 			plan.add(&"lamp_post", q, 0.0, {"v": k % 2, "light": k % 2 == 0}, 1, "lamp_post:%d:%d" % [k % 2, int(k % 2 == 0)], 0.6)
 		for sx: float in [-1.0, 1.0]:
-			var q := NwtDistricts.world(c, NwtPlanner.yaw_in(b), Vector3(sx * (r * 0.6), 0, r * 0.45))
-			plan.add(&"bench", q, NwtPlanner.yaw_in(b) + PI, {"v": 0}, 0, "bench:0", 1.2)
-			plan.anchor(&"idle", q, NwtPlanner.yaw_in(b) + PI, {"tags": ["bench", "plaza"]})
-			var bp := NwtDistricts.world(c, NwtPlanner.yaw_in(b), Vector3(sx * (r + 1.4), 0, -r * 0.2))
-			plan.add(&"banner_pole", bp, NwtPlanner.yaw_in(b), {"v": int(absf(b)) % 3}, 2, "banner_pole:%d" % (int(absf(b)) % 3), 0.8)
-		plan.anchor(&"child_play", c + Vector3(2.5, 0, 1.5), 0.0, {"tags": ["plaza"]})
+			var q := NwtDistricts.world(c, yaw, Vector3(sx * (r * 0.6), 0, r * 0.45))
+			plan.add(&"bench", q, yaw + PI, {"v": 0}, 0, "bench:0", 1.2)
+			plan.anchor(&"idle", q, yaw + PI, {"tags": ["bench", "plaza"]})
+			var bp := NwtDistricts.world(c, yaw, Vector3(sx * (r + 1.4), 0, -r * 0.2))
+			plan.add(&"banner_pole", bp, yaw, {"v": int(absf(b)) % 3}, 2, "banner_pole:%d" % (int(absf(b)) % 3), 0.8)
+		plan.anchor(&"child_play", NwtDistricts.world(c, yaw, Vector3(2.5, 0, 3.5)), 0.0, {"tags": ["plaza"]})
 
 
 # --- markets --------------------------------------------------------------------------------------

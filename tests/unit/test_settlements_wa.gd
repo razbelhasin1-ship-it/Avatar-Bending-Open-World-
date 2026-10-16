@@ -275,22 +275,52 @@ func test_nwt_cell_build_budget() -> void:
 	var b := Settlements.builder(Settlements.WATER_TRIBE)
 	var prov := SettlementProvider.new(p, b)
 	prov.cfg = SettlementSettings.current()
+	var far := SettlementFarProvider.new(p, b)
+	far.cfg = prov.cfg
 	var cells := p.cells()
 	cells.sort()
 	var worst := 0.0
 	var tris := 0
-	var n := 0
-	for k in range(0, cells.size(), maxi(cells.size() / 8, 1)):
-		var c: Vector2i = cells[k]
+	var tris1 := 0
+	var tris2 := 0
+	var max_tris := 0
+	var cache0 := KitCache.size()
+	for c: Vector2i in cells:
 		var origin := Vector3((c.x + 0.5) * p.cell_size, 0, (c.y + 0.5) * p.cell_size)
 		var t0 := Time.get_ticks_usec()
 		var res := prov.build_lods(c, origin)
 		var ms := (Time.get_ticks_usec() - t0) / 1000.0
 		worst = maxf(worst, ms)
-		tris += (res[0] as KitResult).triangle_count
-		n += 1
-	print("    %d cells sampled of %d, worst build %.0f ms, avg tris lod0 %d, cache %d archetypes" % [n, cells.size(), worst, tris / maxi(n, 1), KitCache.size()])
+		var t := (res[0] as KitResult).triangle_count
+		tris += t
+		tris1 += (res[1] as KitResult).triangle_count
+		tris2 += far.build_sub(c, origin).triangle_count
+		max_tris = maxi(max_tris, t)
+		expect(t > 0, "cell %s has geometry" % c)
+	print("    %d cells, worst build %.0f ms, lod0 tris avg %d max %d, lod1 avg %d, lod2 avg %d, +%d archetypes" % [cells.size(), worst,
+		tris / maxi(cells.size(), 1), max_tris, tris1 / maxi(cells.size(), 1), tris2 / maxi(cells.size(), 1), KitCache.size() - cache0])
 	expect(worst < 4000.0, "cell builds stay bounded")
+
+
+func test_arctic_cells_build() -> void:
+	if not WorldData.has_world_data():
+		return
+	var p := Settlements.plan(Settlements.ARCTIC)
+	var b := Settlements.builder(Settlements.ARCTIC)
+	var prov := SettlementProvider.new(p, b)
+	prov.cfg = SettlementSettings.current()
+	var worst := 0.0
+	var max_tris := 0
+	expect(p.cells().size() >= 5, "every arctic site streams (%d cells)" % p.cells().size())
+	for c: Vector2i in p.cells():
+		var origin := Vector3((c.x + 0.5) * p.cell_size, 0, (c.y + 0.5) * p.cell_size)
+		var t0 := Time.get_ticks_usec()
+		var res := prov.build_lods(c, origin)
+		worst = maxf(worst, (Time.get_ticks_usec() - t0) / 1000.0)
+		max_tris = maxi(max_tris, (res[0] as KitResult).triangle_count)
+		expect((res[0] as KitResult).triangle_count > 0, "arctic cell %s has geometry" % c)
+	print("    %d arctic cells, %d pieces, %d anchors, worst build %.0f ms, max lod0 tris %d" % [p.cells().size(), p.pieces.size(),
+		p.anchors.size(), worst, max_tris])
 
 
 # --- walkability: a probe capsule over the real collision ------------------------------------------
@@ -426,6 +456,26 @@ func _path_rect(paths: Array) -> Rect2:
 			else:
 				r = r.expand(Vector2(p.x, p.z))
 	return r.grow(12.0)
+
+
+## The new-game spawns inside the settlements (WorldData spawns of the air and water elements)
+## stand on open floor: the player can walk 10 m ahead and 8 m to either side and back.
+## (Regression: a plaza monument stood on the Water Tribe spawn and the player could not move.)
+func test_spawns_are_clear() -> void:
+	if not WorldData.has_world_data():
+		return
+	for e: Array in [[ElementDefs.Element.AIR, Settlements.AIR_TEMPLE], [ElementDefs.Element.WATER, Settlements.WATER_TRIBE]]:
+		var sp := WorldData.get_spawn(int(e[0]))
+		var sid: StringName = e[1]
+		if Settlements.settlement_at(sp.origin) != sid:
+			continue
+		_walk_world(sid, Rect2(sp.origin.x - 24.0, sp.origin.z - 24.0, 48.0, 48.0))
+		var f := -sp.basis.z
+		f = Vector3(f.x, 0, f.z).normalized()
+		var side := Vector3(-f.z, 0, f.x)
+		for d: Array in [[f, 10.0, "ahead"], [side, 8.0, "right"], [-side, 8.0, "left"], [-f, 8.0, "back"]]:
+			var err := _walk(PackedVector3Array([sp.origin, sp.origin + (d[0] as Vector3) * float(d[1])]), "%s spawn %s" % [sid, d[2]])
+			expect(err == "", err)
 
 
 func test_sat_walk_stairs_and_bridges() -> void:

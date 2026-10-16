@@ -50,7 +50,16 @@ func piece_extras(piece: Dictionary) -> Array:
 		&"pavilion":
 			if plan and plan.data.get("meditation_ledge", Vector3.INF) == pos:
 				out.append({"type": &"particles", "kind": &"motes", "position": pos + Vector3(0, 2.5, 0)})
+			out.append(_chime(pos + Vector3(0, 3.0, 0)))
+		&"chime_post":
+			out.append(_chime(pos + Vector3(0, 2.4, 0)))
 	return out
+
+
+## Extra: wind chimes that ring now and then while the player is close.
+static func _chime(p: Vector3) -> Dictionary:
+	var seed := ContentHash.hash4(int(p.x * 10.0), int(p.z * 10.0), 17)
+	return {"type": &"node", "make": func(cell: ContentCell) -> Node3D: return SettlementFx.chime_node(p, cell.origin(), seed)}
 
 
 ## Night glows (SettlementBuilder.piece_glows): stone lanterns, the spires' and houses' lit

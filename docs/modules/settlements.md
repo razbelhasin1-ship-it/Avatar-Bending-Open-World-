@@ -94,13 +94,24 @@ WorldData city record ──> Planner (per settlement) ──> SettlementPlan (p
   mesh per LOD with ≤ 4 material surfaces (solid / ice / glow / cloth); LOD0 (full detail,
   shadows) up to `lod0_end`, LOD1 (simplified) to `lod1_end`. Both share one AABB
   (`KitMerger.normalize_aabb` → `SettlementPlan.cell_aabb`) so the visibility ranges hand over at
-  the same distance. Collision (boxes + trimesh of LOD0) is attached only within
+  the same distance. **No visibility margins** on any hand-over: Godot's margin hysteresis keeps
+  a freshly created, not-yet-visible instance hidden inside the whole margin band, so two LODs
+  with margins leave a cell invisible while the camera sits in the band (regression test
+  `test_lod_handover_has_no_gap`). Collision (boxes + trimesh of LOD0) is attached only within
   `collision_range` of the focus (+40 m hysteresis). Lights: the highest-priority `cell_lights`
   per cell become `LightBudget` lights. Piece extras (particles, sounds, nodes, markers) are
   created on the main thread.
+* **Night glows** (`night_glow.gdshader`, `SettlementFx.add_glows`): one MultiMesh of additive,
+  camera-facing sprites per cell that fade in at dusk (from the `world_sun_color` global), grow
+  slightly with distance and collapse to nothing by day, so a lit city sparkles from kilometres
+  without real lights. Near cells (0 – `lod1_end`) draw a glow on every LOD0 light record that
+  is not an interior light, plus every glow-only record (`KitX.glow`: lit windows, unlit
+  lanterns via `KitX.lantern`), so glows sit exactly on the lamps and panes. Far cells
+  (`lod1_end` – `far_end`) draw the builder's `piece_glows(piece)` (approximate spots are fine
+  there). Glow-only records are filtered out before lights are budgeted.
 * **Far provider** (`SettlementFarProvider`): 4x larger cells, one small mesh per near sub-cell
   sharing its AABB, from `lod1_end` to `far_end` (the Settings view distance, 1.5–6 km), no
-  collision / shadows / lights.
+  collision / shadows / lights (but night glows).
 * **Registration** (`Settlements.register(content, opts)`): near + far provider per settlement,
   keep-out exclusions, claims. opts: `only` (ids), `skip_tags` (pieces whose `spec.tag` is listed
   are left out — the tutorial skips the Air Temple's `airball_court` where it dresses its own
@@ -126,9 +137,9 @@ WorldData city record ──> Planner (per settlement) ──> SettlementPlan (p
 | Helper | What |
 | --- | --- |
 | `RingLayout` | polar helpers for the WorldData ring-layout cities: `from_city(id)`, `point(r, bearing, y)`, `polar(x, z)`, `tier_at`, `ramp_at`, `dir`, `yaw_of`, `half_angle`, `arc_len` |
-| `KitX` | extra kit pieces: nation emblems (`emblem_water`, `emblem_air`), `icicles`, rounded `merlons`, block `joints`, arched `doorway` with curtain, `window` (+ `lit_window_color`), `banner` with emblems, `inner_dome`, `grass_tuft`, prayer `flag_string` |
+| `KitX` | extra kit pieces: nation emblems (`emblem_water`, `emblem_air`), `icicles`, rounded `merlons`, block `joints`, arched `doorway` with curtain, `window` (lit panes get mullions + a glow record; `lit_window_color`), `banner` with emblems, `inner_dome`, `grass_tuft`, prayer `flag_string`, flat floor inlays (`ribbon`, `swirl_inlay`, `water_inlay`), `glow` (glow-only record), `lantern` (kit lantern + glow when unlit) |
 | `KitCache`, `KitMerger` | archetype cache, fast merging (see above) |
-| `SettlementFx` | main-thread resources the workers reference (waterfall sheet materials, vegetation materials), `vegetation_node(items, origin)` (garden trees / shrubs / flowers as VegetationLibrary MultiMeshes with the open-world shaders), `warm_light` |
+| `SettlementFx` | main-thread resources the workers reference (waterfall sheet materials, vegetation materials, the night-glow material; `prepare()`), `vegetation_node(items, origin)` (garden trees / shrubs / flowers as VegetationLibrary MultiMeshes with the open-world shaders), `add_glows` / `glows_from_lights` (night glows, see above), `warm_light` |
 
 ## Adding a settlement (Settlements II)
 
@@ -136,7 +147,9 @@ WorldData city record ──> Planner (per settlement) ──> SettlementPlan (p
    `WorldData.get_city(id)` (use `RingLayout`; measure the terrain where the generator blended
    steps, see settlements_wa "decisions").
 2. A `SettlementBuilder` subclass dispatching `build_piece(kit, piece)` to recipe libraries;
-   optionally `piece_extras` / `piece_payload`.
+   optionally `piece_extras` / `piece_payload`, and `piece_glows` (far night glows). Use
+   `KitX.window(..., lit = true)`, `KitX.lantern` and `KitX.glow` in recipes so near glows land
+   on the right spots.
 3. Add the id to `Settlements.ALL` and the two `match` blocks in `Settlements.plan()` /
    `builder()`.
 4. Tests: plan counts, cell build budget, walk tests (`tests/unit/test_settlements_wa.gd` has

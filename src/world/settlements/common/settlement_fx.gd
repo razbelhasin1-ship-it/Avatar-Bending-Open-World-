@@ -117,6 +117,28 @@ static func add_glows(p: CellPayload, glows: Array, origin: Vector3, aabb: AABB,
 		"margin": 0.0, "shadow": false, "tag": tag})
 
 
+## Wind chimes (main thread): rings the `wind_chime` sound now and then while the camera is
+## within `radius` m. `world_pos` is world space, `origin` the cell origin.
+static func chime_node(world_pos: Vector3, origin: Vector3, seed: int, radius: float = 32.0) -> Node3D:
+	var n := Node3D.new()
+	n.name = "WindChime"
+	n.position = world_pos - origin
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed
+	var t := Timer.new()
+	t.wait_time = rng.randf_range(2.0, 9.0)
+	t.autostart = true
+	n.add_child(t)
+	t.timeout.connect(func() -> void:
+		t.wait_time = rng.randf_range(7.0, 16.0)
+		if not n.is_inside_tree():
+			return
+		var cam := n.get_viewport().get_camera_3d()
+		if cam and cam.global_position.distance_to(n.global_position) < radius:
+			Audio.play_sfx(&"wind_chime", n.global_position, -13.0, 0.15))
+	return n
+
+
 ## A soft light that also shines by day (registered with LightBudget as an interior light).
 static func warm_light(pos: Vector3, color: Color, range_m: float, energy: float) -> OmniLight3D:
 	return LightBudget.make_light({"position": pos, "color": color, "range": range_m, "energy": energy, "priority": 4, "interior": true})

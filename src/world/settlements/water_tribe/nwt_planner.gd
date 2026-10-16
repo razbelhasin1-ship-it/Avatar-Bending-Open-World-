@@ -204,6 +204,8 @@ func _reserve_specials() -> void:
 	if L.tier_at(sp.origin.x, sp.origin.z).size() > 0:
 		plan.reserve(sp.origin.x, sp.origin.z, 16.0)
 		plan.data["spawn"] = sp.origin
+		var f := -sp.basis.z
+		plan.data["spawn_yaw"] = yaw_dir(Vector2(f.x, f.z))
 	# ferry landing at the harbour quay and its lane to the berth
 	for port in WorldData.get_ports():
 		if port.get("settlement") == ID:
