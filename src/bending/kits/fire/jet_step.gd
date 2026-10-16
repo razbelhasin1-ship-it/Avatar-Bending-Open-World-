@@ -77,7 +77,6 @@ func _takeoff() -> void:
 		var g := ctx.ground_point(ctx.origin())
 		BendingHits.sphere(ctx, g + Vector3.UP * 0.7, float(param("takeoff_radius", 2.2)), hit_data(), attack_id, def.id, {"push": &"radial"})
 		FireFx.burst(ctx.caster, g + Vector3.UP * 0.15, 1.3, Vector3.UP)
-		FxBurst.spawn(ctx.caster, &"dust_ring", g + Vector3.UP * 0.05, {"color": Color(0.3, 0.27, 0.24), "count": 0.7, "size": 0.8})
 		FireEnv.heat(ctx, g + Vector3.UP * 0.2, 1.2, 0.6, {"mark": 0.9})
 	else:
 		FireFx.burst(ctx.caster, feet, 1.0, Vector3.DOWN)

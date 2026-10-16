@@ -42,23 +42,18 @@ static func _make() -> FireVortexFx:
 	v.name = "FireVortex"
 	v.spiral = MeshInstance3D.new()
 	# Helix along -Z: rotate so it winds up along +Y.
-	v.spiral.mesh = FxMeshes.helix(3, 1.35, 0.55, 1.0, 0.75, 1.0, 40)
+	v.spiral.mesh = FxMeshes.helix(3, 1.35, 0.55, 1.0, 0.5, 1.0, 40)
 	v.spiral.rotation = Vector3(PI * 0.5, 0.0, 0.0)
-	v.spiral_mat = FireFx.ribbon_material()
-	v.spiral_mat.set_shader_parameter(&"symmetric", 1.0)
-	v.spiral_mat.set_shader_parameter(&"head", 1.2)
-	v.spiral_mat.set_shader_parameter(&"tail", 3.0)
-	v.spiral_mat.set_shader_parameter(&"tongue_scale", 4.0)
-	v.spiral_mat.set_shader_parameter(&"scroll_speed", 3.2)
+	# Flame ribbons that thin out near the camera (the column often wraps the player's camera).
+	v.spiral_mat = ShaderMaterial.new()
+	v.spiral_mat.shader = preload("res://src/fx/fire/fx_flame_spiral.gdshader")
+	v.spiral_mat.set_shader_parameter(&"noise_tex", FxLib.noise_texture(&"smooth"))
 	v.spiral.material_override = v.spiral_mat
 	v.spiral.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	v.add_child(v.spiral)
 	v.base_ring = MeshInstance3D.new()
 	v.base_ring.mesh = FxMeshes.arc_wall(-PI, PI, 1.0, 48, 0.2)
-	v.ring_mat = FireFx.ribbon_material()
-	v.ring_mat.set_shader_parameter(&"head", 1.25)
-	v.ring_mat.set_shader_parameter(&"tail", 3.0)
-	v.ring_mat.set_shader_parameter(&"tongue_scale", 10.0 / 0.7)
+	v.ring_mat = FireRingWave.wall_material()
 	v.base_ring.material_override = v.ring_mat
 	v.base_ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	v.add_child(v.base_ring)

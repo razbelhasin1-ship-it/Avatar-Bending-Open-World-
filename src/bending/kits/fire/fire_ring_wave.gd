@@ -75,10 +75,7 @@ static func _make(p_ctx: BendingContext, p_center: Vector3, p_radius: float, p_d
 	w.mesh_i = MeshInstance3D.new()
 	w.mesh_i.mesh = FxMeshes.arc_wall(-PI, PI, float(opts.get("height", 1.2)), 72, float(opts.get("lean", 0.3)))
 	w.mesh_i.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	w.mat = FireFx.ribbon_material()
-	w.mat.set_shader_parameter(&"symmetric", 0.0)
-	w.mat.set_shader_parameter(&"head", 1.25)
-	w.mat.set_shader_parameter(&"tail", 3.0)
+	w.mat = wall_material()
 	w.mat.set_shader_parameter(&"fade", 0.0)
 	w.mat.set_shader_parameter(&"tongue_scale", float(opts.get("tongues", 10.0 / 0.7)))
 	w.mesh_i.material_override = w.mat
@@ -86,6 +83,14 @@ static func _make(p_ctx: BendingContext, p_center: Vector3, p_radius: float, p_d
 	w._apply_radius(w.r0)
 	live.append(w)
 	return w
+
+
+## The flame-wall material (banded, thin hot core, fades near the camera).
+static func wall_material() -> ShaderMaterial:
+	var m := ShaderMaterial.new()
+	m.shader = preload("res://src/fx/fire/fx_flame_wall.gdshader")
+	m.set_shader_parameter(&"noise_tex", FxLib.noise_texture(&"smooth"))
+	return m
 
 
 ## Radius of the front at time `time` (s): fast start, easing out.

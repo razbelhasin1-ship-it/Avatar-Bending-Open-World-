@@ -37,10 +37,14 @@ static func shake(ctx: BendingContext, strength: float, duration: float) -> void
 		BendingFeedback.shake(strength, duration)
 
 
-## The striking limb flares (fists / feet igniting on a strike).
-static func ignite_limb(ctx: BendingContext, socket: StringName, strength: float = 1.0) -> void:
-	var p := ctx.socket_pos(socket)
-	FxBurst.spawn(ctx.caster, &"flame", p, {"size": 0.3 + 0.2 * strength, "count": 0.3 + 0.25 * strength, "speed": 0.6})
+## The striking limb flares (fists / feet igniting on a strike): a flame riding the
+## socket (it moves with the strike), or a small burst for rig-less casters.
+static func ignite_limb(ctx: BendingContext, socket: StringName, strength: float = 1.0, life: float = 0.28) -> void:
+	var node := ctx.rig.get_socket(socket) if ctx.rig != null and is_instance_valid(ctx.rig) else null
+	if node != null and LimbFlame.attach(ctx.caster, node, strength, life) != null:
+		FxBurst.spawn(ctx.caster, &"embers", node.global_position, {"count": 0.25 * strength, "speed": 0.5})
+		return
+	FxBurst.spawn(ctx.caster, &"flame", ctx.socket_pos(socket), {"size": 0.3 + 0.2 * strength, "count": 0.3 + 0.25 * strength, "speed": 0.6})
 
 
 ## Destroys enemy projectiles within `radius` (fire burns them away; rocks are knocked

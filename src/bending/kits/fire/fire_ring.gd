@@ -25,7 +25,6 @@ func on_event(event: StringName) -> void:
 			{"height": float(param("height", 1.35)), "clearance": float(param("clearance", 1.4)), "r0": 0.7, "lean": 0.3, "power": 1.0})
 	var foot := ctx.socket_pos(&"foot_r")
 	FireFx.burst(ctx.caster, foot, 1.0, Vector3.UP)
-	FxBurst.spawn(ctx.caster, &"dust_ring", g + Vector3.UP * 0.05, {"color": Color(0.32, 0.28, 0.25), "count": 0.8, "size": 1.0})
 	FxFlash.spawn(ctx.caster, g + Vector3.UP * 0.8, FireCommon.HOT, 4.0, 0.45, 9.0)
 	HeatShimmer.spawn(ctx.caster, g, 3.0, 2.2, 0.6, 0.8)
 	sound(&"special", g, 1.0)

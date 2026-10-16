@@ -165,7 +165,7 @@ func _fire() -> void:
 		break
 	var k := power()
 	var h := hit_data({"damage": float(def.hit.get("damage", 55.0)) * k, "poise": float(def.hit.get("poise", 120.0)) * k})
-	LightningFx.bolt(ctx.caster, from, end, {"width": 0.16 + 0.1 * k, "branches": 3 if k > 0.8 else 2, "duration": 0.42})
+	LightningFx.bolt(ctx.caster, from, end, {"width": 0.24 + 0.2 * k, "branches": 4 if k > 0.8 else 2, "duration": 0.45})
 	FxFlash.spawn(ctx.caster, from, LightningFx.COLOR, 4.0 * k, 0.18, 8.0)
 	FxFlash.spawn(ctx.caster, end, LightningFx.COLOR, 6.0 * k, 0.25, 12.0)
 	Audio.play_sfx(&"lightning_strike", from.lerp(end, 0.3), 2.0)

@@ -34,6 +34,9 @@ func begin() -> void:
 
 func on_event(event: StringName) -> void:
 	match event:
+		&"windup":
+			# Tell: the fist catches fire as it circles back over the head.
+			FireCommon.ignite_limb(ctx, &"hand_r", 0.8, 0.3)
 		&"release":
 			ctx.face_dir = Vector3.ZERO
 			var f := ctx.aim_flat()

@@ -10,6 +10,7 @@ extends ChargeAbility
 
 var _ball: FireFx.FireBall = null
 var _shimmer: HeatShimmer = null
+var _gather: FireGatherFx = null
 var _ripple_t := 0.0
 var _ready_cued := false
 
@@ -41,9 +42,11 @@ func on_charging(c: float, delta: float) -> void:
 			_ball.light.set_energy(0.8 + c * 1.6)
 	if _loop_id != 0:
 		Audio.set_loop_pitch(_loop_id, 1.0 + c * 0.45)
-	# Embers drawn into the ball, faster as it builds.
-	if int(time * 14.0) % 2 == 0:
-		FxBurst.spawn(ctx.caster, &"embers", ctx.hands_pos(), {"count": 0.2 + c * 0.45, "speed": 0.5 + c})
+	# Heat drawn into the ball, faster and denser as it builds.
+	if _gather == null and _ball != null and c > 0.05:
+		_gather = FireGatherFx.attach(ctx.caster, _ball, 1.2)
+	if _gather != null and is_instance_valid(_gather):
+		_gather.set_strength(c)
 	# Heat ripples run out along the ground under the bender.
 	_ripple_t -= delta
 	if _ripple_t <= 0.0 and c > 0.2:
@@ -78,6 +81,7 @@ func release_attack(c: float, was_tap: bool) -> void:
 	var vis: FireFx.FireBall = _ball if _ball and is_instance_valid(_ball) else FireFx.ball(ctx.caster, size, true)
 	_ball = null
 	_stop_shimmer()
+	_stop_gather()
 	vis.set_size(size)
 	vis.set_heat(1.2 if was_tap else 1.4 + c * 0.5)
 	var sctx := ctx
@@ -111,6 +115,12 @@ func _stop_loop() -> void:
 		_loop_id = 0
 
 
+func _stop_gather() -> void:
+	if _gather != null and is_instance_valid(_gather):
+		_gather.stop()
+	_gather = null
+
+
 func _stop_shimmer() -> void:
 	if _shimmer != null and is_instance_valid(_shimmer):
 		_shimmer.stop(0.2)
@@ -120,6 +130,7 @@ func _stop_shimmer() -> void:
 func on_cleanup() -> void:
 	_stop_loop()
 	_stop_shimmer()
+	_stop_gather()
 	if _ball and is_instance_valid(_ball):
 		_ball.finish()
 	_ball = null

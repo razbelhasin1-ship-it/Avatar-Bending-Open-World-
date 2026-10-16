@@ -11,7 +11,8 @@ extends RefCounted
 ##   jet_step_launch     crouch, palms pushed down, explode upward (&"takeoff")
 ##   jet_hover           (loop) feet together pointing down, arms out, palms pushing down
 ##   fire_whip_lash      right hand circles back over the head and lashes down across the body
-##                       (&"release" the whip leaves the hand, &"impact" the crack)
+##                       (&"windup" the fist ignites, &"release" the whip leaves the hand,
+##                       &"impact" the crack)
 ##   inferno_spin        sink + breathe, rise spinning twice with the arms wide (&"spin",
 ##                       &"pulse" x4), stomp into horse and thrust both palms out (&"release")
 ##   lightning_charge    (loop) long front stance, both arms tracing slow opposed circles
@@ -126,7 +127,7 @@ static func _jet() -> void:
 
 
 static func _whip() -> void:
-	K.reg(&"fire_whip_lash", {"length": 0.95, "events": [[0.34, &"release"], [0.5, &"impact"], [0.84, &"recover"]],
+	K.reg(&"fire_whip_lash", {"length": 0.95, "events": [[0.08, &"windup"], [0.34, &"release"], [0.5, &"impact"], [0.84, &"recover"]],
 		"plants": [[0.44, "l", 1.2]], "keys": [
 		# Wind-up: weight back on the right leg, the right hand circles back above the head.
 		[0.2, {"hips": Vector3(0, -0.08, -0.08), "hips_rot": Vector3(0, -24, 0), "spine": Vector3(-6, -6, 0), "chest": Vector3(-12, -28, 0), "head": Vector3(-4, 26, 0),
