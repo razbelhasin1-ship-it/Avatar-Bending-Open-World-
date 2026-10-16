@@ -78,7 +78,7 @@ static func for_species(id: StringName) -> CompanionProfile:
 					"accel": 7.0, "decel": 5.0, "boost_accel": 11.0, "turn_slow": 100.0, "turn_fast": 62.0, "max_bank": 0.75,
 					"climb": 10.0, "descend": 14.0, "clearance": 12.0, "land_clearance": 1.5, "glide_sink": 1.4,
 					"camera": {"height": 6.5, "distance": 17.5, "fov": 12.0, "auto_align": true}}
-			p.assist = {"kind": &"fire_breath", "range": 13.0, "min_range": 3.0, "cooldown": 11.0, "cone": 24.0, "ticks": 7, "tick_time": 0.22,
+			p.assist = {"kind": &"fire_breath", "range": 13.0, "min_range": 3.0, "cooldown": 11.0, "cone": 30.0, "ticks": 7, "tick_time": 0.22,
 					"hit": {"damage": 5.0, "reaction": HitInfo.Reaction.FLINCH, "force": 2.0, "stun": 0.2, "poise": 8.0, "status": {"burn": 3.0}}}
 			p.vocals = {"greet": &"roar", "angry": &"snort", "hurt": &"roar"}
 			p.play_actions = [&"stretch_wings", &"snort", &"sniff"]

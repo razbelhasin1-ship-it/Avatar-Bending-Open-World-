@@ -166,6 +166,8 @@ func _approach(delta: float) -> void:
 	var to := _flat(target.global_position - c.global_position)
 	var d := to.length()
 	var face := -to if face_away else to
+	if not face_away:
+		c.rig.look_at_point(BendingContext.target_point(target), 0.8)
 	if d > hi:
 		c.motor.move(delta, to / maxf(d, 0.01), c.prof.follow_speed("sprint"), {"avoid": true, "accel": 12.0})
 		return
@@ -225,9 +227,13 @@ func _act(delta: float) -> void:
 
 
 func _act_fire(delta: float) -> void:
-	# Keep the head on the target while breathing (slow turn).
-	var face := _flat(target.global_position - c.global_position) if _valid_enemy(target) else Vector3.ZERO
-	c.motor.move(delta, Vector3.ZERO, 0.0, {"face": face, "turn": 50.0})
+	# Head (and the flames on the mouth socket) on the target while breathing; the body
+	# turns after it.
+	var face := Vector3.ZERO
+	if _valid_enemy(target):
+		face = _flat(target.global_position - c.global_position)
+		c.rig.look_at_point(BendingContext.target_point(target), 1.0)
+	c.motor.move(delta, Vector3.ZERO, 0.0, {"face": face, "turn": 90.0})
 	if not _fire_on:
 		if t > 1.2:
 			_start_fire()   # backstop for the fire_start event
@@ -302,9 +308,10 @@ func _fire_tick() -> void:
 		dir = CompanionNav.dir_of(c.motor.yaw)
 	var rng := float(c.prof.assist.get("range", 12.0))
 	var cone := float(c.prof.assist.get("cone", 24.0))
-	# One attack id per tick: each tick may burn each target once.
+	# One attack id per tick: each tick may burn each target once; anything right at the
+	# jaws is caught in the splash.
 	_attack_id = HitInfo.new_attack_id()
-	_area_hit(origin, rng, dir, cone)
+	_area_hit(origin, rng, dir, cone, 0.0, 2.6)
 
 
 func _gust() -> void:
@@ -345,7 +352,7 @@ func _tremor() -> void:
 
 
 ## Damages enemies in a sphere / cone. `close` (m): targets inside get a knockdown.
-func _area_hit(center: Vector3, radius: float, dir: Vector3, half_angle: float, close: float = 0.0) -> void:
+func _area_hit(center: Vector3, radius: float, dir: Vector3, half_angle: float, close: float = 0.0, near: float = 0.8) -> void:
 	var h: Dictionary = (c.prof.assist.get("hit", {}) as Dictionary).duplicate(true)
 	var cos_lim := cos(deg_to_rad(half_angle))
 	for n in BendingHits.targets_in_sphere(ctx, center, radius):
@@ -354,7 +361,7 @@ func _area_hit(center: Vector3, radius: float, dir: Vector3, half_angle: float, 
 			continue
 		var tp := BendingContext.target_point(e)
 		var to := _flat(tp - center)
-		if half_angle < 179.0 and to.length() > 0.8 and to.normalized().dot(dir) < cos_lim:
+		if half_angle < 179.0 and to.length() > near and to.normalized().dot(dir) < cos_lim:
 			continue
 		if not BendingHits.line_of_sight(ctx, center + Vector3.UP * 0.3, tp, e):
 			continue
@@ -387,6 +394,7 @@ func _finish(cooldown: float) -> void:
 	cooldown_left = cooldown
 	phase = Phase.NONE
 	target = null
+	c.rig.clear_look()
 	c.motor.speed_scale = 1.0
 	if c.mode == Companion.Mode.ASSIST:
 		c.set_mode(Companion.Mode.FOLLOW)

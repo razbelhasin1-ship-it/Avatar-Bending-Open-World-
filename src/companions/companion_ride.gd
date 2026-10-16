@@ -26,6 +26,8 @@ var _fov_base := 0.0
 var _kick := 0.0
 var _status_cd := 0.0
 var _stat_acc := 0.0
+var _toast_ms := -100000
+var _toast_text := ""
 
 
 func _init(p_c: Companion) -> void:
@@ -176,7 +178,12 @@ func _status(text: String) -> void:
 		return
 	_status_cd = STATUS_COOLDOWN
 	c.flash_status(text, 2.0)
-	Events.notify.emit(text, &"warning")
+	# The toast at most every 8 s (the HUD status line shows it every time).
+	var now := Time.get_ticks_msec()
+	if now - _toast_ms > 8000 or _toast_text != text:
+		_toast_ms = now
+		_toast_text = text
+		Events.notify.emit(text, &"warning")
 
 
 # --- camera ---------------------------------------------------------------------------------------

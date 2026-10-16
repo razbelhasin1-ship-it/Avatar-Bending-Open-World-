@@ -35,6 +35,8 @@ var _mark_dist := 0.0
 var _last := Vector3.ZERO
 var _layer := 0
 var _mask := 0
+var _mound: MeshInstance3D = null
+var _mound_w := 0.0
 
 
 func _init(p_c: Companion) -> void:
@@ -95,6 +97,7 @@ func tick(delta: float) -> void:
 	match phase:
 		Phase.DIG:
 			c.velocity = Vector3.ZERO
+			_update_mound(delta, false)
 			_rumble(0.08)
 			if _burrowed or t > DIG_TIMEOUT:
 				phase = Phase.TRAVEL
@@ -103,6 +106,7 @@ func tick(delta: float) -> void:
 			_travel(delta)
 		Phase.EMERGE:
 			c.velocity = Vector3.ZERO
+			_update_mound(delta, false)
 			if t > 0.3 and c.collision_layer == 0:
 				_set_collision(true)
 			if t > EMERGE_TIME:
@@ -127,14 +131,42 @@ func _travel(delta: float) -> void:
 	c.velocity = dir * SPEED
 	c.motor.yaw = CompanionNav.yaw_of(dir)
 	c.rotation = Vector3(0.0, c.motor.yaw, 0.0)
-	# The tunnel shows on the surface: cracks and dust every few metres, a steady rumble.
+	# The tunnel shows on the surface: a travelling mound of earth, clods torn up, cracks and
+	# dust every few metres, a steady rumble.
+	_update_mound(delta, true)
 	_mark_dist += step
 	if _mark_dist > 2.6:
 		_mark_dist = 0.0
 		var surf := WorldData.get_surface(np)
-		FxDecal.spawn(c, np, &"crack", 1.1)
-		EarthFx.dust_trail(c, np, dir, surf, 1.2)
+		EarthFx.tear_out(c, np - dir * 1.2, 0.3, surf)
+		EarthFx.dust_trail(c, np, dir, surf, 1.4)
 	_rumble(0.16)
+
+
+## The travelling hump of earth over the tunnel (grows in, follows, sinks out).
+func _update_mound(delta: float, on: bool) -> void:
+	if on and _mound == null:
+		_mound = MeshInstance3D.new()
+		_mound.name = "BurrowMound"
+		var sm := SphereMesh.new()
+		sm.radius = 1.0
+		sm.height = 2.0
+		sm.radial_segments = 14 if Settings.detail_level() > 0 else 8
+		sm.rings = 7 if Settings.detail_level() > 0 else 4
+		_mound.mesh = sm
+		_mound.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+		c.add_child(_mound)
+	if _mound == null:
+		return
+	if on:
+		var col := FxLib.surface_color(WorldData.get_surface(c.global_position)).darkened(0.3)
+		_mound.material_override = ToonMaterials.make(col)
+	_mound_w = move_toward(_mound_w, 1.0 if on else 0.0, delta * 3.5)
+	_mound.visible = _mound_w > 0.01
+	var r := c.prof.radius()
+	var wob := 1.0 + 0.06 * sin(t * 13.0)
+	_mound.scale = Vector3(r * 1.15 * wob, 0.8, r * 1.7) * maxf(_mound_w, 0.01)
+	_mound.position = Vector3(0.0, -0.22, 0.4 * r)
 
 
 func _rumble(strength: float) -> void:
@@ -173,6 +205,9 @@ func force_emerge() -> void:
 func _finish() -> void:
 	phase = Phase.NONE
 	tunnels += 1
+	_mound_w = 0.0
+	if _mound != null:
+		_mound.visible = false
 	_set_collision(true)
 	c.motor.teleport(c.global_position, c.motor.yaw)
 	c.set_mode(Companion.Mode.RIDDEN if ridden and c.rider.phase == CompanionRider.Phase.RIDING else Companion.Mode.FOLLOW)
@@ -186,6 +221,9 @@ func cleanup() -> void:
 	phase = Phase.NONE
 	ridden = false
 	_set_collision(true)
+	_mound_w = 0.0
+	if _mound != null:
+		_mound.visible = false
 	if c.rig and (c.rig.is_action_playing(&"dig_in") or c.rig.is_action_playing(&"emerge")):
 		c.rig.stop_action()
 
