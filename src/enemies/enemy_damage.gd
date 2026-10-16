@@ -14,6 +14,8 @@ extends RefCounted
 ## 5. low health: some bandits flee or surrender; death -> loot / XP / events.
 
 const R := HitInfo.Reaction
+## force x mass of a heavy knockback that knocks an enemy down instead.
+const TOPPLE_IMPACT := 11.5
 
 
 static func receive(e: EnemyBase, hit: HitInfo) -> int:
@@ -128,6 +130,10 @@ static func reaction_for(e: EnemyBase, hit: HitInfo, broke: bool) -> int:
 	var r := int(hit.reaction)
 	if broke and r < R.STAGGER:
 		r = R.STAGGER
+	# Heavy blasts topple light and medium fighters off their feet (impact = force x mass):
+	# a full charge floors a bandit, an archer goes down to half a charge, brutes stand.
+	if r == R.KNOCKBACK and hit.is_heavy and hit.force * float(e.archetype.get("mass", 1.0)) >= TOPPLE_IMPACT:
+		r = R.KNOCKDOWN
 	var resist := float(e.archetype.get("poise_resist", 0.0))
 	if not broke and resist > 0.0:
 		if (r == R.STAGGER or r == R.KNOCKBACK or r == R.PULL) and hit.poise_damage < resist:
@@ -144,6 +150,13 @@ static func apply_reaction(e: EnemyBase, hit: HitInfo, reaction: int) -> void:
 	var dir := hit.direction
 	var mass := float(e.archetype.get("mass", 1.0))
 	var light := mass >= 1.1
+	# Already on the ground: hits never turn a knockdown into a stagger (the strongest
+	# reaction of a combined hit wins); heavier ones keep it down a little longer, a
+	# launch juggles. The knockdown state timeout still bounds the time on the floor.
+	if e.state == EnemyBase.State.KNOCKDOWN and reaction != R.LAUNCH:
+		if reaction >= R.STAGGER and e.state_time < 1.6:
+			e.down_t = minf(e.down_t + 0.2, 2.0)
+		return
 	if reaction >= R.STAGGER:
 		e.actions.cancel(&"hit")
 		if e.controller and e.controller.is_busy():

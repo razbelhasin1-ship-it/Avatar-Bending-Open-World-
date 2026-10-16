@@ -368,11 +368,12 @@ func test_bending_enemy_casts_real_ability_and_parry_staggers() -> void:
 		await EnemySim.step([p, b], 1)
 		if b.actions.phase == EnemyActions.Phase.ACTIVE and not bool(p.input.virtual.get(&"block", false)):
 			p.input.press(&"block")
-		if b.state == S.STAGGER:
+		# The parry staggers the attacker; Fire's counter burst may floor it outright.
+		if b.state == S.STAGGER or b.state == S.KNOCKDOWN:
 			parried = true
 			break
 	p.input.release(&"block")
-	expect(parried, "parried strike staggers the brawler")
+	expect(parried, "parried strike staggers (or floors) the brawler")
 
 
 func test_leash_return_heals() -> void:
@@ -544,6 +545,86 @@ func test_far_calm_enemies_go_dormant() -> void:
 	expect(far.dormant and not near.dormant, "far calm enemy dormant, near one awake")
 	expect(Combat.deal(far, _hit(p, 5.0, R.FLINCH, Vector3.FORWARD)) == Combat.Result.IGNORED, "dormant enemies are out of play")
 	d.queue_free()
+
+
+# --- fairness -----------------------------------------------------------------------------------------------
+
+func test_area_strike_is_guarded_by_attacker_position() -> void:
+	# The overhead smash's sphere centre lies BEHIND a close player; the guard must still
+	# judge the hit by where the brawler stands (in front) and block it.
+	var p := _player(Vector3(0, 0, -1.2))
+	p.rotation.y = PI   # face +Z, toward the enemy
+	var e := EnemySim.enemy(self, &"bandit_brawler", Vector3(0, 0, 0.4), p)
+	p.targeting.lock(e)
+	await EnemySim.settle(self)
+	e.perception.alert_to(p)
+	e.perception.engaged = true
+	e.brain.target = p
+	var smash: Dictionary = {}
+	for a: Dictionary in e.attacks:
+		if a.get("id") == &"overhead_smash":
+			smash = a
+	var results: Array = []
+	var cb := func(_h: HitInfo, t: Node, r: int) -> void:
+		if t == p:
+			results.append(r)
+	Events.hit_landed.connect(cb)
+	e.actions.start(smash, p)
+	e.set_state(S.ATTACK)
+	await EnemySim.step([p, e], 10)
+	p.input.press(&"block")
+	await EnemySim.step_until([p, e], func() -> bool: return not results.is_empty(), 180)
+	p.input.release(&"block")
+	Events.hit_landed.disconnect(cb)
+	expect(not results.is_empty(), "the smash resolved on the player")
+	if not results.is_empty():
+		expect(int(results[0]) in [Combat.Result.BLOCKED, Combat.Result.DEFLECTED], "frontal smash blocked (%s)" % Combat.Result.keys()[int(results[0])])
+	expect(p.get_state() != PlayerCharacter.State.KNOCKED_DOWN, "not knocked down through the guard")
+
+
+func test_offscreen_enemies_circle_into_view_before_attacking() -> void:
+	var p := _player(Vector3.ZERO)
+	p.health.invulnerable = true
+	var cam := Camera3D.new()
+	add_child(cam)
+	cam.look_at_from_position(Vector3(0, 2.2, 4.5), Vector3(0, 1.0, -4.0), Vector3.UP)
+	cam.make_current()
+	var e := EnemySim.enemy(self, &"bandit_brawler", Vector3(0.5, 0, 5.5), p, {"seed": 21})
+	e.brain.engage(p)
+	expect(not e.brain.in_player_view(), "behind the camera = off-screen")
+	var started := [false]
+	var flank := [false]
+	var seen_at_start := [false]
+	var off_t := [0.0]
+	e.attack_telegraphed.connect(func(_e: EnemyBase, _a: Dictionary, _s: float) -> void:
+		if not started[0]:
+			started[0] = true
+			flank[0] = e.flanking
+			seen_at_start[0] = e.brain.in_player_view())
+	var frames := await EnemySim.step_until([p, e], func() -> bool:
+		if not e.brain.in_player_view():
+			off_t[0] += EnemySim.DT
+		return started[0], 900)
+	expect(frames >= 0, "it attacks eventually")
+	expect(seen_at_start[0] or (flank[0] and off_t[0] >= EnemyBrain.FLANK_PATIENCE - 0.05),
+			"attacked from view, or flanking only after %.1f s (seen %s flank %s off %.2f)" % [EnemyBrain.FLANK_PATIENCE, seen_at_start[0], flank[0], off_t[0]])
+	if flank[0]:
+		expect(e.telegraph_mult() > 1.2 or not e.actions.is_busy(), "flanking attacks telegraph longer")
+	cam.queue_free()
+
+
+func test_heavy_blasts_topple_light_fighters_not_brutes() -> void:
+	var p := _player(Vector3(0, 0, 20))
+	var archer := EnemySim.enemy(self, &"bandit_archer", Vector3(-4, 0, 0))
+	var chief := EnemySim.enemy(self, &"earth_chief", Vector3(4, 0, 0))
+	var blast := {"poise": 50.0, "heavy": true, "force": 14.0, "element": E.AIR}
+	Combat.deal(archer, _hit(p, 8.0, R.KNOCKBACK, Vector3.LEFT, blast))
+	Combat.deal(chief, _hit(p, 8.0, R.KNOCKBACK, Vector3.RIGHT, blast))
+	expect(archer.state == S.KNOCKDOWN, "archer toppled (%s)" % archer.get_state_name())
+	expect(chief.state != S.KNOCKDOWN, "chief stands (%s)" % chief.get_state_name())
+	# A follow-up stagger on the floor keeps it down (no knockdown -> stagger downgrade).
+	Combat.deal(archer, _hit(p, 2.0, R.STAGGER, Vector3.LEFT, {"poise": 30.0}))
+	expect(archer.state == S.KNOCKDOWN, "still down after a stagger hit (%s)" % archer.get_state_name())
 
 
 # --- robustness ---------------------------------------------------------------------------------------------

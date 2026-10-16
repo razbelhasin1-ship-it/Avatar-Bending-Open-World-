@@ -19,6 +19,10 @@ const S := EnemyBase.State
 const THINK := 0.16
 const ALLY_CALL_RADIUS := 22.0
 const MELEE_ROLES: Array[StringName] = [&"brawler", &"skirmisher", &"defender", &"captain", &"beast"]
+## Seconds an off-screen enemy keeps circling into view before it may attack anyway.
+const FLANK_PATIENCE := 2.5
+## Screen margin (fraction of the viewport) that still counts as "off-screen".
+const VIEW_MARGIN := 0.06
 
 var e: EnemyBase
 var target: Node3D = null
@@ -47,6 +51,7 @@ var _flee_t := 0.0
 var _surrender_t := 0.0
 var _counter := false
 var _player_charge_seen := false
+var _offscreen_t := 0.0
 
 
 func _init(p_enemy: EnemyBase) -> void:
@@ -309,6 +314,10 @@ func _strafe(delta: float) -> void:
 	e.face_dir = to
 	e.face_rate = 420.0
 	# Close in for a granted attack.
+	if not pending.is_empty() and target_is_down():
+		pending = {}
+		AttackTokens.release(e, target)
+		_breather = maxf(_breather, 0.5)
 	if not pending.is_empty():
 		_approach_t -= delta
 		var r: Vector2 = pending.get("range", Vector2(0, 2))
@@ -336,6 +345,16 @@ func _strafe(delta: float) -> void:
 	if _feint_t <= 0.0 and e.role in MELEE_ROLES and AttackTokens.count(target) >= AttackTokens.max_tokens():
 		_feint_t = e.rng.randf_range(1.6, 3.4) / maxf(float(e.archetype["aggression"]), 0.2)
 		radial = 1.6
+	# Off-screen: circle toward the player's view instead of waiting behind them.
+	var seen := in_player_view()
+	_offscreen_t = 0.0 if seen else _offscreen_t + delta
+	if not seen:
+		var vp := view_point()
+		if vp.is_finite():
+			var want := vp - e.global_position
+			want.y = 0.0
+			strafe_sign = 1.0 if Vector3(-to.z, 0.0, to.x).dot(want) >= 0.0 else -1.0
+			_strafe_switch = maxf(_strafe_switch, 0.5)
 	var tangent := Vector3(-to.z, 0.0, to.x) * strafe_sign
 	var dir := (to * radial + tangent * (1.0 if absf(radial) < 1.2 else 0.4)).normalized()
 	var speed := float(e.archetype["speed"]["strafe"]) * (1.25 if absf(radial) > 1.0 else 1.0)
@@ -349,6 +368,13 @@ func _strafe(delta: float) -> void:
 	if _threats():
 		return
 	if _breather > 0.0:
+		return
+	# Fair play: no attacks from outside the player's view until it has tried to get
+	# into view for a while (then with a longer telegraph, EnemyBase.flanking).
+	if not seen and _offscreen_t < FLANK_PATIENCE:
+		return
+	# No attacks on a player lying on the ground / getting up (they circle and wait).
+	if target_is_down():
 		return
 	var a2 := _pick_attack(d, p.can_see)
 	if a2.is_empty():
@@ -398,6 +424,7 @@ func _pick_attack(d: float, los: bool) -> Dictionary:
 
 func _start_attack(a: Dictionary) -> void:
 	e.stop_moving()
+	e.flanking = not in_player_view()
 	if e.actions.start(a, target):
 		e.set_state(S.ATTACK)
 	else:
@@ -421,7 +448,7 @@ func on_attack_finished(a: Dictionary, _landed: bool) -> void:
 		AttackTokens.release(e, target)
 		return
 	var next_id: StringName = a.get("next", &"")
-	if next_id != &"" and _valid(target) and e.rng.randf() < float(a.get("next_chance", 1.0)):
+	if next_id != &"" and _valid(target) and not target_is_down() and e.rng.randf() < float(a.get("next_chance", 1.0)):
 		for n: Dictionary in e.attacks:
 			if n.get("id", &"") == next_id:
 				var r: Vector2 = n.get("range", Vector2(0, 2.5))
@@ -501,6 +528,50 @@ func _knockdown(delta: float) -> void:
 func _getup(_delta: float) -> void:
 	if e.state_time >= _getup_len:
 		_resume_combat()
+
+
+# --- fair play: the player's view ---------------------------------------------------------------------------
+
+## True when the player can see this enemy on screen (inside the current camera's view
+## with a margin). Always true without a camera (headless tests) or when the target is
+## not the player.
+func in_player_view() -> bool:
+	if not (target is PlayerCharacter) or not e.is_inside_tree():
+		return true
+	var cam := e.get_viewport().get_camera_3d()
+	if cam == null:
+		return true
+	var p := e.global_position + Vector3.UP * (e.visual.height * 0.6 if e.visual else 1.0)
+	if cam.is_position_behind(p):
+		return false
+	var s := cam.unproject_position(p)
+	var size := e.get_viewport().get_visible_rect().size
+	var m := size * VIEW_MARGIN
+	return s.x >= m.x and s.x <= size.x - m.x and s.y >= m.y * 0.5 and s.y <= size.y - m.y * 0.5
+
+
+## The player is knocked down or getting up: no new attacks start against it.
+func target_is_down() -> bool:
+	var pc := target as PlayerCharacter
+	if pc == null:
+		return false
+	var st := pc.get_state()
+	return st == PlayerCharacter.State.KNOCKED_DOWN or st == PlayerCharacter.State.GETUP
+
+
+## A point in front of the player along the camera's view (where off-screen enemies go).
+func view_point() -> Vector3:
+	if not _valid(target) or not e.is_inside_tree():
+		return Vector3.INF
+	var cam := e.get_viewport().get_camera_3d()
+	if cam == null:
+		return Vector3.INF
+	var f := -cam.global_basis.z
+	f.y = 0.0
+	if f.length_squared() < 1e-4:
+		return Vector3.INF
+	var er := _engage_range()
+	return target.global_position + f.normalized() * (er.x + er.y) * 0.5
 
 
 # --- reactive defense -------------------------------------------------------------------------------------

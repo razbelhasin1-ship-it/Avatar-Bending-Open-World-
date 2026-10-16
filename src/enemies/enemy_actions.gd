@@ -201,7 +201,8 @@ func _tick_windup(_delta: float) -> void:
 		var g: StringName = attack.get("glint", &"hand_r")
 		var el := e.attack_element(attack)
 		if g != &"":
-			EnemyTelegraph.glint(e, e.visual.socket_pos(g), el, 1.25 if bool((attack.get("hit", {}) as Dictionary).get("heavy", false)) else 1.0)
+			var anchor: Array = e.visual.socket_anchor(g) if g != &"hands" else []
+			EnemyTelegraph.glint(e, e.visual.socket_pos(g), el, 1.25 if bool((attack.get("hit", {}) as Dictionary).get("heavy", false)) else 1.0, anchor)
 		EnemyTelegraph.windup_sound(el, e.global_position + Vector3.UP * 1.2, telegraph_time > 0.6)
 		e.on_telegraph(attack, maxf(0.0, total - phase_t))
 	# Leap target tracks the player until the commit.
@@ -331,26 +332,41 @@ func _tick_bending(delta: float) -> void:
 				bc.request(&"light")
 				_steps_left -= 1
 				_step_wait = 0.0
-		if not struck and cur is BendingAbility and (cur as BendingAbility).time > 0.05:
+		if not struck and cur is BendingAbility and _bending_released(cur as BendingAbility):
 			struck = true
 			strikes += 1
+			e.on_attack_struck(attack)
 		return
-	struck = true
+	if not struck:
+		struck = true
+		e.on_attack_struck(attack)
 	_to_recover()
+
+
+## The cast ability's gameplay moment has happened (bolt / boulder / wave released).
+static func _bending_released(cur: BendingAbility) -> bool:
+	if cur is ComboAbility:
+		return (cur as ComboAbility).struck
+	if cur is ChargeAbility:
+		return (cur as ChargeAbility).released and cur.time_to_event(&"release") == INF
+	return cur.time > 0.05 and cur.time_to_event(&"release") == INF and cur.time_to_event(&"impact") == INF
 
 
 func _tick_charge(delta: float) -> void:
 	_charge_left -= drive.length() * delta
 	var head := e.global_position + Vector3.UP * 0.9 + _charge_dir * float((attack.get("shape", {}) as Dictionary).get("reach", 2.0))
 	if not struck:
-		var res := BendingHits.sphere(e.ctx, head, float((attack.get("shape", {}) as Dictionary).get("radius", 1.2)), attack.get("hit", {}), attack_id,
-				attack.get("id", &"charge"), {"push": &"forward", "dir": _charge_dir})
+		var h: Dictionary = (attack.get("hit", {}) as Dictionary).duplicate()
+		h["damage"] = float(h.get("damage", 8.0)) * e.damage_mult()
+		var res := hit_targets(sphere_targets(head, float((attack.get("shape", {}) as Dictionary).get("radius", 1.2)), e.global_position + Vector3.UP * 0.9),
+				h, attack.get("id", &"charge"), _charge_dir)
 		var stopped := false
 		for r: Dictionary in res:
 			stopped = stopped or int(r["result"]) in [Combat.Result.HIT, Combat.Result.KILLED, Combat.Result.BLOCKED, Combat.Result.DEFLECTED]
 		if stopped:
 			struck = true
 			strikes += 1
+			e.on_attack_struck(attack)
 			if float(attack.get("shake", 0.0)) > 0.0:
 				BendingFeedback.shake(float(attack["shake"]), 0.25)
 	var blocked := phase_t > 0.25 and Vector2(e.velocity.x, e.velocity.z).length() < drive.length() * 0.35
@@ -372,8 +388,10 @@ func _tick_line(delta: float) -> void:
 		var p := e.ground_point(e.global_position + e.forward() * (1.2 + _line_hits * 1.2))
 		EarthFx.tear_out(e, p, 0.6, GroundSampler.surface(p))
 		FxDebris.spawn(e, p + Vector3.UP * 0.3, {"count": 3, "size": 0.12, "up": 4.0, "out": 1.0, "ground_y": p.y})
-		BendingHits.sphere(e.ctx, p + Vector3.UP * 0.6, float((attack.get("shape", {}) as Dictionary).get("radius", 0.9)), attack.get("hit", {}),
-				attack_id, attack.get("id", &"spike_line"), {"push": &"forward", "dir": e.forward()})
+		var h: Dictionary = (attack.get("hit", {}) as Dictionary).duplicate()
+		h["damage"] = float(h.get("damage", 8.0)) * e.damage_mult()
+		hit_targets(sphere_targets(p + Vector3.UP * 0.6, float((attack.get("shape", {}) as Dictionary).get("radius", 0.9)), p + Vector3.UP * 0.2),
+				h, attack.get("id", &"spike_line"), e.forward())
 		if _line_hits % 2 == 0:
 			Audio.play_bending(ElementDefs.Element.EARTH, &"spikes", p, -3.0)
 		_line_hits += 1
@@ -405,24 +423,95 @@ func strike() -> void:
 				Audio.play_bending(ElementDefs.Element.EARTH, &"stomp", e.global_position, 0.0)
 			else:
 				var center := e.ground_point(e.global_position + fwd * float(shape.get("reach", 0.0)))
-				BendingHits.sphere(e.ctx, center + Vector3.UP * 0.6, float(shape.get("radius", 3.0)), h, attack_id, aid, {"push": &"radial"})
+				hit_targets(sphere_targets(center + Vector3.UP * 0.6, float(shape.get("radius", 3.0)), center + Vector3.UP * 0.8), h, aid,
+						Vector3.ZERO, center)
 				_slam_fx(a, center, float(shape.get("radius", 3.0)))
 		_:
 			match StringName(shape.get("type", &"sweep")):
 				&"sphere":
 					var c := e.global_position + Vector3.UP * 0.9 + fwd * float(shape.get("reach", 1.5))
-					BendingHits.sphere(e.ctx, c, float(shape.get("radius", 1.0)), h, attack_id, aid, {"push": &"radial"})
+					hit_targets(sphere_targets(c, float(shape.get("radius", 1.0)), chest), h, aid)
 					if bool(h.get("heavy", false)):
 						var g := e.ground_point(c)
 						FxBurst.spawn(e, &"dust_ring", g, {"color": FxLib.surface_color(GroundSampler.surface(g)), "count": 0.8})
 						FxDecal.spawn(e, g, &"crack", 0.8)
 				_:
-					BendingHits.sweep(e.ctx, chest + fwd * 0.25, chest + fwd * float(shape.get("reach", 2.0)), float(shape.get("radius", 0.55)),
-							h, attack_id, aid)
+					hit_targets(capsule_targets(chest + fwd * 0.25, chest + fwd * float(shape.get("reach", 2.0)), float(shape.get("radius", 0.55))),
+							h, aid, fwd)
 			Audio.play_sfx(&"whoosh_heavy" if bool(h.get("heavy", false)) else &"whoosh_light", chest, -3.0)
 	if float(a.get("shake", 0.0)) > 0.0 and e.near_player(14.0):
 		BendingFeedback.shake(float(a["shake"]), 0.25)
 	e.on_attack_struck(a)
+
+
+## Damageables overlapping a sphere that `los_from` can see (walls / constructs block).
+func sphere_targets(center: Vector3, radius: float, los_from: Vector3) -> Array[Node]:
+	var out: Array[Node] = []
+	for t in BendingHits.targets_in_sphere(e.ctx, center, radius):
+		var tp := BendingContext.target_point(t as Node3D) if t is Node3D else center
+		if BendingHits.line_of_sight(e.ctx, los_from, tp, t):
+			out.append(t)
+	return out
+
+
+## Damageables overlapping the capsule a..b (weapon swings), line of sight from `a`.
+func capsule_targets(a: Vector3, b: Vector3, radius: float) -> Array[Node]:
+	var out: Array[Node] = []
+	var seg := b - a
+	var length := seg.length()
+	if length < 0.01:
+		return sphere_targets(a, radius, a)
+	var shape := CapsuleShape3D.new()
+	shape.radius = radius
+	shape.height = length + radius * 2.0
+	var y := seg / length
+	var x := y.cross(Vector3.UP)
+	if x.length_squared() < 1e-4:
+		x = y.cross(Vector3.RIGHT)
+	x = x.normalized()
+	var params := PhysicsShapeQueryParameters3D.new()
+	params.shape = shape
+	params.transform = Transform3D(Basis(x, y, x.cross(y)).orthonormalized(), (a + b) * 0.5)
+	params.collision_mask = e.ctx.hit_mask()
+	params.collide_with_areas = true
+	params.exclude = e.ctx.exclude()
+	for r: Dictionary in e.ctx.space().intersect_shape(params, 32):
+		var col: Object = r.get("collider")
+		if col == null or not (col is Node):
+			continue
+		var t := Combat.find_damageable(col as Node)
+		if t == null or t == e or out.has(t):
+			continue
+		var tp := BendingContext.target_point(t as Node3D) if t is Node3D else b
+		var u := clampf((tp - a).dot(y) / length, 0.0, 1.0)
+		if BendingHits.line_of_sight(e.ctx, a, (a + seg * u).lerp(tp, 0.5), t):
+			out.append(t)
+	return out
+
+
+## Delivers the running attack's hit to `targets` with the ENEMY as the hit origin, so
+## guards judge where the attacker stands (a shape's centre can lie behind the target),
+## pushed along `dir`, or away from `push_from` (default: the enemy). Once per target
+## per attack id (BendingHits.deliver: feedback, team checks).
+func hit_targets(targets: Array[Node], h: Dictionary, aid: StringName, dir: Vector3 = Vector3.ZERO,
+		push_from: Vector3 = Vector3.INF) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	var chest := e.global_position + Vector3.UP * 1.0
+	var from := push_from if push_from.is_finite() else e.global_position
+	for t in targets:
+		var tp := BendingContext.target_point(t as Node3D) if t is Node3D else chest
+		var push := dir
+		if push == Vector3.ZERO:
+			push = tp - from
+		push.y = 0.0
+		if push.length_squared() < 1e-4:
+			push = e.forward()
+		var hit := e.ctx.make_hit(h, push.normalized(), attack_id, aid)
+		hit.element = e.attack_element(attack) if not attack.is_empty() else e.element
+		hit.origin = chest
+		hit.position = tp.lerp(chest, 0.3) if chest.distance_to(tp) < 3.0 else tp
+		out.append({"target": t, "result": BendingHits.deliver(e.ctx, t, hit), "hit": hit})
+	return out
 
 
 func _slam_fx(a: Dictionary, center: Vector3, radius: float) -> void:

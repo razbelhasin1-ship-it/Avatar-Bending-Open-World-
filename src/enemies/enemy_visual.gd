@@ -29,6 +29,9 @@ var _holding := false
 var _status_amount := 0.0
 var _status_color := Color.WHITE
 var _death_t := -1.0
+var _topple := 0.0
+var _topple_want := 0.0
+var _topple_side := 1.0
 
 
 func build(p_body: CharacterBody3D, a: Dictionary, seed_v: int) -> void:
@@ -77,6 +80,7 @@ func tick(delta: float, grounded: bool) -> void:
 	var v := body.velocity
 	if creature:
 		creature.set_locomotion(Vector3(v.x, 0.0, v.z) if grounded else v, grounded, delta)
+		_tick_topple(delta)
 		_tick_death(delta)
 		return
 	if rig == null:
@@ -181,7 +185,10 @@ func reaction(kind: Variant, dir: Vector3, strength: float = 1.0) -> float:
 		if k in [&"stagger", &"knockback", &"pull"]:
 			return creature.play_action(&"shake")
 		if k in [&"knockdown", &"launch"]:
+			# Bowled over: legs give way and the body rolls onto its side (away from the hit).
 			creature.play_action(&"lie_down")
+			_topple_side = -signf(body.global_basis.x.dot(dir)) if absf(body.global_basis.x.dot(dir)) > 0.1 else 1.0
+			_topple_want = 1.0
 			return 1.2
 		return 0.0
 	if rig == null:
@@ -192,7 +199,8 @@ func reaction(kind: Variant, dir: Vector3, strength: float = 1.0) -> float:
 func get_up() -> float:
 	if creature:
 		creature.stop_action()
-		return 0.6
+		_topple_want = 0.0
+		return 0.7
 	return RigReactions.get_up(rig) if rig else 0.0
 
 
@@ -293,6 +301,31 @@ func socket_pos(socket: StringName) -> Vector3:
 	return o + Vector3.UP * 1.2 + fwd * 0.3
 
 
+## [node, local offset] that tracks `socket` as the body animates (glints ride the
+## weapon tip / hand through the wind-up), or [] when nothing fits.
+func socket_anchor(socket: StringName) -> Array:
+	match socket:
+		&"weapon", &"spear_tip":
+			if rig:
+				var pr := rig.get_prop(&"hand_r")
+				if pr != null and is_instance_valid(pr):
+					return [pr, Vector3(0, float(PROP_TIPS.get(props.get(&"hand_r", &""), 0.4)), 0)]
+			socket = &"hand_r"
+		&"arrow":
+			if bow and is_instance_valid(bow):
+				return [bow, bow.global_transform.affine_inverse() * bow.arrow_tip()]
+			socket = &"hand_l"
+		&"hands":
+			socket = &"hand_r"
+	if creature:
+		var s := creature.get_socket(socket)
+		return [s, Vector3.ZERO] if s else []
+	if rig:
+		var s2 := rig.get_socket(socket)
+		return [s2, Vector3.ZERO] if s2 else []
+	return []
+
+
 ## World position of the tip of the prop held at `socket` (hand if none).
 func weapon_tip(socket: StringName = &"hand_r") -> Vector3:
 	if rig:
@@ -325,6 +358,17 @@ func _tick_bow() -> void:
 
 
 # --- creature death -----------------------------------------------------------------------------------
+
+## Creature knockdown: roll onto the side fast, roll back up slower on the get-up.
+func _tick_topple(delta: float) -> void:
+	if _death_t >= 0.0 or (_topple == 0.0 and _topple_want == 0.0):
+		return
+	var rate := 4.5 if _topple_want > _topple else 1.8
+	_topple = move_toward(_topple, _topple_want, rate * delta)
+	var u := _topple * _topple * (3.0 - 2.0 * _topple)
+	creature.rotation.z = u * deg_to_rad(72.0) * _topple_side
+	creature.position.y = -sin(u * deg_to_rad(72.0)) * 0.22
+
 
 func _tick_death(delta: float) -> void:
 	if _death_t < 0.0 or creature == null:

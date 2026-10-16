@@ -31,6 +31,8 @@ const STATE_NAMES: Array[String] = ["Idle", "Patrol", "Alert", "Chase", "Strafe"
 const STATE_TIMEOUT := {State.ALERT: 12.0, State.ATTACK: 7.0, State.BLOCK: 3.0, State.DODGE: 1.5, State.RECOVER: 3.0,
 	State.STAGGER: 3.0, State.KNOCKDOWN: 4.0, State.GETUP: 1.6, State.RETURN: 40.0, State.FLEE: 12.0}
 const GRAVITY := 20.0
+## Telegraph multiplier for attacks started outside the player's view.
+const FLANK_TELEGRAPH := 1.45
 const ACCEL := 22.0
 const TURN_RATE := 540.0
 
@@ -85,6 +87,8 @@ var kill_hit: HitInfo = null
 ## Recent hits (combo breakers): count and the window left.
 var recent_hits := 0
 var recent_hits_t := 0.0
+## The running attack started outside the player's view: longer telegraph (fair play).
+var flanking := false
 
 var _built := false
 var _avoid_t := 0.0
@@ -273,6 +277,8 @@ func telegraph_mult() -> float:
 	var m := float(d.get(difficulty(), 1.0))
 	if phase_index > 0:
 		m *= float((archetype["phases"][phase_index - 1] as Dictionary).get("telegraph", 1.0))
+	if flanking:
+		m *= FLANK_TELEGRAPH
 	return m
 
 
@@ -662,6 +668,7 @@ func on_attack_struck(a: Dictionary) -> void:
 
 
 func on_attack_finished(a: Dictionary, landed: bool) -> void:
+	flanking = false
 	attack_finished.emit(self, a, landed)
 	brain.on_attack_finished(a, landed)
 

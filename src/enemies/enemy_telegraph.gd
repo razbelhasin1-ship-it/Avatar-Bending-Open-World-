@@ -28,12 +28,15 @@ static func color_for(element: int) -> Color:
 	return COLORS.get(element, COLORS[ElementDefs.Element.NONE])
 
 
-## A star glint at `pos` (scale ~1 = 0.55 m across), fading over ~0.35 s.
-static func glint(from: Node, pos: Vector3, element: int = ElementDefs.Element.NONE, strength: float = 1.0) -> Node3D:
+## A star glint at `pos` (scale ~1 = 0.55 m across), fading over ~0.35 s. With
+## `anchor` = [node, local offset] (EnemyVisual.socket_anchor) it rides the weapon.
+static func glint(from: Node, pos: Vector3, element: int = ElementDefs.Element.NONE, strength: float = 1.0, anchor: Array = []) -> Node3D:
 	glints_shown += 1
 	var g := FxLib.take(from, &"enemy_glint", Glint.make) as Glint
 	if g == null:
 		return null
+	g.follow = anchor[0] if anchor.size() == 2 else null
+	g.offset = anchor[1] if anchor.size() == 2 else Vector3.ZERO
 	g.global_position = pos
 	g.start(color_for(element), strength)
 	if FxLib.tier() >= 1:
@@ -103,6 +106,8 @@ class Glint extends Node3D:
 	var t := 0.0
 	var duration := 0.36
 	var size := 0.55
+	var follow: Node3D = null
+	var offset := Vector3.ZERO
 
 	static func make() -> Glint:
 		var g := Glint.new()
@@ -124,9 +129,15 @@ class Glint extends Node3D:
 
 	func fx_reset() -> void:
 		t = duration
+		follow = null
 
 	func _process(delta: float) -> void:
 		t += delta
+		if follow != null:
+			if is_instance_valid(follow) and follow.is_inside_tree():
+				global_position = follow.global_transform * offset
+			else:
+				follow = null
 		_apply(t / duration)
 		if t >= duration:
 			FxLib.release(self)
