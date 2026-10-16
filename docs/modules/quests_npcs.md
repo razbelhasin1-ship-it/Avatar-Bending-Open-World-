@@ -275,7 +275,9 @@ Trees (`TREES` in the same files) - see `DialogueTree` for the node keys:
 
 `DialogueRunner.talk(npc)` (the NPC's talk prompt) holds the player in the Cinematic state, faces
 both, frames an over-the-shoulder two-shot with `PlayerCamera.set_mode(&"cinematic")` (pulled in
-when a wall is in the way; the NPC sits in the upper half, clear of the panel), shows lines on the
+when a wall is in the way; the left shoulder or a higher, tighter angle when a companion or a
+passer-by stands in the spot, re-checked every line; the NPC sits in the upper half, clear of the
+panel), shows lines on the
 scene's `DialogueBox` (typewriter, mouth flaps while revealing), runs node / choice actions, then
 reports the talk to the quests and runs the UI actions. `{player}`, `{element}`, `{bender}`,
 `{nation}` are filled in. Unnamed townsfolk answer with a line of small talk (by nation and role);
