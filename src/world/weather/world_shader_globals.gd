@@ -22,11 +22,14 @@ extends RefCounted
 ## | world_fog_color      | vec4  | current distance-fog colour (linear)                            |
 ## | world_time_of_day    | float | hours 0..24                                                     |
 ## | world_time           | float | seconds of unpaused world time (cloud/water animation clock)    |
+## | air_impulse_a/_b     | mat4  | airbending wind impulses (4 slots), written by AirWindField;    |
+## | air_impulse_on       | float | read via src/fx/air/air_wind.gdshaderinc (docs bending_air.md)  |
 
 const VEC2 := RenderingServer.GLOBAL_VAR_TYPE_VEC2
 const VEC3 := RenderingServer.GLOBAL_VAR_TYPE_VEC3
 const FLOAT := RenderingServer.GLOBAL_VAR_TYPE_FLOAT
 const COLOR := RenderingServer.GLOBAL_VAR_TYPE_COLOR
+const MAT4 := RenderingServer.GLOBAL_VAR_TYPE_MAT4
 
 const DEFAULTS := {
 	&"wind_direction": [VEC2, Vector2(0.8, 0.6)],
@@ -43,6 +46,10 @@ const DEFAULTS := {
 	&"world_fog_color": [COLOR, Color(0.65, 0.75, 0.88)],
 	&"world_time_of_day": [FLOAT, 9.0],
 	&"world_time": [FLOAT, 0.0],
+	# Airbending wind impulses (bending_air: AirWindField writes them, vegetation / grass / cloth read them).
+	&"air_impulse_a": [MAT4, Projection.ZERO],
+	&"air_impulse_b": [MAT4, Projection.ZERO],
+	&"air_impulse_on": [FLOAT, 0.0],
 }
 
 

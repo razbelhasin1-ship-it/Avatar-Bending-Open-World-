@@ -23,7 +23,8 @@ static func on_result(ctx: BendingContext, hit: HitInfo, target: Node, result: i
 	match result:
 		Combat.Result.HIT, Combat.Result.KILLED:
 			ImpactFx.hit(from, hit.element, hit.position, hit.direction, hit.is_heavy)
-			if player_involved:
+			# Sustained multi-hit moves (tornado pulses) tag their ticks &"no_hitstop".
+			if player_involved and not hit.has_meta(&"no_hitstop"):
 				hitstop(HITSTOP_HEAVY if hit.is_heavy or result == Combat.Result.KILLED else HITSTOP_LIGHT)
 				shake(0.32 if hit.is_heavy else 0.14, 0.18 if hit.is_heavy else 0.1)
 			# Parry counters are already paid by the parry's +15.

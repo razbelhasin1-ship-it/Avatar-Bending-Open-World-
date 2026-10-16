@@ -123,6 +123,11 @@ func request(slot_name: StringName) -> StringName:
 	if d == null:
 		return _fail(&"", &"empty")
 	var kind := _kind_of(d)
+	# Toggle-style abilities (Air Scooter) take a second press of their own slot
+	# (optional hook: `func on_repress() -> bool`, true = handled).
+	if current != null and not current.finished and current.slot == slot_name and current.has_method(&"on_repress") \
+			and bool(current.call(&"on_repress")):
+		return &""
 	# Continue a running light combo.
 	if current != null and not current.finished:
 		if kind == &"light" and current is ComboAbility and current.def == d:

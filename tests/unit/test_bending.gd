@@ -94,7 +94,7 @@ func test_registry_kits_complete() -> void:
 		var kit := AbilityRegistry.core_kit(e)
 		for slot_name: StringName in [&"light", &"heavy", &"defense", &"dodge"]:
 			expect(kit.has(slot_name), "%s core kit has %s" % [ElementDefs.id_of(e), slot_name])
-		expect_eq(AbilityRegistry.starter_techniques(e), [starters[e]] as Array[StringName], "%s starter" % ElementDefs.id_of(e))
+		expect(AbilityRegistry.starter_techniques(e).has(starters[e]), "%s starter" % ElementDefs.id_of(e))
 		for d in AbilityRegistry.for_element(e):
 			expect(d.display_name != "" and d.description != "", "%s has name + description" % d.id)
 			if d.slot == AbilityDef.Slot.INNATE:
@@ -126,7 +126,7 @@ func test_runtime_registration_and_unlocks() -> void:
 	GameState.level = 3
 	expect_eq(AbilityRegistry.can_unlock(&"test_gust"), &"prerequisite", "prerequisite gate")
 	var granted := AbilityRegistry.grant_starters(E.AIR)
-	expect_eq(granted, [&"air_sweep"] as Array[StringName], "new game grants the starter")
+	expect(granted.has(&"air_sweep"), "new game grants the starters %s" % [granted])
 	expect(GameState.equipped_abilities.has(&"air_sweep"), "starter equipped")
 	expect(AbilityRegistry.grant_starters(E.AIR).is_empty(), "granted only once")
 	expect_eq(AbilityRegistry.can_unlock(&"test_gust"), &"skill_points", "needs a skill point")

@@ -10,6 +10,8 @@ global uniform float wind_strength;
 global uniform float wind_gust;
 global uniform float wind_time;
 global uniform float world_wetness;
+// Airbending gusts (bending_air): air_impulse_at(p).
+#include "res://src/fx/air/air_wind.gdshaderinc"
 
 uniform float amplitude = 0.16;
 uniform float stiffness = 1.0;
@@ -26,6 +28,14 @@ void vertex() {
 	float a = amplitude * free * (0.4 + ws * 0.09) / stiffness;
 	VERTEX += NORMAL * wave * a;
 	VERTEX += wind_local * free * free * ws * 0.025 / stiffness;
+	// Airbending gusts snap the cloth out and make it flap harder.
+	vec3 air = air_impulse_at(wp);
+	float airs = length(air);
+	if (airs > 0.01) {
+		vec3 air_local = (inverse(MODEL_MATRIX) * vec4(air, 0.0)).xyz;
+		VERTEX += air_local * free * free * 0.028 / stiffness;
+		VERTEX += NORMAL * wave * a * clamp(airs * 0.06, 0.0, 1.6);
+	}
 }
 
 void fragment() {
