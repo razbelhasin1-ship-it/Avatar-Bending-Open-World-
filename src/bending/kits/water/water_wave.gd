@@ -20,6 +20,10 @@ var ride_hits: Array[Dictionary] = []
 var crash_runner: WaterWaveRunner = null
 var floe: IceFloe = null
 var _ride_attack := 0
+## Surface the wave currently rides on (ground or water): the probe for the next
+## surface starts a step above it, so walls are not climbed.
+var _surf_ref := 0.0
+var _stuck := 0.0
 var _trail := 0.0
 var _douse := 0.0
 var _released := false
@@ -44,7 +48,8 @@ func begin() -> void:
 	clip_end = INF
 	max_time = float(param("max_ride", 2.6)) + 2.0
 	_ride_attack = HitInfo.new_attack_id()
-	crest = WaterWaveFx.spawn(ctx.caster, 1.3, 2.2 * _size, 1.1, 0.75, {"rise_time": 0.18})
+	_surf_ref = WaterEnv.surface_y(ctx, ctx.origin() + Vector3.UP * 0.8, 0.0, 3.0)
+	crest = WaterWaveFx.spawn(ctx.caster, 1.3, 2.6 * _size, 1.2, 0.85, {"rise_time": 0.18})
 	_place_crest()
 	ctx.set_upkeep(float(param("upkeep", 9.0)))
 	var g := ctx.ground_point(ctx.origin())
@@ -64,8 +69,9 @@ func _loop_start() -> void:
 	_loop_id = Audio.start_bending_loop(ctx.element, &"special_loop", ctx.caster, -6.0)
 
 
+## Ground / water under `p`, probing from one step (0.9 m) above the ridden surface.
 func _surface_under(p: Vector3) -> float:
-	return WaterEnv.surface_y(ctx, p + Vector3.UP * 1.6, 0.6, 4.0)
+	return WaterEnv.surface_y(ctx, Vector3(p.x, _surf_ref + 0.9, p.z), 0.0, 4.0)
 
 
 func update(delta: float) -> void:
@@ -86,7 +92,13 @@ func update(delta: float) -> void:
 		ctx.face_dir = dir
 		# Ride on top of the mound: the feet RIDE_LIFT above the ground / water.
 		var ahead := ctx.origin() + dir * 0.6
-		WaterCommon.hold_height(ctx, _surface_under(ahead) + RIDE_LIFT * clampf(ride_time / 0.2, 0.0, 1.0), 12.0)
+		var surf := _surface_under(ahead)
+		_surf_ref = surf
+		WaterCommon.hold_height(ctx, surf + RIDE_LIFT * clampf(ride_time / 0.2, 0.0, 1.0), 12.0)
+		# Blocked by a wall / cliff: the wave breaks against it.
+		if ctx.body != null and ride_time > 0.4:
+			var rv := ctx.body.get_real_velocity()
+			_stuck = _stuck + delta if Vector2(rv.x, rv.z).length() < speed * 0.3 else 0.0
 		_place_crest()
 		_ride_hits()
 		_trail -= delta
@@ -101,7 +113,7 @@ func update(delta: float) -> void:
 			WaterEnv.extinguish(ctx, ctx.origin() + dir * 1.0, 1.8)
 		var max_ride := float(param("max_ride", 2.6))
 		var min_ride := float(param("min_ride", 0.45))
-		if (not input_held and ride_time >= min_ride) or ride_time >= max_ride or ctx.chi() <= 0.5:
+		if (not input_held and ride_time >= min_ride) or ride_time >= max_ride or ctx.chi() <= 0.5 or _stuck > 0.25:
 			_crash()
 		return
 	# Crash: settle back down to the surface, then the clip ends.
