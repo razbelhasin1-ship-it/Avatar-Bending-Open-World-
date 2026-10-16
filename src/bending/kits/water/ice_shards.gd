@@ -91,6 +91,7 @@ func _launch() -> void:
 				"impact_size": 0.6, "on_impact": shatter, "on_finish": give_back})
 	_shards.clear()
 	sound(&"cast_light", ctx.hands_pos(), 0.0)
+	WaterCommon.practiced(ctx, def)
 
 
 func _drop() -> void:

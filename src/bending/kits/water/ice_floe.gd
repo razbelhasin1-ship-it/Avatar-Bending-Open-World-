@@ -110,6 +110,7 @@ func _physics_process(delta: float) -> void:
 			global_position = base + Vector3.DOWN * (THICK + 0.25) * k * k
 			mesh_i.scale = Vector3(1.0 - 0.25 * k, 1.0, 1.0 - 0.25 * k)
 			if k >= 1.0:
+				live.erase(self)
 				queue_free()
 
 

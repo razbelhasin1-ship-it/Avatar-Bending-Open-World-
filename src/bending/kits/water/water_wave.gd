@@ -69,11 +69,11 @@ func update(delta: float) -> void:
 	if riding:
 		ride_time += delta
 		var speed := float(param("speed", 12.0)) * lerpf(0.85, 1.0, _size)
-		# Steer toward the stick (or the aim when the stick is idle).
+		# Steer with the stick; without input the wave runs straight on.
 		var want := ctx.move_input
 		want.y = 0.0
 		if want.length() < 0.2:
-			want = ctx.aim_flat()
+			want = dir
 		var ang := Vector2(dir.x, dir.z).angle_to(Vector2(want.x, want.z))
 		var turn := deg_to_rad(float(param("turn_rate", 110.0))) * delta
 		dir = dir.rotated(Vector3.UP, -clampf(ang, -turn, turn)).normalized()
@@ -146,7 +146,7 @@ func _crash() -> void:
 	ctx.set_upkeep(0.0)
 	_stop_loop()
 	ctx.move_mode = BendingContext.Move.BRAKE
-	ctx.brake_rate = 18.0
+	ctx.brake_rate = 30.0
 	ctx.face_dir = dir
 	ctx.face_rate = 900.0
 	play_clip(&"water_wave_crash", {"blend_in": 0.06})
@@ -166,10 +166,11 @@ func on_event(event: StringName) -> void:
 	crash_runner = WaterWaveRunner.launch(ctx, start, dir, {"speed": 13.0, "distance": float(param("crash_distance", 5.0)),
 			"width": 3.2 * _size, "height": 1.4 * _size, "hit": hit_data(), "attack_id": attack_id, "ability_id": def.id, "carry": 0.4})
 	sound(&"special", start)
-	# Over open water: freeze a floe to land on.
-	if WaterEnv.is_over_water(ctx, ctx.origin()) and not IceFloe.supports(ctx.origin() + Vector3.DOWN * RIDE_LIFT):
-		var p := ctx.origin()
-		floe = WaterEnv.freeze_floe(ctx, p, 2.4, 12.0)
+	# Over open water: freeze a floe where the bender comes to a stop.
+	var hv := Vector3(ctx.body.velocity.x, 0.0, ctx.body.velocity.z) if ctx.body else Vector3.ZERO
+	var stop := ctx.origin() + hv * (hv.length() / (2.0 * ctx.brake_rate)) * 0.75
+	if WaterEnv.is_over_water(ctx, stop) and not IceFloe.supports(stop + Vector3.DOWN * RIDE_LIFT):
+		floe = WaterEnv.freeze_floe(ctx, stop, 2.8, 12.0)
 	if ctx.is_player():
 		BendingFeedback.shake(0.25, 0.2)
 	WaterCommon.practiced(ctx, def)

@@ -92,7 +92,9 @@ static func _attach_drip(target: Node3D) -> void:
 	for d in _drips:
 		if is_instance_valid(d) and d.get_parent() == target:
 			return
-	_drips = _drips.filter(func(d: Node) -> bool: return is_instance_valid(d))
+	for i in range(_drips.size() - 1, -1, -1):
+		if not is_instance_valid(_drips[i]):
+			_drips.remove_at(i)
 	if _drips.size() >= MAX_DRIPS or FxLib.scale() < 0.3:
 		return
 	var drip := Drip.new()
