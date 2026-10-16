@@ -13,6 +13,13 @@ var glyph_height := 34.0
 func _ready() -> void:
 	add_theme_constant_override(&"separation", 30)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# Key / button hints mean nothing on a touchscreen: the bar steps aside while touch is used.
+	UiInput.ensure(get_tree()).device_changed.connect(func(_d: StringName) -> void: _sync_touch())
+	_sync_touch()
+
+
+func _sync_touch() -> void:
+	modulate.a = 0.0 if UiInput.device == &"touch" else 1.0
 
 
 ## Replaces the hints. Each: {"action": StringName} or {"kbm": Array, "pad": Array}, plus "text".

@@ -2,7 +2,6 @@
 .godot/
 /android/
 *.translation
-export_presets.cfg
 /build/
 
 # Local test output

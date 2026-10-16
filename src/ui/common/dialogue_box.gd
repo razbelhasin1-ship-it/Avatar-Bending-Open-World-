@@ -106,6 +106,7 @@ func _ready() -> void:
 	_name.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	add_child(_name)
 	_next = PromptGlyph.for_action(&"interact", 32)
+	_next.tap_on_touch = true
 	_next.anchor_left = 0.5
 	_next.anchor_right = 0.5
 	_next.anchor_top = 1.0

@@ -22,6 +22,10 @@ var glyph_height := 40.0:
 		glyph_height = v
 		update_minimum_size()
 		queue_redraw()
+## Touch play: keycaps / pad buttons mean nothing on a touchscreen, so the glyph collapses
+## (no size, nothing drawn) while UiInput.device is &"touch" - unless the device is forced.
+## With `tap_on_touch` it draws a small "tap" mark instead (e.g. dialogue advance).
+var tap_on_touch := false
 var _kbm_entries: Array = []
 var _pad_entries: Array = []
 
@@ -59,6 +63,11 @@ func current_device() -> StringName:
 	return &"pad" if d == &"pad" else &"kbm"
 
 
+## True while the player uses touch and this glyph is not forced to a device.
+func touch_mode() -> bool:
+	return forced_device == &"" and UiInput.device == &"touch"
+
+
 ## Binding entries shown for the current device.
 func entries() -> Array:
 	var pad := current_device() == &"pad"
@@ -80,6 +89,8 @@ func get_label() -> String:
 
 
 func _get_minimum_size() -> Vector2:
+	if touch_mode():
+		return Vector2(glyph_height, glyph_height) if tap_on_touch else Vector2.ZERO
 	var w := 0.0
 	var list := entries()
 	for i in list.size():
@@ -114,6 +125,13 @@ func _entry_width(e: Dictionary) -> float:
 
 
 func _draw() -> void:
+	if touch_mode():
+		if tap_on_touch:
+			# Fingertip mark: a dot inside a ring.
+			var c := Vector2(glyph_height, glyph_height) * 0.5
+			draw_arc(c, glyph_height * 0.42, 0.0, TAU, 40, Color(UiTheme.PARCHMENT, 0.85), 2.5, true)
+			draw_circle(c, glyph_height * 0.17, Color(UiTheme.PARCHMENT, 0.95), true, -1.0, true)
+		return
 	var x := 0.0
 	var list := entries()
 	if list.is_empty():

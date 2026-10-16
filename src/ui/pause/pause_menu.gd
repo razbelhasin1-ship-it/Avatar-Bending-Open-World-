@@ -96,10 +96,17 @@ func _build_column() -> void:
 	options[2].pressed.connect(open_settings)
 	options[3].pressed.connect(return_to_menu)
 	options[4].pressed.connect(quit_to_desktop)
-	for i in options.size():
-		var b := options[i]
-		b.focus_neighbor_top = b.get_path_to(options[(i - 1 + options.size()) % options.size()])
-		b.focus_neighbor_bottom = b.get_path_to(options[(i + 1) % options.size()])
+	# No QUIT in browsers / on iOS (src/platform): quitting cannot work there.
+	if not PlatformInfo.can_quit():
+		options[4].visible = false
+	var nav: Array[MenuOptionButton] = []
+	for o in options:
+		if o.visible:
+			nav.append(o)
+	for i in nav.size():
+		var b := nav[i]
+		b.focus_neighbor_top = b.get_path_to(nav[(i - 1 + nav.size()) % nav.size()])
+		b.focus_neighbor_bottom = b.get_path_to(nav[(i + 1) % nav.size()])
 	_status = UiTheme.make_label("", UiTheme.body_font(1), UiTheme.SIZE_SMALL, UiTheme.SUCCESS)
 	_status.position = Vector2(126, 720)
 	root.add_child(_status)

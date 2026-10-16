@@ -744,6 +744,10 @@ func _apply_settings() -> void:
 	var mobile := Settings.is_mobile_device() or Settings.detail_level() == 0
 	frame_budget_usec = 1600 if mobile else 2500
 	max_jobs = clampi(OS.get_processor_count() - 2, 1, 2 if mobile else 3)
+	# Web builds ship without threads: WorkerThreadPool tasks then run on the main thread,
+	# so start one cell build per frame at most (mobile module, src/platform).
+	if not PlatformInfo.has_threads():
+		max_jobs = 1
 	if colliders:
 		colliders.radius = 36.0 if mobile else 48.0
 		colliders.max_bodies = 320 if mobile else 600

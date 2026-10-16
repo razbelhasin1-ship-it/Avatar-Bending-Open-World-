@@ -1,0 +1,182 @@
+# Build, test and export "Avatar: The Four Nations" (docs/modules/mobile.md "CI").
+#
+# On every push to the integration branches (main, ccr-*) and on manual dispatch:
+#   1. installs Godot 4.7.2 + its export templates (official release, SHA-512 verified, cached)
+#   2. runs tools/check.sh and the headless test suite (tools/test.sh)
+#   3. exports Web (Compatibility, no threads), Android debug APK (arm64-v8a), Linux, Windows
+#   4. uploads each build as a workflow artifact
+#   5. deploys the Web build to GitHub Pages (best effort: skipped / non-fatal when Pages is off)
+#
+# Install the APK on a phone: open the workflow run -> Artifacts -> "android-debug-apk",
+# unzip it, copy avatar-four-nations-debug.apk to the phone (or `adb install -r <apk>`),
+# allow "Install unknown apps" for your file manager / browser, and open it.
+name: Build
+
+on:
+  push:
+    branches: [main, "ccr-*"]
+  workflow_dispatch:
+    inputs:
+      run_tests:
+        description: "Run the headless test suite before exporting"
+        type: boolean
+        default: true
+      deploy_pages:
+        description: "Deploy the Web build to GitHub Pages"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GODOT_VERSION: "4.7.2"
+  GODOT_RELEASE: "4.7.2-stable"
+
+jobs:
+  build:
+    name: Test + export
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Cache Godot + export templates
+        id: godot-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/godot-bin
+            ~/.local/share/godot/export_templates/4.7.2.stable
+          key: godot-${{ env.GODOT_RELEASE }}-linux-x86_64-templates
+
+      - name: Install Godot ${{ env.GODOT_RELEASE }} + export templates
+        if: steps.godot-cache.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          base="https://github.com/godotengine/godot/releases/download/${GODOT_RELEASE}"
+          mkdir -p ~/godot-dl ~/godot-bin
+          cd ~/godot-dl
+          curl -fsSL --retry 3 -o SHA512-SUMS.txt "$base/SHA512-SUMS.txt"
+          curl -fsSL --retry 3 -o "Godot_v${GODOT_RELEASE}_linux.x86_64.zip" "$base/Godot_v${GODOT_RELEASE}_linux.x86_64.zip"
+          curl -fsSL --retry 3 -o "Godot_v${GODOT_RELEASE}_export_templates.tpz" "$base/Godot_v${GODOT_RELEASE}_export_templates.tpz"
+          grep -E "Godot_v${GODOT_RELEASE}_(linux\.x86_64\.zip|export_templates\.tpz)$" SHA512-SUMS.txt | sha512sum -c -
+          unzip -q "Godot_v${GODOT_RELEASE}_linux.x86_64.zip" -d ~/godot-bin
+          mv ~/godot-bin/Godot_v${GODOT_RELEASE}_linux.x86_64 ~/godot-bin/godot
+          chmod +x ~/godot-bin/godot
+          unzip -q "Godot_v${GODOT_RELEASE}_export_templates.tpz" -d tpl
+          mkdir -p ~/.local/share/godot/export_templates/4.7.2.stable
+          mv tpl/templates/* ~/.local/share/godot/export_templates/4.7.2.stable/
+          rm -rf ~/godot-dl
+
+      - name: Put Godot on PATH
+        run: |
+          echo "$HOME/godot-bin" >> "$GITHUB_PATH"
+          ~/godot-bin/godot --version
+
+      - name: Import project
+        run: godot --headless --path . --import || true
+
+      - name: Static check (parse every script)
+        run: tools/check.sh
+
+      - name: Headless tests
+        if: github.event_name != 'workflow_dispatch' || inputs.run_tests
+        env:
+          TEST_TIMEOUT: "2400"
+        run: tools/test.sh
+
+      - name: Export Web
+        run: tools/export/export_web.sh release
+
+      - name: Set up JDK 17 (Android signing)
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Android SDK build-tools
+        run: |
+          set -euo pipefail
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          if ! ls "$ANDROID_HOME"/build-tools/*/apksigner >/dev/null 2>&1; then
+            yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "build-tools;34.0.0" "platform-tools"
+          fi
+          ls "$ANDROID_HOME/build-tools"
+
+      - name: Export Android debug APK
+        run: tools/export/export_android.sh debug
+
+      - name: Export Linux + Windows
+        run: |
+          set -euo pipefail
+          mkdir -p build/linux build/windows
+          godot --headless --path . --export-release "Linux" build/linux/avatar-four-nations.x86_64
+          godot --headless --path . --export-release "Windows Desktop" build/windows/AvatarFourNations.exe
+          ls -la build/linux build/windows
+
+      - name: Upload Web build
+        uses: actions/upload-artifact@v4
+        with:
+          name: web
+          path: build/web
+          if-no-files-found: error
+
+      - name: Upload Android APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-debug-apk
+          path: build/android/*.apk
+          if-no-files-found: error
+
+      - name: Upload Linux build
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-x86_64
+          path: build/linux
+          if-no-files-found: error
+
+      - name: Upload Windows build
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-x86_64
+          path: build/windows
+          if-no-files-found: error
+
+      - name: Prepare Pages site
+        run: |
+          mkdir -p site
+          cp build/web/index.* build/web/*.js site/ 2>/dev/null || true
+          rm -f site/*.gz
+          touch site/.nojekyll
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: site
+
+  deploy-pages:
+    name: Deploy Web build to GitHub Pages
+    needs: build
+    if: github.event_name == 'push' || inputs.deploy_pages
+    runs-on: ubuntu-24.04
+    # Pages may not be enabled for the repository: never fail the build because of it.
+    continue-on-error: true
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Configure Pages
+        id: pages
+        uses: actions/configure-pages@v5
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4

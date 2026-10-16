@@ -95,6 +95,27 @@ static func _audio() -> Array[Dictionary]:
 
 
 static func _controls() -> Array[Dictionary]:
+	var all := _controls_general()
+	# On phones / tablets the touch section is what matters: show it first.
+	if Settings.touch_controls_enabled():
+		var touch: Array[Dictionary] = []
+		var rest: Array[Dictionary] = []
+		var in_touch := false
+		for r: Dictionary in all:
+			if String(r.get("kind", "")) == "header":
+				in_touch = String(r.get("label", "")) == "TOUCH CONTROLS"
+			if in_touch:
+				touch.append(r)
+			else:
+				rest.append(r)
+		if not rest.is_empty() and String(rest[0].get("kind", "")) != "header":
+			rest.push_front({"kind": "header", "label": "CAMERA & MOVEMENT"})
+		touch.append_array(rest)
+		return touch
+	return all
+
+
+static func _controls_general() -> Array[Dictionary]:
 	return [
 		{"kind": "slider", "section": "controls", "key": "mouse_sensitivity", "label": "Mouse Sensitivity", "apply": "controls", "min": 0.1, "max": 3.0, "step": 0.05, "format": "multiplier",
 			"help": "Camera turn speed with the mouse."},

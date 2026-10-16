@@ -332,6 +332,10 @@ func configure_viewport(vp: Viewport) -> void:
 	vp.msaa_3d = Viewport.MSAA_DISABLED
 	vp.screen_space_aa = Viewport.SCREEN_SPACE_AA_DISABLED
 	vp.use_taa = false
+	# Godot 4.7's Compatibility renderer (Web) has no screen-space AA at all: FXAA / SMAA /
+	# TAA fall back to MSAA 2x there instead of a warning and jagged edges.
+	if is_compatibility_renderer() and aa in ["fxaa", "smaa", "taa"]:
+		aa = "msaa2"
 	match aa:
 		"fxaa": vp.screen_space_aa = Viewport.SCREEN_SPACE_AA_FXAA
 		"smaa": vp.screen_space_aa = Viewport.SCREEN_SPACE_AA_FXAA if compat else Viewport.SCREEN_SPACE_AA_SMAA

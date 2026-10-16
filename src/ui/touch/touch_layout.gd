@@ -79,8 +79,11 @@ static func compute(rect: Rect2, scale: float, left_handed: bool, top_ids: Array
 		buttons[id] = {"center": Vector2(x, rect.position.y + TOP_MARGIN.y * ts), "radius": TOP_RADIUS * ts}
 		x -= TOP_SPACING * ts
 	# Contextual button: bottom centre, offset toward the cluster; text toward the middle.
-	var ic := Vector2(rect.position.x + w * 0.5 + INTERACT_OFFSET.x * s, rect.end.y - INTERACT_OFFSET.y * s)
-	buttons[&"interact"] = {"center": mirror.call(ic), "radius": INTERACT_RADIUS * maxf(s, 0.9)}
+	# Never inside the cluster: big buttons / narrow screens push it toward the middle.
+	var ir := INTERACT_RADIUS * maxf(s, 0.9)
+	var cluster_left := corner.x - CLUSTER_EXTENT.x * s
+	var ic := Vector2(minf(rect.position.x + w * 0.5 + INTERACT_OFFSET.x * s, cluster_left - 24.0 - ir), rect.end.y - INTERACT_OFFSET.y * s)
+	buttons[&"interact"] = {"center": mirror.call(ic), "radius": ir}
 	# Stick.
 	var sr := STICK_RADIUS * s
 	var zone := Rect2(rect.position.x, rect.position.y + STICK_ZONE_TOP, w * STICK_ZONE_W, h - STICK_ZONE_TOP)

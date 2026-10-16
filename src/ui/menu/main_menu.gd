@@ -204,10 +204,18 @@ func _build_options() -> void:
 	options[1].pressed.connect(_on_tutorial)
 	options[2].pressed.connect(_on_settings)
 	options[3].pressed.connect(_on_exit)
-	for i in options.size():
-		var b := options[i]
-		b.focus_neighbor_top = b.get_path_to(options[(i - 1 + options.size()) % options.size()])
-		b.focus_neighbor_bottom = b.get_path_to(options[(i + 1) % options.size()])
+	# Browsers cannot close their tab and iOS apps must not quit (the menu would fade out and
+	# wait forever): no EXIT there.
+	if not PlatformInfo.can_quit():
+		options[3].visible = false
+	var nav: Array[MenuOptionButton] = []
+	for o in options:
+		if o.visible:
+			nav.append(o)
+	for i in nav.size():
+		var b := nav[i]
+		b.focus_neighbor_top = b.get_path_to(nav[(i - 1 + nav.size()) % nav.size()])
+		b.focus_neighbor_bottom = b.get_path_to(nav[(i + 1) % nav.size()])
 		b.focus_neighbor_left = b.get_path()
 		b.focus_neighbor_right = b.get_path()
 	_refresh_continue_caption()
