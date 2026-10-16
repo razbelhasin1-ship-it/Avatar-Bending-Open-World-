@@ -132,6 +132,14 @@ static func townhouse(kit: BuildingKit, v: int, style: int) -> void:
 					{"role": FnStyle.RED, "spacing": 0.45, "collide": false})
 	if kit.lod == 0 and v % 2 == 1:
 		KitX.banner(kit, Transform3D(Basis(), Vector3(w * 0.5 - 0.6, bh + fh * floors - 0.4, zf - 0.25)), 0.8, 2.6, FnStyle.CLOTH_RED, FnStyle.CLOTH_GOLD, &"fire")
+	if kit.lod == 0:
+		# the back seen from the next street: posts and a window per floor
+		kit.push(Transform3D(Basis(Vector3.UP, PI), Vector3.ZERO))
+		posts(kit, -w * 0.5, w * 0.5, bh, fh * floors, -d * 0.5, 2, pil)
+		for f in floors:
+			for k in 2:
+				EkHomes.window(kit, Vector3((k - 0.5) * w * 0.45, bh + f * fh + 1.6, -d * 0.5), 0.9, 1.0, pil, (v + k + f) % 4 == 0)
+		kit.pop()
 
 
 static func noble_house(kit: BuildingKit, v: int, style: int) -> void:

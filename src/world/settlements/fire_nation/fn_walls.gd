@@ -246,11 +246,11 @@ static func brazier(kit: BuildingKit, v: int) -> void:
 	if kit.lod < 2:
 		kit.g().cylinder(Vector3(0, h + r * 0.55, 0), Vector3(0, h + r * 0.62, 0), r + 0.06, r + 0.06, 10, kit.col(FnStyle.GOLD), 0)
 	# deep orange-red flames (the glow shader's day emission otherwise washes them to cream)
-	var fire := Color(0.9, 0.2, 0.03)
-	var core := Color(1.0, 0.4, 0.06)
+	var fire := Color(0.72, 0.15, 0.025)
+	var core := Color(0.88, 0.3, 0.05)
 	var gb := kit.g(&"glow")
 	gb.uv = Vector2(0, 1)
-	gb.cylinder(Vector3(0, h + r * 0.5, 0), Vector3(0, h + r * 0.58, 0), r * 0.92, r * 0.92, 8, Color(0.8, 0.2, 0.03), 2)
+	gb.cylinder(Vector3(0, h + r * 0.5, 0), Vector3(0, h + r * 0.58, 0), r * 0.92, r * 0.92, 8, Color(0.6, 0.13, 0.02), 2)
 	if kit.lod == 0:
 		for k in 4:
 			var a := TAU * k / 4.0 + 0.3

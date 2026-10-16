@@ -75,7 +75,7 @@ static func plaza(kit: BuildingKit, spec: Dictionary) -> void:
 		ws.append(0.5)
 	KitX.ribbon(kit, ring, ws, kit.col(FnStyle.RED, false))
 	if kit.lod == 0 and v != 0:
-		flame_inlay(kit, Vector3(0, 0.112, 0), r * 0.6, FnStyle.GOLD)
+		flame_inlay(kit, Vector3(0, 0.112, 0), r * 0.6, FnStyle.GOLD * 0.78)
 	match v % 3:
 		0:
 			kit.push(Transform3D())
