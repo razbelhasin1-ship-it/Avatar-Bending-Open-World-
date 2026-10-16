@@ -320,6 +320,16 @@ static func banner(kit: BuildingKit, t: Transform3D, width: float, length: float
 						var d := Vector2(ex, ey).length()
 						if d > 0.17 and d < 0.27:
 							c = c1
+					&"earth":
+						# Earth Kingdom: a ring around a square (the coin seal)
+						var d := Vector2(ex, ey).length()
+						if (d > 0.21 and d < 0.29) or (absf(ex) < 0.1 and absf(ey) < 0.1):
+							c = c1
+					&"fire":
+						# Fire Nation: a rising flame (round base, tapering tongue)
+						var fy := ey + 0.02
+						if Vector2(ex, fy - 0.1).length() < 0.15 or (fy > -0.34 and fy < 0.1 and absf(ex) < 0.15 * (fy + 0.34) / 0.44):
+							c = c1
 			cb.vertex(Vector3(px, py, 0), Vector3(0, 0, -1), c, Vector2(v, u))
 	for j in ny:
 		for i in nx:
@@ -391,3 +401,92 @@ static func flag_string(kit: BuildingKit, a: Vector3, b: Vector3, sag: float, ro
 	radii.resize(rope.size())
 	radii.fill(0.015)
 	kit.g().tube(rope, radii, 3, kit.col(&"wood_dark"))
+
+
+## Earth Kingdom emblem relief in the local XY plane facing -Z at `c` (size = diameter): a ring
+## around a square seal, the coin-like insignia of the Earth Kingdom.
+static func emblem_earth(kit: BuildingKit, c: Vector3, size: float, role: Variant = &"trim_alt", depth: float = 0.12) -> void:
+	var g := kit.g()
+	var col := kit.col(role, false)
+	var segs := 16 if kit.lod == 0 else 8
+	var ring := PackedVector3Array()
+	var radii := PackedFloat32Array()
+	for i in segs + 1:
+		var a := TAU * float(i) / segs
+		ring.append(c + Vector3(cos(a) * size * 0.42, sin(a) * size * 0.42, -depth))
+		radii.append(size * 0.06)
+	g.tube(ring, radii, 4, col)
+	kit.box(c + Vector3(0, 0, -depth), Vector3(size * 0.36, size * 0.36, 0.08), role, false)
+	if kit.lod == 0:
+		kit.box(c + Vector3(0, 0, -depth - 0.05), Vector3(size * 0.2, size * 0.2, 0.06), &"trim", false)
+
+
+## Fire Nation emblem relief in the local XY plane facing -Z at `c` (size = height): a central
+## flame tongue with two curling side flames rising from a round base.
+static func emblem_fire(kit: BuildingKit, c: Vector3, size: float, role: Variant = &"trim_alt", depth: float = 0.12) -> void:
+	var g := kit.g()
+	var col := kit.col(role, false)
+	var segs := 8 if kit.lod == 0 else 4
+	for k in 3:
+		var side := float(k - 1)
+		var line := PackedVector3Array()
+		var radii := PackedFloat32Array()
+		var hgt := size * (1.0 if k == 1 else 0.62)
+		for i in segs + 1:
+			var t := float(i) / segs
+			var x := side * size * (0.16 + 0.1 * sin(t * PI)) - side * size * 0.12 * t * t
+			line.append(c + Vector3(x, -size * 0.38 + t * hgt, -depth))
+			radii.append(size * (0.13 if k == 1 else 0.08) * (1.0 - t * 0.92) + 0.01)
+		g.tube(line, radii, 5, col)
+	g.blob(c + Vector3(0, -size * 0.32, -depth), size * 0.16, 0, col)
+
+
+## Prism along local X from x0 to x1 with a cross-section `profile` of (z, y) points (any
+## winding; faces point away from the profile centroid). caps: 1 = end cap at x0, 2 = at x1.
+## Walls with battered faces, sloped copings, parapets. No collision (add boxes / faces).
+static func prism_x(kit: BuildingKit, x0: float, x1: float, profile: PackedVector2Array, role: Variant, caps: int = 3,
+		slot: StringName = &"solid") -> void:
+	var g := kit.g(slot)
+	var col := kit.col(role)
+	var n := profile.size()
+	if n < 3:
+		return
+	var cz := 0.0
+	var cy := 0.0
+	for p in profile:
+		cz += p.x
+		cy += p.y
+	cz /= n
+	cy /= n
+	for i in n:
+		var p := profile[i]
+		var q := profile[(i + 1) % n]
+		var a := Vector3(x0, p.y, p.x)
+		var b := Vector3(x1, p.y, p.x)
+		var c := Vector3(x1, q.y, q.x)
+		var d := Vector3(x0, q.y, q.x)
+		var nrm := (b - a).cross(c - a)
+		var mid := Vector3(0, (p.y + q.y) * 0.5 - cy, (p.x + q.x) * 0.5 - cz)
+		if nrm.dot(mid) >= 0.0:
+			g.flat_quad(a, b, c, d, col)
+		else:
+			g.flat_quad(a, d, c, b, col)
+	if caps == 0:
+		return
+	var tri := Geometry2D.triangulate_polygon(profile)
+	for k in range(0, tri.size(), 3):
+		var p0 := profile[tri[k]]
+		var p1 := profile[tri[k + 1]]
+		var p2 := profile[tri[k + 2]]
+		for end: int in [1, 2]:
+			if caps & end == 0:
+				continue
+			var x := x0 if end == 1 else x1
+			var out := -1.0 if end == 1 else 1.0
+			var a := Vector3(x, p0.y, p0.x)
+			var b := Vector3(x, p1.y, p1.x)
+			var c := Vector3(x, p2.y, p2.x)
+			if (b - a).cross(c - a).x * out >= 0.0:
+				g.flat_tri(a, b, c, col)
+			else:
+				g.flat_tri(a, c, b, col)
