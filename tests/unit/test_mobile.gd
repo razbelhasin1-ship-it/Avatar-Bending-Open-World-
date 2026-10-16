@@ -491,6 +491,35 @@ func test_platform_info() -> void:
 	expect(PlatformInfo.has_threads(), "desktop build has threads")
 
 
+func test_render_compat_multimesh_colours() -> void:
+	var buf := PackedFloat32Array()
+	for i in 2:
+		for k in 16:
+			buf.append(float(i * 100 + k))
+	var out := RenderCompat.add_white(buf, 2)
+	expect_eq(out.size(), 40, "stride 20")
+	expect(out[12] == 1.0 and out[15] == 1.0 and out[32] == 1.0, "white colours inserted")
+	expect(out[16] == 12.0 and out[19] == 15.0 and out[36] == 112.0 and out[39] == 115.0, "custom data after the colour")
+	expect(out[0] == 0.0 and out[11] == 11.0 and out[20] == 100.0 and out[31] == 111.0, "transforms kept")
+	# (The GPU side is verified by mobile_veg_world_probe / mobile_world on the Compatibility
+	# renderer; the headless dummy renderer stores no MultiMesh data.)
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.use_custom_data = true
+	mm.use_colors = true
+	mm.instance_count = 2
+	expect_eq(RenderCompat.buffer_for(mm, buf).size(), 40, "buffer_for converts for a coloured MultiMesh")
+	var mm2 := MultiMesh.new()
+	mm2.transform_format = MultiMesh.TRANSFORM_3D
+	mm2.use_custom_data = true
+	mm2.instance_count = 2
+	expect_eq(RenderCompat.buffer_for(mm2, buf), buf, "and leaves others alone")
+	var plain := MultiMesh.new()
+	plain.transform_format = MultiMesh.TRANSFORM_3D
+	RenderCompat.configure(plain, true)
+	expect(plain.use_colors == RenderCompat.multimesh_colors_needed(), "colours only where the renderer needs them")
+
+
 func test_mobile_renderer_feature_flags() -> void:
 	# FSR 1.0 3D scaling is Forward+ only in 4.7 (the Mobile renderer warns and falls back).
 	if Settings.is_mobile_renderer() or Settings.is_compatibility_renderer():
