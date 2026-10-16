@@ -114,6 +114,7 @@ func begin_mount(p: Node3D) -> bool:
 	if c.mode == Companion.Mode.ASSIST:
 		c.assist.cancel()
 	c.rig.stop_action()
+	c.rig.clear_look()
 	c.rig.idle_enabled = false
 	c.set_mode(Companion.Mode.MOUNTING)
 	player.mount_on(c, seat)

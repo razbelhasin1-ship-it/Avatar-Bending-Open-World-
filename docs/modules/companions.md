@@ -227,6 +227,17 @@ spawns beside the player on load.
 * **Enemies**: enemies ignore mounted players; area attacks / projectiles of enemies can hit
   the companion (layer COMPANION is in `Layers.ENEMY_ATTACK_TARGETS`).
 
+## Measured (playtests in the real world, 960x540, software Vulkan)
+
+| | Result |
+| --- | --- |
+| follow | the polar bear dog / badgermole stay within 6-9 m of a player walking / running 80-100 m over real terrain, 0 / 60 samples between the camera and the player; the dragon escorts from the air (20-35 m) |
+| call from 150 m | dog 1.0 s (appears off-screen at a safe spot, runs in, greets), badgermole 0.2 s; flyers fly in and land beside the player |
+| ground riding | polar bear dog 8 m/s trot, 15 m/s gallop through 0.28 m deep snow, 115 m covered; badgermole 9 m/s; rider error on the seat 0.000 m (seat recomputed after the mount moved) |
+| burrow | badgermole tunnel of 28 m toward the camera's aim, emerges at the target, rider seated and visible again |
+| flight | sky bison cruise 18 m/s, boost 26-30, bank -0.50 rad in a 137 deg turn; dragon cruise 24, boost 40, bank -0.75 rad in a 175 deg turn; glides without stalling, min clearance above terrain / sea 0.46 m (on the final landing approach), lands on terrain still seated, let go at 24-76 m: the rider lands unhurt |
+| assist | dragon 8 burn ticks on two bandits, bison gust 2 hits (knockback), dog pounce 2 hits (knockdown), badgermole tremor 2 hits (stagger); all credited to the player, cooldowns running |
+
 ## Performance (mobile)
 
 One companion per scene. Whiskers: 9 rays at 10 Hz, flight: a forward ray at 10 Hz +
@@ -259,7 +270,9 @@ fur shells). No extra lights; assist VFX use the pooled FX library (`FxLib` caps
   real terrain, rest, sprint / escort, call from 150 m), `companions_ride` (`SPECIES=`
   polar_bear_dog / badgermole: mount, gallop, leap, burrow, dismount), `companions_flight`
   (`SPECIES=` sky_bison / dragon: mount, takeoff, circuit with banking, climb, boost, glide,
-  low pass, landing, let go in the air).
+  low pass, landing, let go in the air), `companions_assist` (enemy arena: each companion's
+  assist move against an engaged bandit group, observer shots of wind-up and strike).
+  Mobile: `RENDERER=mobile MOBILE=1 SPECIES=polar_bear_dog tools/playtest.sh companions_ride`.
 
 ## Changes outside the module
 
@@ -273,6 +286,8 @@ fur shells). No extra lights; assist VFX use the pooled FX library (`FxLib` caps
   rotation check and spammed errors).
 * `tests/unit/test_worldscene.gd`: the HUD companion panel check accepts the companion the
   hook now spawns.
+* `tests/playtest/scenarios/worldscene_tutorial.gd`: plays the two companion lessons (call,
+  mount) that now appear in the training grounds.
 
 ## Known limitations
 
