@@ -124,7 +124,7 @@ static func defs() -> Array[AbilityDef]:
 			"hit": {"damage": 55.0, "reaction": R.KNOCKDOWN, "force": 8.0, "lift": 2.0, "stun": 1.4, "poise": 120.0, "heavy": true, "unblockable": true},
 			"params": {"hold_clip": &"lightning_charge", "range": 38.0, "min_charge": 0.55, "weak_scale": 0.55, "overcharge": 2.8,
 				"backfire_damage": 18.0, "backfire_hit_damage": 12.0, "chain_radius": 4.0, "chain_scale": 0.4, "water_radius": 5.0},
-			"fx": {"vfx": &"lightning", "sfx": &"lightning_strike"}, "script_path": DIR + "lightning.gd"}),
+			"fx": {"vfx": &"lightning", "sfx": &"fire_lightning"}, "script_path": DIR + "lightning.gd"}),
 	]
 	return out
 

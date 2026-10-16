@@ -481,6 +481,20 @@ func test_lightning_release_fizzle_and_backfire() -> void:
 	await seconds(0.15)
 	expect_eq(FireLightning.backfires, bf0 + 2, "and the lightning discharges into the bender")
 	p.input.release(&"ability_1")
+	# Broken before half way: the charge just scatters (no discharge).
+	await PlayerSim.step_until(p, func() -> bool: return p.get_state() == PlayerCharacter.State.LOCOMOTION, 400)
+	p.controller.reset_cooldowns()
+	await PlayerSim.step(p, 5)
+	var i0 := FireLightning.interrupts
+	p.input.press(&"ability_1")
+	await PlayerSim.step(p, 20)
+	expect(p.controller.current != null and p.controller.current.def.id == &"lightning", "charging again")
+	Combat.deal(p, enemy.ctx.make_hit({"damage": 3.0, "reaction": HitInfo.Reaction.FLINCH}, Vector3(0, 0, 1)))
+	await PlayerSim.step(p, 2)
+	await seconds(0.15)
+	expect_eq(FireLightning.interrupts, i0 + 1, "an early hit breaks the charge too")
+	expect_eq(FireLightning.backfires, bf0 + 2, "without a discharge")
+	p.input.release(&"ability_1")
 
 
 func test_inferno_vortex_pulses_and_launching_ring() -> void:

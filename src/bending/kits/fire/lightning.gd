@@ -48,7 +48,7 @@ func begin() -> void:
 	for s: StringName in [&"hand_l", &"hand_r"]:
 		var node := ctx.rig.get_socket(s) if ctx.rig != null and is_instance_valid(ctx.rig) else null
 		_arcs.append(LightningFx.arcs(ctx.caster, node if node != null else ctx.caster, 0.32))
-	_loop_id = Audio.play_loop(&"lightning_charge_loop", ctx.caster, -4.0, 0.2)
+	_loop_id = Audio.play_loop(&"fire_lightning_loop", ctx.caster, -4.0, 0.2)
 	_light = FxFlash.attach(ctx.caster, ctx.caster, LightningFx.COLOR, 0.6, 4.0)
 	# ANY landed hit breaks the concentration (not only staggers).
 	Events.hit_landed.connect(_on_hit_landed)
@@ -95,7 +95,7 @@ func _ready_cue() -> void:
 	var p := ctx.socket_pos(&"hand_r")
 	FxFlash.spawn(ctx.caster, p, LightningFx.COLOR, 3.0, 0.2, 5.0)
 	FxBurst.spawn(ctx.caster, &"sparkle", p, {"count": 1.2, "color": LightningFx.COLOR, "speed": 1.6})
-	Audio.play_sfx(&"lightning_crackle", p, -2.0)
+	Audio.play_sfx(&"fire_lightning_crackle", p, -2.0)
 
 
 func _release() -> void:
@@ -106,7 +106,7 @@ func _release() -> void:
 		var p := ctx.socket_pos(&"hand_r")
 		FxBurst.spawn(ctx.caster, &"sparkle", p, {"count": 0.6, "color": LightningFx.COLOR})
 		FxBurst.spawn(ctx.caster, &"smoke", p, {"count": 0.3, "size": 0.4})
-		Audio.play_sfx(&"lightning_crackle", p, -10.0)
+		Audio.play_sfx(&"fire_lightning_crackle", p, -10.0)
 		_cleanup()
 		finish()
 		return
@@ -169,7 +169,7 @@ func _fire() -> void:
 	LightningFx.bolt(ctx.caster, from, end, {"width": 0.24 + 0.2 * k, "branches": 4 if k > 0.8 else 2, "duration": 0.45})
 	FxFlash.spawn(ctx.caster, from, LightningFx.COLOR, 4.0 * k, 0.18, 8.0)
 	FxFlash.spawn(ctx.caster, end, LightningFx.COLOR, 6.0 * k, 0.25, 12.0)
-	Audio.play_sfx(&"lightning_strike", from.lerp(end, 0.3), 2.0)
+	Audio.play_sfx(&"fire_lightning", from.lerp(end, 0.3), 2.0)
 	bolts += 1
 	if target != null:
 		var hit := ctx.make_hit(h, dir, attack_id, def.id)
@@ -252,7 +252,7 @@ func _backfire(damage: float, reaction: HitInfo.Reaction) -> void:
 		var d := Vector3(randf_range(-1, 1), randf_range(-0.2, 1.0), randf_range(-1, 1)).normalized()
 		LightningFx.bolt(caster, chest, chest + d * randf_range(1.2, 2.4), {"width": 0.1, "branches": 1, "duration": 0.3})
 	FxFlash.spawn(caster, chest, LightningFx.COLOR, 5.0, 0.25, 8.0)
-	Audio.play_sfx(&"lightning_strike", chest, 0.0)
+	Audio.play_sfx(&"fire_lightning", chest, 0.0)
 	var dir := -ctx.forward()
 	caster.get_tree().create_timer(0.05, false, true).timeout.connect(func() -> void:
 		if caster == null or not is_instance_valid(caster) or not caster.is_inside_tree():
@@ -278,7 +278,7 @@ func on_cancel(reason: StringName) -> void:
 			# Broken early: the gathered energy scatters harmlessly (chi and cooldown spent).
 			var p := ctx.socket_pos(&"hand_r")
 			FxBurst.spawn(ctx.caster, &"sparkle", p, {"count": 0.8, "color": LightningFx.COLOR, "speed": 1.4})
-			Audio.play_sfx(&"lightning_crackle", p, -8.0)
+			Audio.play_sfx(&"fire_lightning_crackle", p, -8.0)
 	_cleanup()
 
 

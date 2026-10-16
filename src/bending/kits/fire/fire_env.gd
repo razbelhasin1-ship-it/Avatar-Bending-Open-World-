@@ -225,6 +225,14 @@ static func renderer(from: Node) -> Node:
 	_renderer_ref = null
 	if from == null or not from.is_inside_tree():
 		return null
+	# The playable scene the caster lives in (it may not be the current scene: tools, tests).
+	var n: Node = from
+	while n != null:
+		var rr: Variant = n.get("renderer") if "renderer" in n else null
+		if rr is WorldRenderer:
+			_renderer_ref = weakref(rr)
+			return rr
+		n = n.get_parent()
 	var cs := from.get_tree().current_scene
 	if cs == null:
 		return null
