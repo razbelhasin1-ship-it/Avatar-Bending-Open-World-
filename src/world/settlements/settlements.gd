@@ -13,12 +13,23 @@ extends RefCounted
 ##   Settlements.settlement_at(pos)     Settlements.district_at(pos)
 ##
 ## Settlement ids: &"northern_water_tribe" (city), &"arctic_villages" (igloo villages + fishing
-## camps of the arctic wilds), &"southern_air_temple" (temple + Foothills Landing).
+## camps of the arctic wilds), &"southern_air_temple" (temple + Foothills Landing) — Settlements I;
+## &"ba_sing_se", &"omashu", &"ek_villages" (Full Moon Bay, Northreach, Millet Hollow, Cedar Rest),
+## &"fire_nation_capital", &"fire_harbor" (Crimson Harbor), &"fn_villages" (Saltspark, Ashleaf
+## Terraces, Sunflare Isle) — Settlements II (docs/modules/settlements_ef.md).
 
 const WATER_TRIBE := &"northern_water_tribe"
 const ARCTIC := &"arctic_villages"
 const AIR_TEMPLE := &"southern_air_temple"
-const ALL: Array[StringName] = [WATER_TRIBE, ARCTIC, AIR_TEMPLE]
+const BA_SING_SE := &"ba_sing_se"
+const OMASHU := &"omashu"
+const EK_VILLAGES := &"ek_villages"
+const FN_CAPITAL := &"fire_nation_capital"
+const FN_HARBOR := &"fire_harbor"
+const FN_VILLAGES := &"fn_villages"
+const ALL: Array[StringName] = [WATER_TRIBE, ARCTIC, AIR_TEMPLE, BA_SING_SE, OMASHU, EK_VILLAGES, FN_CAPITAL, FN_HARBOR, FN_VILLAGES]
+## Collections of scattered sites (no single centre/radius: looked up by district).
+const SITE_SETS: Array[StringName] = [ARCTIC, EK_VILLAGES, FN_VILLAGES]
 
 static var _plans: Dictionary = {}
 static var _builders: Dictionary = {}
@@ -36,6 +47,18 @@ static func plan(settlement_id: StringName) -> SettlementPlan:
 			p = ArcticPlanner.new().build()
 		AIR_TEMPLE:
 			p = SatPlanner.new().build()
+		BA_SING_SE:
+			p = BssPlanner.new().build()
+		OMASHU:
+			p = OmashuPlanner.new().build()
+		EK_VILLAGES:
+			p = EkVillagePlanner.new().build()
+		FN_CAPITAL:
+			p = FncPlanner.new().build()
+		FN_HARBOR:
+			p = FhPlanner.new().build()
+		FN_VILLAGES:
+			p = FnVillagePlanner.new().build()
 		_:
 			p = SettlementPlan.new(settlement_id)
 	p.index()
@@ -54,6 +77,10 @@ static func builder(settlement_id: StringName) -> SettlementBuilder:
 			b = NwtBuilder.new(p)
 		AIR_TEMPLE:
 			b = SatBuilder.new(p)
+		BA_SING_SE, OMASHU, EK_VILLAGES:
+			b = EkBuilder.new(p)
+		FN_CAPITAL, FN_HARBOR, FN_VILLAGES:
+			b = FnBuilder.new(p)
 		_:
 			b = SettlementBuilder.new(p)
 	_builders[settlement_id] = b
@@ -133,7 +160,7 @@ static func anchors_near(pos: Vector3, radius: float, kind: StringName = &"") ->
 	var hits: Array = []
 	for sid in ALL:
 		var p := plan(sid)
-		if not p.contains(pos, radius + 200.0) and sid != ARCTIC:
+		if not p.contains(pos, radius + 200.0) and not SITE_SETS.has(sid):
 			continue
 		for a in p.anchors:
 			if kind != &"" and a["kind"] != kind:
@@ -150,11 +177,12 @@ static func anchors_near(pos: Vector3, radius: float, kind: StringName = &"") ->
 
 ## Settlement whose area contains pos (&"" if none).
 static func settlement_at(pos: Vector3) -> StringName:
-	for sid in [WATER_TRIBE, AIR_TEMPLE]:
-		if plan(sid).contains(pos):
+	for sid in ALL:
+		if not SITE_SETS.has(sid) and plan(sid).contains(pos):
 			return sid
-	if plan(ARCTIC).district_at(pos) != &"":
-		return ARCTIC
+	for sid in SITE_SETS:
+		if plan(sid).district_at(pos) != &"":
+			return sid
 	return &""
 
 

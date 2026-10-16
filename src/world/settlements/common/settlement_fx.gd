@@ -7,7 +7,9 @@ extends RefCounted
 
 ## Species the gardens use (materials are created up front).
 const PLANTS: Array[StringName] = [&"maple", &"blossom", &"bamboo", &"shrub", &"fern", &"grass", &"grass_tall",
-	&"flowers_white", &"flowers_cool", &"flowers_warm", &"reeds", &"hedge", &"cypress", &"rock_moss"]
+	&"flowers_white", &"flowers_cool", &"flowers_warm", &"reeds", &"hedge", &"cypress", &"rock_moss",
+	# Settlements II: Earth Kingdom avenues / farmsteads, Fire Nation gardens and the resort isle
+	&"oak", &"palm", &"tropical"]
 const NIGHT_GLOW_SHADER := preload("res://src/world/settlements/common/night_glow.gdshader")
 ## Glow colours of the builders' piece_glows().
 const GLOW_LAMP := Color(1.0, 0.80, 0.52)

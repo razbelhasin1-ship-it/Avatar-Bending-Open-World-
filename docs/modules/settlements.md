@@ -10,14 +10,14 @@ settlement module adds its own page with its layout, recipes and decisions:
 | Module | Settlements | Page |
 | --- | --- | --- |
 | `settlements_wa` (Settlements I) | Northern Water Tribe (vertical slice), arctic igloo villages + fishing camps, Southern Air Temple | [settlements_wa.md](settlements_wa.md) |
-| Settlements II (next) | Ba Sing Se, Omashu, Fire Nation capital + harbour, villages | extend this table |
+| `settlements_ef` (Settlements II) | Ba Sing Se, Omashu, Earth Kingdom villages (Full Moon Bay, Northreach, Millet Hollow, Cedar Rest), Fire Nation capital, Crimson Harbor, Fire Nation villages (Saltspark, Ashleaf Terraces, Sunflare Isle resort) | [settlements_ef.md](settlements_ef.md) |
 
 | | |
 | --- | --- |
 | Registry / API | `src/world/settlements/settlements.gd` (`Settlements`, static) |
 | World hook | `src/world/settlements/world_hook.gd` (instantiated by `WorldHooks` in the world and tutorial scenes) |
 | Framework | `src/world/settlements/common/`: `SettlementPlan`, `SettlementBuilder`, `SettlementProvider`, `SettlementFarProvider`, `SettlementSettings`, `SettlementFx`, `KitCache`, `KitMerger`, `KitX`, `RingLayout` |
-| Dev scene | `scenes/dev/settlements_wa.tscn` (`src/world/settlements/dev/settlements_dev.gd`): real world + content + settlements, free-fly camera, named views, `spawn_player()` |
+| Dev scene | `scenes/dev/settlements_wa.tscn` (`src/world/settlements/dev/settlements_dev.gd`): real world + content + settlements, free-fly camera, named views, `spawn_player()`; `scenes/dev/settlements_ef.tscn` adds the Settlements II views |
 
 ## Using it (NPC / quest modules)
 
@@ -26,15 +26,21 @@ Settlements.get_anchors(&"northern_water_tribe", &"market_stall")   # Array[Dict
 Settlements.get_anchors(&"", &"quest_giver")                        # every settlement
 Settlements.anchors_near(player.global_position, 60.0, &"home")    # closest first
 Settlements.get_anchor(&"southern_air_temple_trainer_3")           # by id ({} if unknown)
-Settlements.settlement_at(pos)     # &"northern_water_tribe" / &"arctic_villages" / &"southern_air_temple" / &""
-Settlements.district_at(pos)       # e.g. &"nwt_palace", &"nwt_harbor", &"sat_courtyard", &"frostmere"
+Settlements.settlement_at(pos)     # &"northern_water_tribe" / &"ba_sing_se" / &"fire_nation_capital" / ... / &""
+Settlements.district_at(pos)       # e.g. &"nwt_palace", &"sat_courtyard", &"frostmere", &"fnc_plaza_of_the_sun", &"fn_saltspark"
 Settlements.get_info(&"southern_air_temple")   # {id, name, nation, center, radius, districts, pieces, anchors}
 ```
 
 Plans are built lazily on first use (main thread, deterministic, cached for the run: Water Tribe
-≈ 0.15 s, Air Temple ≈ 0.07 s, arctic villages < 0.02 s) and need only WorldData, so anchors can
-be queried before (or without) any geometry streaming. Without baked world data every plan is
-empty and every query returns empty results.
+≈ 0.15 s, Air Temple ≈ 0.07 s, arctic villages < 0.02 s, Ba Sing Se ≈ 0.35 s, Fire Nation
+capital ≈ 0.25 s, the others ≤ 0.15 s) and need only WorldData, so anchors can be queried before
+(or without) any geometry streaming. Without baked world data every plan is empty and every
+query returns empty results.
+
+Settlement ids: `northern_water_tribe`, `arctic_villages`, `southern_air_temple` (Settlements I);
+`ba_sing_se`, `omashu`, `ek_villages`, `fire_nation_capital`, `fire_harbor`, `fn_villages`
+(Settlements II). The scattered-site sets (`arctic_villages`, `ek_villages`, `fn_villages`,
+`Settlements.SITE_SETS`) have no single centre: `settlement_at` finds them by their districts.
 
 ### NPC anchor record
 
@@ -114,8 +120,9 @@ WorldData city record ──> Planner (per settlement) ──> SettlementPlan (p
   collision / shadows / lights (but night glows).
 * **Registration** (`Settlements.register(content, opts)`): near + far provider per settlement,
   keep-out exclusions, claims. opts: `only` (ids), `skip_tags` (pieces whose `spec.tag` is listed
-  are left out — the tutorial skips the Air Temple's `airball_court` where it dresses its own
-  training ground). `Settlements.unregister(content)`.
+  are left out — the tutorial skips the Air Temple's `airball_court` and the Fire Nation
+  capital's `flame_kata_grounds` where it dresses its own training grounds).
+  `Settlements.unregister(content)`.
 * **World hook** (`world_hook.gd`): `world_setup(scene)` registers everything on the scene's
   WorldContent before the player spawns, so the loading screen waits for the buildings (and
   their collision) around the spawn.
@@ -138,10 +145,15 @@ WorldData city record ──> Planner (per settlement) ──> SettlementPlan (p
 | --- | --- |
 | `RingLayout` | polar helpers for the WorldData ring-layout cities: `from_city(id)`, `point(r, bearing, y)`, `polar(x, z)`, `tier_at`, `ramp_at`, `dir`, `yaw_of`, `half_angle`, `arc_len` |
 | `KitX` | extra kit pieces: nation emblems (`emblem_water`, `emblem_air`), `icicles`, rounded `merlons`, block `joints`, arched `doorway` with curtain, `window` (lit panes get mullions + a glow record; `lit_window_color`), `banner` with emblems, `inner_dome`, `grass_tuft`, prayer `flag_string`, flat floor inlays (`ribbon`, `swirl_inlay`, `water_inlay`), `glow` (glow-only record), `lantern` (kit lantern + glow when unlit) |
+| `KitX` (Settlements II) | `emblem_earth`, `emblem_fire`, banner emblems `&"earth"` / `&"fire"` with a `res` (detail) factor for giant banners, `prism_x` (an extruded profile along x: battered walls, towers) |
+| `RingCityPlanner` | base of the ring-city planners: polar helpers, avenue gaps, `step_wall` (retaining-wall chords on the measured, smoothed face of a tier step, facing the lower side either way, nation recipe via `wall_kind`), `band` (rows of houses along a ring street with nation hooks `house_footprint` / `house_height` / `house_piece` / `house_anchors`) |
+| `SettlementLayout` | `world(pos, yaw, local)`, `yaw_dir`, `fits` / `reserve_rect` (rotated footprints against the plan's occupancy grid), `pick` (weighted), `face_r` (terrain step face by binary search), `ground_range`, `chords` |
+| `ArrivalClearance` | the new-game arrival camera path of an element (the cinematic's Bezier); `ok(x, z, radius, top)` keeps tall pieces clear of it |
+| `RoofsLite` | cheap curved hip / gable / pent roofs (upturned eaves, soffits, ridges) for the many small buildings |
 | `KitCache`, `KitMerger` | archetype cache, fast merging (see above) |
 | `SettlementFx` | main-thread resources the workers reference (waterfall sheet materials, vegetation materials, the night-glow material; `prepare()`), `vegetation_node(items, origin)` (garden trees / shrubs / flowers as VegetationLibrary MultiMeshes with the open-world shaders), `add_glows` / `glows_from_lights` (night glows, see above), `warm_light` |
 
-## Adding a settlement (Settlements II)
+## Adding a settlement
 
 1. A planner (`src/world/settlements/<name>/<x>_planner.gd`) returning a `SettlementPlan` from
    `WorldData.get_city(id)` (use `RingLayout`; measure the terrain where the generator blended
@@ -152,5 +164,8 @@ WorldData city record ──> Planner (per settlement) ──> SettlementPlan (p
    on the right spots.
 3. Add the id to `Settlements.ALL` and the two `match` blocks in `Settlements.plan()` /
    `builder()`.
-4. Tests: plan counts, cell build budget, walk tests (`tests/unit/test_settlements_wa.gd` has
-   the probe-capsule walker: `_walk_world` + `_walk`), a screenshot tour view in the dev scene.
+4. Tests: plan counts, cell build budget, walk tests (`tests/unit/test_settlements_wa.gd` and
+   `test_settlements_ef.gd` have the probe-capsule walker: `_walk_world` + `_walk`; record the
+   stairs / gates / interiors in `plan.data` so the tests can walk them), a screenshot tour view
+   in the dev scene. Ring cities can extend `RingCityPlanner` (see `EkRingPlanner`,
+   `FnRingPlanner`).
