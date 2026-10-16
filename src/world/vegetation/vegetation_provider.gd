@@ -130,9 +130,15 @@ func _subset_mmi(cell: ContentCell, mmi: Variant, e: Dictionary, local_cam: Vect
 		if node:
 			node.visible = false
 		return node
-	# capacity = the whole group, allocated once; subsets only change the buffer and the
-	# visible count (re-allocating instance_count costs far more than the copy)
-	var capacity := src.size() / 16
+	# capacity: a power of two >= the subset (kept while the subset fits and is not tiny), so a
+	# rebuild uploads about the near subset rather than the whole group and re-allocations of
+	# instance_count stay rare
+	var capacity := 64
+	while capacity < n:
+		capacity *= 2
+	capacity = mini(capacity, src.size() / 16)
+	if node and node.multimesh.instance_count >= n and node.multimesh.instance_count <= capacity * 4:
+		capacity = node.multimesh.instance_count
 	sub.resize(capacity * 16)
 	if node == null:
 		node = content.spawn_multimesh(cell, {"mesh": mesh, "material": mat, "buffer": sub, "count": capacity,

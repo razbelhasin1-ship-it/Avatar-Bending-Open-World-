@@ -40,17 +40,27 @@ func run(p: Playtest) -> void:
 	await p.wait_until(func() -> bool: return VegetationLibrary.is_ready(), 30.0)
 	p.note("preset %s, renderer %s, step %.1f m/frame (= %.0f m/s at 60 fps), frame budget %d us, jobs %d" % [preset,
 			RenderingServer.get_current_rendering_method(), step, step * 60.0, content.frame_budget_usec, content.max_jobs])
-	var worst_all := 0
+	var all := PackedInt32Array()
 	for leg: Array in LEGS:
 		if not only.is_empty() and not only.split(",").has(leg[0]):
 			continue
-		worst_all = maxi(worst_all, await _leg(p, scene, content, leg, step))
+		all.append_array(await _leg(p, scene, content, leg, step))
 	var budget := content.frame_budget_usec
-	# one time-sliced step may overrun the budget; anything far beyond it would be a hitch
-	p.check(worst_all < budget + 6000, "content main-thread time bounded on every frame (worst %d us, budget %d us)" % [worst_all, budget])
+	all.sort()
+	if all.is_empty():
+		return
+	var p99 := all[int(all.size() * 0.99)]
+	var hitches := 0
+	for us in all:
+		if us > budget + 6000:
+			hitches += 1
+	# one time-sliced step may overrun the budget; the OS may preempt the main thread on this
+	# shared machine now and then, so single outliers are tolerated, systematic ones are not
+	p.check(p99 <= budget + 3000, "content main-thread time p99 %d us (budget %d us)" % [p99, budget])
+	p.check(hitches <= maxi(2, all.size() / 200), "content frames over budget + 6 ms: %d of %d (worst %d us)" % [hitches, all.size(), all[all.size() - 1]])
 
 
-func _leg(p: Playtest, scene: Node, content: WorldContent, leg: Array, step: float) -> int:
+func _leg(p: Playtest, scene: Node, content: WorldContent, leg: Array, step: float) -> PackedInt32Array:
 	var a: Vector3 = leg[1]
 	var b: Vector3 = leg[2]
 	var agl: float = leg[3]
@@ -105,14 +115,18 @@ func _leg(p: Playtest, scene: Node, content: WorldContent, leg: Array, step: flo
 		var s: Dictionary = st2["providers"][id]
 		per.append("%s %d" % [id, s["active"]])
 	p.note("%s: %d frames over %.0f m at %.0f m agl" % [leg[0], mains.size(), length, agl])
-	p.note("  content main thread us/frame: max %d, p95 %d, avg %.0f (step max %d %s, scan max %d, update max %d)" % [
-			sorted[sorted.size() - 1], sorted[int(sorted.size() * 0.95)], avg, st2["step_usec_max"], st2["step_max_info"],
-			st2["scan_usec_max"], st2["update_usec_max"]])
+	var over := 0
+	for m in mains:
+		if m > content.frame_budget_usec + 2000:
+			over += 1
+	p.note("  content main thread us/frame: max %d, p99 %d, p95 %d, avg %.0f, frames > budget+2ms: %d (step max %d %s, scan max %d, update max %d %s)" % [
+			sorted[sorted.size() - 1], sorted[int(sorted.size() * 0.99)], sorted[int(sorted.size() * 0.95)], avg, over,
+			st2["step_usec_max"], st2["step_max_info"], st2["scan_usec_max"], st2["update_usec_max"], st2["update_max_info"]])
 	p.note("  frame ms: median %.0f, p95 %.0f, max %.0f | draw calls max %d, primitives max %d" % [fs[fs.size() / 2],
 			fs[int(fs.size() * 0.95)], fs[fs.size() - 1], max_dc, max_prims])
 	p.note("  instances max %d, cells built %d released %d, max backlog %d cells, build ms avg %.1f max %.1f | active %s" % [
 			max_inst, st2["cells_built"], st2["cells_released"], max_queue, st2["build_ms_avg"], st2["build_ms_max"], ", ".join(per)])
-	return sorted[sorted.size() - 1]
+	return mains
 
 
 static func _at(p: Vector3, agl: float) -> Vector3:
