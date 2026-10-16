@@ -10,15 +10,17 @@ extends RefCounted
 ## leaves a gap there).
 const PAVILIONS := [70.0, 122.0, 160.0, -160.0, -122.0, -70.0]
 ## Courtyard spires among the houses: [bearing, r, shaft radius, height, roof_h, cupola].
-const COURT_SPIRES := [[-62.0, 104.0, 4.2, 30.0, 12.0, true], [-104.0, 103.0, 3.8, 25.0, 10.5, false], [-170.0, 102.0, 3.6, 22.0, 9.5, false],
-	[62.0, 104.0, 4.0, 27.0, 11.0, false], [92.0, 103.0, 3.4, 21.0, 9.0, true], [150.0, 102.0, 3.6, 24.0, 10.0, false]]
+const COURT_SPIRES := [[-62.0, 104.0, 5.2, 40.0, 15.0, true], [-104.0, 103.0, 4.6, 32.0, 13.0, false], [-170.0, 102.0, 4.4, 30.0, 12.0, false],
+	[62.0, 104.0, 4.8, 36.0, 14.0, true], [92.0, 103.0, 4.2, 28.0, 11.5, true], [150.0, 102.0, 4.4, 32.0, 12.5, false],
+	[-138.0, 100.0, 4.0, 26.0, 11.0, false], [-20.0, 104.0, 4.6, 34.0, 13.0, true]]
 ## Terrace spires: [bearing, r, shaft radius, height, roof_h, cupola].
-const TERRACE_SPIRES := [[-120.0, 140.0, 4.6, 34.0, 13.0, true], [-52.0, 146.0, 3.8, 26.0, 10.5, false], [-12.0, 150.0, 3.2, 19.0, 8.5, false],
-	[50.0, 146.0, 4.2, 30.0, 12.0, true], [84.0, 142.0, 3.6, 24.0, 10.0, false], [122.0, 145.0, 3.4, 22.0, 9.5, false]]
+const TERRACE_SPIRES := [[-120.0, 140.0, 5.6, 46.0, 17.0, true], [-52.0, 146.0, 4.6, 34.0, 13.5, false], [-12.0, 150.0, 4.0, 26.0, 11.0, false],
+	[50.0, 146.0, 5.2, 40.0, 15.5, true], [84.0, 142.0, 4.4, 32.0, 12.5, false], [122.0, 145.0, 4.2, 30.0, 12.0, true],
+	[-72.0, 136.0, 4.0, 28.0, 11.5, true], [12.0, 138.0, 3.8, 24.0, 10.5, false], [-140.0, 150.0, 3.8, 24.0, 10.5, false]]
 ## Cliff towers rising from below the landing edge: [bearing, shaft radius, height above the landing, roof_h].
-const CLIFF_TOWERS := [[-142.0, 5.0, 42.0, 15.0], [142.0, 4.6, 36.0, 13.5], [-35.0, 4.2, 30.0, 12.0], [95.0, 4.4, 33.0, 13.0],
-	[-84.0, 3.8, 24.0, 10.5], [-108.0, 4.4, 30.0, 12.0], [176.0, 5.4, 46.0, 16.0], [-174.0, 4.0, 26.0, 11.0], [58.0, 4.0, 28.0, 11.5],
-	[-58.0, 3.6, 22.0, 9.5], [110.0, 3.8, 25.0, 10.5], [-150.0, 3.4, 20.0, 9.0]]
+const CLIFF_TOWERS := [[-142.0, 6.0, 52.0, 18.0], [142.0, 5.6, 44.0, 16.0], [-35.0, 5.0, 36.0, 14.0], [95.0, 5.2, 40.0, 15.0],
+	[-84.0, 4.4, 30.0, 12.0], [-108.0, 5.0, 36.0, 14.0], [176.0, 6.4, 56.0, 19.0], [-174.0, 4.6, 32.0, 12.5], [58.0, 4.8, 34.0, 13.5],
+	[-58.0, 4.2, 28.0, 11.5], [110.0, 4.4, 30.0, 12.0], [-150.0, 4.0, 26.0, 11.0]]
 
 var P: SatPlanner
 var L: RingLayout
@@ -48,12 +50,10 @@ func build() -> void:
 	_lower_court()
 	# monks' quarters and storehouses backed against the terrace wall (east and west of the
 	# landing field) and against the courtyard wall over the open south court
-	var back_l := 162.0 + SatPlanner.FACE_OUT + 0.6
-	_ring_houses(back_l, -150.0, -66.0, ["landing"], 168.0)
-	_ring_houses(back_l, 66.0, 150.0, ["landing"], 168.0)
-	var back_c := 112.0 + SatPlanner.FACE_OUT + 0.6
-	_ring_houses(back_c, -180.0, -153.0, ["lower_court"], 118.0)
-	_ring_houses(back_c, 153.0, 180.0, ["lower_court"], 118.0)
+	_ring_houses(162.0, -150.0, -66.0, ["landing"], 170.0)
+	_ring_houses(162.0, 66.0, 150.0, ["landing"], 170.0)
+	_ring_houses(112.0, -180.0, -154.0, ["lower_court"], 125.0)
+	_ring_houses(112.0, 154.0, 180.0, ["lower_court"], 125.0)
 	_pinnacles()
 	_walks()
 
@@ -92,10 +92,10 @@ func _sanctum() -> void:
 	var c := P.p3(0.0, 0.0, P.tier_y(20.0, 90.0))
 	# the Great Spire, checked against the flight with its real profile: hall wings, shaft +
 	# balconies, the great cone (eave 15 m narrowing to the cupola) and the upper cone
-	var prof := [[c.y, c.y + 15.0, 18.5], [c.y, c.y + 48.5, 10.8], [c.y + 48.5, c.y + 56.0, 15.3], [c.y + 56.0, c.y + 70.0, 9.9],
-		[c.y + 70.0, c.y + 92.0, 7.0]]
+	var prof := [[c.y, c.y + 15.0, 18.5], [c.y, c.y + 66.5, 10.8], [c.y + 66.5, c.y + 76.0, 17.4], [c.y + 76.0, c.y + 94.0, 11.5],
+		[c.y + 94.0, c.y + 126.0, 8.5]]
 	if P.cam_ok_profile(c.x, c.z, prof):
-		plan.add(&"great_spire", c, 0.0, {"r": 9.0, "h": 46.0, "roof_h": 30.0}, 2, "", 18.0)
+		plan.add(&"great_spire", c, 0.0, {"r": 9.0, "h": 64.0, "roof_h": 38.0}, 2, "", 18.0)
 		plan.reserve(c.x, c.z, 19.0)
 		plan.data["great_spire"] = c
 	for k in 4:
@@ -104,7 +104,8 @@ func _sanctum() -> void:
 	_anchor(&"quest_giver", world(c, 0.0, Vector3(-2.0, 0.0, -20.5)), 0.0, ["abbot", "sanctum"])
 	_anchor(&"trainer", world(c, PI, Vector3(-2.5, 0.0, -21.0)), PI, ["master", "sanctum", "airbending"])
 	# secondary spires on the sanctum
-	for s: Array in [[-58.0, 33.0, 4.4, 28.0, 12.0], [-122.0, 32.0, 4.0, 24.0, 10.5], [168.0, 33.0, 3.6, 20.0, 9.0], [78.0, 37.0, 3.4, 18.0, 8.5]]:
+	for s: Array in [[-58.0, 33.0, 5.4, 42.0, 16.0], [-122.0, 32.0, 5.0, 36.0, 14.0], [168.0, 33.0, 4.4, 30.0, 12.0], [78.0, 37.0, 4.2, 26.0, 11.0],
+			[-178.0, 36.0, 3.6, 22.0, 9.5], [-8.0, 36.0, 3.8, 28.0, 11.0]]:
 		spire(P.p3(float(s[1]), float(s[0]), c.y), SatPlanner.yaw_out(float(s[0])), float(s[2]), float(s[3]), float(s[4]), true)
 	# prayer wheels, lanterns and flags around the podium
 	for b: float in [-90.0, 0.0, 90.0, 180.0]:
@@ -125,13 +126,20 @@ func _sanctuary() -> void:
 	var mid := world(pos, yaw, Vector3(0, 0, 9.0))
 	plan.reserve(mid.x, mid.z, 19.0)
 	plan.add(&"sanctuary", pos, yaw, {}, 2, "", 22.0)
+	# the forecourt: a paved plaza on the approach, kept clear out to the courtyard edge
+	var fc := world(pos, yaw, Vector3(0, 0, -23.0))
+	plan.reserve_line(Vector2(pos.x, pos.z), Vector2(fc.x, fc.z), 12.0)
+	var fc2 := world(pos, yaw, Vector3(0, 0, -36.0))
+	plan.reserve(fc2.x, fc2.z, 10.0)
+	plan.add(&"court", fc, 0.0, {"r": 10.0, "swirl": true}, 1, "sat_court:100", 10.0)
 	plan.data["sanctuary"] = pos
 	_anchor(&"quest_giver", world(pos, yaw, Vector3(2.2, 1.4, -2.6)), yaw + PI, ["elder", "sanctuary", "door"])
 	_anchor(&"idle", world(pos, yaw, Vector3(-4.0, 0.0, -10.0)), yaw + PI, ["pilgrim", "sanctuary"])
 	# statues of monks flanking the approach, lanterns and gardens
 	for sx: float in [-1.0, 1.0]:
 		var sp := world(pos, yaw, Vector3(sx * 11.5, 0.0, -14.0))
-		P.place(&"statue", sp, yaw, {"v": 0 if sx < 0.0 else 1}, 2, "sat_statue:%d" % (0 if sx < 0.0 else 1), 2.4, sp.y + 7.5)
+		if P.cam_ok(sp.x, sp.z, 2.4, sp.y + 7.5, sp.y):
+			plan.add(&"statue", sp, yaw, {"v": 0 if sx < 0.0 else 1}, 2, "sat_statue:%d" % (0 if sx < 0.0 else 1), 2.4)
 		var gp := world(pos, yaw, Vector3(sx * 18.5, 0.0, -9.0))
 		P.place(&"garden", gp, yaw, {"r": 3.6, "seed": int(sx + 2.0), "plants": "blossom"}, 1, "sat_garden_r:36:%d" % int(sx + 2.0), 3.8, gp.y + 7.0)
 
@@ -215,9 +223,10 @@ func _courtyard_houses() -> void:
 			b += RingLayout.half_angle(4.0, rf)
 
 
-## Buildings in [b0, b1] whose backs stand `back` metres from the centre, facing outward (the
-## view). Dormitories, halls (storehouses / dining halls) and an orchard bed now and then.
-func _ring_houses(back: float, b0: float, b1: float, tags: Array, r_ref: float) -> void:
+## Buildings in [b0, b1] backed against the retaining wall of boundary `rb` (its measured face),
+## facing outward (the view). Dormitories, halls (storehouses / dining halls) and an orchard
+## bed now and then.
+func _ring_houses(rb: float, b0: float, b1: float, tags: Array, r_ref: float) -> void:
 	var b := b0 + RingLayout.half_angle(3.0, r_ref)
 	var n := 0
 	while b < b1:
@@ -227,6 +236,7 @@ func _ring_houses(back: float, b0: float, b1: float, tags: Array, r_ref: float) 
 			kind = &"hall"
 			v = n % 2
 		var fp := SatPlaces.footprint(kind, v)
+		var back := maxf(P.face_r(rb, b), P.face_r(rb, b + RingLayout.half_angle(fp.x * 2.0, r_ref))) + 0.6
 		var rc := back + fp.y * 0.5
 		var bc := b + RingLayout.half_angle(fp.x, rc)
 		if bc + RingLayout.half_angle(fp.x, rc) > b1:

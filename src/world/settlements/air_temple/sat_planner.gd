@@ -45,7 +45,7 @@ func build() -> SettlementPlan:
 	plan.center = Vector3(L.center.x, float(L.record.get("center", Vector3.ZERO).y), L.center.y)
 	plan.radius = 240.0
 	plan.cell_size = 96.0
-	plan.y_range = Vector2(0.0, 110.0)
+	plan.y_range = Vector2(0.0, 135.0)
 	for p in L.record.get("pinnacles", []):
 		pinnacles.append(p)
 	_camera_path()
@@ -206,9 +206,9 @@ func _districts() -> void:
 func _reserve_specials() -> void:
 	var sp: Vector3 = plan.data["spawn"]
 	plan.reserve(sp.x, sp.z, 9.0)
-	# ramps: stair strips + landings
+	# ramps: stair strips + clear landings at both ends
 	for r: Array in ramps:
-		plan.reserve_line(L.xz(float(r[1]) - 22.0, float(r[0])), L.xz(float(r[1]) + 22.0, float(r[0])), 7.5)
+		plan.reserve_line(L.xz(float(r[1]) - 27.0, float(r[0])), L.xz(float(r[1]) + 27.0, float(r[0])), 7.5)
 	# bridge anchors on the terraces and on the pinnacles
 	for br in WorldData.get_bridges():
 		if not CLAIMS.has(StringName(br["id"])):
@@ -231,10 +231,60 @@ func _reserve_specials() -> void:
 
 # --- retaining walls -------------------------------------------------------------------------------
 
-## Wall chords along an arc of the boundary rb facing outward. y_low/y_high from the terrain.
+## Face radius of the retaining wall of boundary rb at every whole bearing (-180..180): where the
+## terrain step has reached the lower tier (+0.5 m), never closer than rb + FACE_OUT. Where the
+## generator blended the step into a slope (outside the landing arc, over the south court) the
+## wall moves out to the foot of the slope, so no terrain shows in front of it.
+var _faces: Dictionary = {}
+
+
+func foot_radius(rb: float, b: float, y_low: float) -> float:
+	var r := rb - 2.0
+	while r < rb + 30.0:
+		var p := L.xz(r, b)
+		if ground(p.x, p.y) <= y_low + 0.4:
+			return r
+		r += 0.5
+	return r
+
+
+func _sample_faces(rb: float) -> void:
+	var raw := PackedFloat32Array()
+	for k in 361:
+		var b := -180.0 + k
+		var y_low := tier_y(rb + 30.0, b)
+		var y_top := tier_y(rb - 8.0, b)
+		var foot := foot_radius(rb, b, y_low)
+		# a blended step is steep (its foot within 0.7 x its height); a gentler run is a ramp
+		# (the stair covers it), where the wall keeps its default face
+		if foot - rb > (y_top - y_low) * 0.7:
+			foot = rb
+		raw.append(maxf(rb + FACE_OUT, foot + 0.5))
+	# conservative: the max over +-2 degrees (chords between samples never cut into the slope)
+	var out := PackedFloat32Array()
+	out.resize(361)
+	for k in 361:
+		var m := raw[k]
+		for d in range(-2, 3):
+			m = maxf(m, raw[posmod(k + d, 360)])
+		out[k] = m
+	_faces[rb] = out
+
+
+## Face radius of boundary rb at bearing b (linear between the whole-degree samples).
+func face_r(rb: float, b: float) -> float:
+	if not _faces.has(rb):
+		_sample_faces(rb)
+	var arr: PackedFloat32Array = _faces[rb]
+	var u := wrapf(b, -180.0, 180.0) + 180.0
+	var k := int(floor(u))
+	return lerpf(arr[k], arr[mini(k + 1, 360)], u - k)
+
+
+## Wall chords along the boundary rb between bearings b0..b1 facing outward; the face follows
+## face_r(), the body reaches back to rb - 3.2 m, heights come from the terrain.
 func wall_arc(rb: float, b0: float, b1: float, opts: Dictionary = {}) -> void:
-	var rf := rb + FACE_OUT
-	var len_m := RingLayout.arc_len(b1 - b0, rf)
+	var len_m := RingLayout.arc_len(b1 - b0, rb + FACE_OUT)
 	if len_m < 1.5:
 		return
 	var n := maxi(int(ceil(len_m / CHORD)), 1)
@@ -242,33 +292,51 @@ func wall_arc(rb: float, b0: float, b1: float, opts: Dictionary = {}) -> void:
 		var ba := lerpf(b0, b1, float(i) / n)
 		var bb := lerpf(b0, b1, float(i + 1) / n)
 		var bm := (ba + bb) * 0.5
-		var a := L.xz(rf, ba)
-		var b := L.xz(rf, bb)
+		var ra := face_r(rb, ba)
+		var rb2 := face_r(rb, bb)
+		var a := L.xz(ra, ba)
+		var b := L.xz(rb2, bb)
 		var m := (a + b) * 0.5
-		var y_low := tier_y(rb + 12.0, bm)
+		var y_low := tier_y(rb + 30.0, bm)
 		var y_top := tier_y(rb - 8.0, bm)
 		if y_top - y_low < 2.0:
 			continue
-		var spec := {"L": snappedf(a.distance_to(b) + 0.05, 0.1), "H": y_top - y_low, "bottom": -1.4, "depth": WALL_DEPTH,
-			"v": int(ContentHash.hash4(int(m.x * 10.0), int(m.y * 10.0), 5) % 4), "rail": opts.get("rail", true)}
-		plan.add(&"tier_wall", Vector3(m.x, y_low, m.y), yaw_out(bm), spec, 2, SatCivic.wall_arch(spec), a.distance_to(b) * 0.5)
+		var d := b - a
+		var nrm := Vector2(d.y, -d.x).normalized()
+		if nrm.dot(m - L.center) < 0.0:
+			nrm = -nrm
+		var depth := snappedf(maxf(ra, rb2) - (rb - 3.2), 0.5)
+		# no balustrade where a suspended bridge leaves the wall top
+		var rail: bool = opts.get("rail", true) and not _under_bridge(m, 4.0)
+		var spec := {"L": snappedf(a.distance_to(b) + 0.05, 0.1), "H": y_top - y_low, "bottom": -1.4, "depth": depth,
+			"v": int(ContentHash.hash4(int(m.x * 10.0), int(m.y * 10.0), 5) % 4), "rail": rail}
+		plan.add(&"tier_wall", Vector3(m.x, y_low, m.y), yaw_dir(nrm), spec, 2, SatCivic.wall_arch(spec), a.distance_to(b) * 0.5)
 
 
 ## Wall chords along a radial line at bearing be from r0 to r1 facing towards bearing be + side.
 func wall_radial(be: float, side: float, r0: float, r1: float) -> void:
 	var n := maxi(int(ceil((r1 - r0) / CHORD)), 1)
 	var tangent := RingLayout.dir(be + 90.0 * side)
+	# the foot of the step along the tangent (the max over the run keeps the face straight)
+	var off := FACE_OUT
+	for k in 7:
+		var q := L.xz(lerpf(r0, r1, k / 6.0), be)
+		var y_low := snappedf(ground(q.x + tangent.x * 30.0, q.y + tangent.y * 30.0), 0.5)
+		var t := -2.0
+		while t < 30.0 and ground(q.x + tangent.x * t, q.y + tangent.y * t) > y_low + 0.4:
+			t += 0.5
+		off = maxf(off, t + 0.5)
 	for i in n:
 		var ra := lerpf(r0, r1, float(i) / n)
 		var rb2 := lerpf(r0, r1, float(i + 1) / n)
-		var a := L.xz(ra, be) + tangent * FACE_OUT
-		var b := L.xz(rb2, be) + tangent * FACE_OUT
+		var a := L.xz(ra, be) + tangent * off
+		var b := L.xz(rb2, be) + tangent * off
 		var m := (a + b) * 0.5
-		var y_low := snappedf(ground(m.x + tangent.x * 10.0, m.y + tangent.y * 10.0), 0.5)
-		var y_top := snappedf(ground(m.x - tangent.x * 8.0, m.y - tangent.y * 8.0), 0.5)
+		var y_low := snappedf(ground(m.x + tangent.x * 30.0, m.y + tangent.y * 30.0), 0.5)
+		var y_top := snappedf(ground(m.x - tangent.x * (off + 8.0), m.y - tangent.y * (off + 8.0)), 0.5)
 		if y_top - y_low < 2.0:
 			continue
-		var spec := {"L": snappedf(a.distance_to(b) + 0.05, 0.1), "H": y_top - y_low, "bottom": -1.4, "depth": WALL_DEPTH,
+		var spec := {"L": snappedf(a.distance_to(b) + 0.05, 0.1), "H": y_top - y_low, "bottom": -1.4, "depth": snappedf(off + 3.2, 0.5),
 			"v": i % 4, "rail": true}
 		plan.add(&"tier_wall", Vector3(m.x, y_low, m.y), yaw_dir(tangent), spec, 2, SatCivic.wall_arch(spec), a.distance_to(b) * 0.5)
 
@@ -394,6 +462,44 @@ func _cliff_edges() -> void:
 			return false)
 
 
+## Deck heights (relative to a.y) every metre along a suspended span: the BridgeBuilder sag
+## curve between the cliff edges, resting on the ground beyond them, then slope-limited (raise
+## only, 0.4 m per metre) so the change from rim to curve never kinks into an unwalkable step.
+static func deck_profile(a: Vector3, b: Vector3, sag: float, e: Vector2) -> PackedFloat32Array:
+	var length := Vector2(b.x - a.x, b.z - a.z).length()
+	var n := maxi(int(ceil(length)), 2) + 1
+	var prof := PackedFloat32Array()
+	prof.resize(n)
+	for i in n:
+		prof[i] = BridgeBuilder.deck_height(Vector3.ZERO, b - a, sag, a, float(i) / (n - 1), e)
+	var step := 0.4 * length / (n - 1)
+	for i in range(1, n):
+		prof[i] = maxf(prof[i], prof[i - 1] - step)
+	for i in range(n - 2, -1, -1):
+		prof[i] = maxf(prof[i], prof[i + 1] - step)
+	return prof
+
+
+## Deck height (relative to a.y) at t along a profile.
+static func deck_y(prof: PackedFloat32Array, t: float) -> float:
+	var u := clampf(t, 0.0, 1.0) * (prof.size() - 1)
+	var k := mini(int(floor(u)), prof.size() - 2)
+	return lerpf(prof[k], prof[k + 1], u - k)
+
+
+## True when x/z lies within `margin` (+ half the deck) of a claimed bridge's span.
+func _under_bridge(p: Vector2, margin: float) -> bool:
+	for br in WorldData.get_bridges():
+		if not CLAIMS.has(StringName(br["id"])):
+			continue
+		var a: Vector3 = br["a"]
+		var b: Vector3 = br["b"]
+		var q := Geometry2D.get_closest_point_to_segment(p, Vector2(a.x, a.z), Vector2(b.x, b.z))
+		if q.distance_to(p) < float(br.get("width", 3.2)) * 0.5 + margin:
+			return true
+	return false
+
+
 ## Bridge deck anchors (both ends) within `r` of `c`.
 func bridge_ends_on(c: Vector3, r: float) -> Array[Vector3]:
 	var out: Array[Vector3] = []
@@ -419,14 +525,24 @@ func _bridges() -> void:
 		var sag := float(br.get("sag", 6.0))
 		var e := BridgeBuilder.edges(Vector3.ZERO, b - a, a)
 		var length := Vector2(b.x - a.x, b.z - a.z).length()
+		# the deck stays level out to the face of the terrace wall (its top is the walkable edge)
+		var t := 0.0
+		while t < 0.45:
+			var q := a.lerp(b, t)
+			var pr := L.polar(q.x, q.z)
+			if pr.x > face_r(162.0, pr.y) + 0.3:
+				break
+			t += 0.002
+		e.x = maxf(e.x, t)
+		var prof := deck_profile(a, b, sag, e)
 		var n := maxi(int(ceil(length / BRIDGE_SEG)), 1)
 		for k in n:
 			var t0 := float(k) / n
 			var t1 := float(k + 1) / n
 			var tm := (t0 + t1) * 0.5
 			var mid := a.lerp(b, tm)
-			mid.y = BridgeBuilder.deck_height(Vector3.ZERO, b - a, sag, a, tm, e) + a.y
-			plan.add(&"sky_bridge", mid, 0.0, {"a": a, "b": b, "sag": sag, "width": width, "t0": t0, "t1": t1, "origin": mid, "e": e,
+			mid.y = deck_y(prof, tm) + a.y
+			plan.add(&"sky_bridge", mid, 0.0, {"a": a, "b": b, "sag": sag, "width": width, "t0": t0, "t1": t1, "origin": mid, "profile": prof,
 				"poles": true, "bridge": br["id"]}, 2, "", length / n * 0.5)
 		# gates at both ends, facing along the span
 		var dir := Vector2(b.x - a.x, b.z - a.z).normalized()
@@ -441,9 +557,9 @@ func _bridges() -> void:
 		# a monk crossing the bridge
 		var walk := PackedVector3Array()
 		for k in 9:
-			var t := float(k) / 8.0
-			var q := a.lerp(b, t)
-			q.y = BridgeBuilder.deck_height(Vector3.ZERO, b - a, sag, a, t, e) + a.y
+			var tw := float(k) / 8.0
+			var q := a.lerp(b, tw)
+			q.y = deck_y(prof, tw) + a.y
 			walk.append(q)
 		plan.anchor(&"patrol", walk[0], yaw_dir(dir), {"points": walk, "loop": false, "tags": ["bridge", "monk_walk", String(br["id"])]})
 

@@ -29,8 +29,9 @@ static func build(kit: BuildingKit, kind: StringName, spec: Dictionary) -> void:
 
 ## Archetype key of a wall chord.
 static func wall_arch(spec: Dictionary) -> String:
-	return "sat_wall:%d:%d:%d:%d:%d" % [roundi(float(spec["L"]) * 10.0), roundi(float(spec["H"]) * 10.0),
-		roundi(float(spec.get("bottom", -1.2)) * 10.0), int(spec.get("v", 0)), int(spec.get("rail", true))]
+	return "sat_wall:%d:%d:%d:%d:%d:%d" % [roundi(float(spec["L"]) * 10.0), roundi(float(spec["H"]) * 10.0),
+		roundi(float(spec.get("bottom", -1.2)) * 10.0), int(spec.get("v", 0)), int(spec.get("rail", true)),
+		roundi(float(spec.get("depth", 5.6)) * 2.0)]
 
 
 static func tier_wall(kit: BuildingKit, spec: Dictionary) -> void:
@@ -290,25 +291,24 @@ static func gateway(kit: BuildingKit, spec: Dictionary) -> void:
 				kit.g().cone(Vector3(x, h - 0.42, 0), Vector3(x, h - 0.08, 0), 0.16, 8, kit.col(SatStyle.gold()))
 
 
-## One segment of a suspended plank bridge. spec: a, b (deck anchors, world), sag, width,
-## t0, t1 (segment range along a->b), origin (= piece pos: the frame is yaw 0, local = world - pos),
-## e (Vector2 cliff edges along the span, BridgeBuilder.edges), poles (bool).
+## One segment of a suspended plank bridge. spec: a, b (deck anchors, world), width, t0, t1
+## (segment range along a->b), origin (= piece pos: the frame is yaw 0, local = world - pos),
+## profile (deck heights relative to a.y every metre, SatPlanner.deck_profile), poles (bool).
 static func sky_bridge(kit: BuildingKit, spec: Dictionary) -> void:
 	var pos: Vector3 = spec["origin"]
 	var a: Vector3 = (spec["a"] as Vector3) - pos
 	var b: Vector3 = (spec["b"] as Vector3) - pos
-	var sag := float(spec.get("sag", 6.0))
 	var width := float(spec.get("width", 3.2))
 	var t0 := float(spec.get("t0", 0.0))
 	var t1 := float(spec.get("t1", 1.0))
-	var e: Vector2 = spec.get("e", Vector2(0.0, 1.0))
+	var prof: PackedFloat32Array = spec["profile"]
 	var dir := Vector3(b.x - a.x, 0, b.z - a.z)
 	var length := dir.length()
 	dir = dir.normalized()
 	var side := dir.cross(Vector3.UP).normalized()
 	var yaw := atan2(dir.x, dir.z)
 	var deck := func(t: float) -> float:
-		return BridgeBuilder.deck_height(a, b, sag, pos, t, e)
+		return SatPlanner.deck_y(prof, t) + a.y
 	var seg_len := (t1 - t0) * length
 	# planks
 	var plank := 0.34

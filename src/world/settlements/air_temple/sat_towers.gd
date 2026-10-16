@@ -214,16 +214,18 @@ static func great_spire(kit: BuildingKit, spec: Dictionary) -> void:
 			var rb := r * (1.0 - 0.08 * band / h) + 0.1
 			kit.cylinder(Vector3(0, y0 + band, 0), 0.4, rb, SatStyle.orange(), 24, false)
 			kit.cylinder(Vector3(0, y0 + band + 0.45, 0), 0.15, rb, SatStyle.saffron(), 24, false)
-	for row in 4:
-		var y := y0 + 14.0 + row * (h - 18.0) / 4.0
+	var rows := maxi(int((h - 16.0) / 8.0), 3)
+	for row in rows:
+		var y := y0 + 14.0 + row * (h - 18.0) / rows
 		_window_ring(kit, r * (1.0 - 0.08 * (y - y0) / h), y, 8, 1.1, 2.2, 991 + row, row * 0.4)
-	_balcony(kit, r * (1.0 - 0.08 * 0.56), y0 + h * 0.56, 1.6)
-	_balcony(kit, r * (1.0 - 0.08 * 0.86), y0 + h * 0.86, 1.4)
+	_balcony(kit, r * (1.0 - 0.08 * 0.4), y0 + h * 0.4, 1.4)
+	_balcony(kit, r * (1.0 - 0.08 * 0.62), y0 + h * 0.62, 1.6)
+	_balcony(kit, r * (1.0 - 0.08 * 0.88), y0 + h * 0.88, 1.4)
 	if kit.lod < 2:
 		for k in 4:
 			var a := TAU * k / 4.0 + PI * 0.25
 			kit.push(Transform3D(Basis(Vector3.UP, -a + PI * 0.5), Vector3(cos(a), 0, sin(a)) * (r * 0.95 + 0.06)))
-			KitX.banner(kit, Transform3D(Basis(), Vector3(0, y0 + h * 0.56 - 0.6, -0.05)), 1.6, 9.0, SatStyle.orange(), SatStyle.saffron(), &"swirl")
+			KitX.banner(kit, Transform3D(Basis(), Vector3(0, y0 + h * 0.62 - 0.6, -0.05)), 1.6, 10.0, SatStyle.orange(), SatStyle.saffron(), &"swirl")
 			kit.pop()
-	var apex := _crown(kit, r * 0.92, y0 + h, r * 1.68, roof_h, 0, true)
+	var apex := _crown(kit, r * 0.92, y0 + h, r * 1.9, roof_h, 0, true)
 	kit.mark(&"top", Transform3D(Basis(), Vector3(0, apex, 0)))
