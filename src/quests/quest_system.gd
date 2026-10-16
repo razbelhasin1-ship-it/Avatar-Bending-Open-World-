@@ -285,6 +285,7 @@ func _complete(q: StringName) -> void:
 	r["state"] = "completed"
 	r["completed"] = GameState.play_time
 	GameState.quests[String(q)] = r
+	QuestActions.run(d.get("on_complete", []))
 	var parts := QuestRewards.grant(d.get("rewards", {}), "Quest: %s" % d["title"])
 	var toast := "Quest complete  ·  %s" % d["title"]
 	if not parts.is_empty():
@@ -406,6 +407,8 @@ func objective_position(q: StringName, od: Dictionary) -> Vector3:
 				return QuestTargets.site_center(od["site"])
 			return QuestTargets.resolve(od.get("near"))
 		&"challenge":
+			if od.has("at"):
+				return QuestTargets.resolve(od["at"])
 			if od.has("npc"):
 				return NpcRegistry.position_of(StringName(str(od["npc"])))
 	if od.has("target"):

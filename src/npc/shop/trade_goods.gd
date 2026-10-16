@@ -78,6 +78,9 @@ const ITEMS := {
 	&"lost_glider": {"name": "Novice's Glider", "desc": "A student's glider staff, its wings a little torn.", "category": &"quest", "value": 0, "nation": &"air", "color": Color(0.94, 0.70, 0.30), "sellable": false},
 	&"net_float": {"name": "Net Float", "desc": "A carved float from a fishing net.", "category": &"quest", "value": 0, "nation": &"water", "color": Color(0.84, 0.64, 0.40), "sellable": false},
 	&"stolen_crate": {"name": "Merchant's Crate", "desc": "A crate of goods taken by smugglers.", "category": &"quest", "value": 0, "nation": &"fire", "color": Color(0.62, 0.46, 0.30), "sellable": false},
+	&"admiral_letter": {"name": "Admiral's Letter", "desc": "A letter sealed in red wax with the Fire Navy's flame, addressed to Chief Tulok.", "category": &"quest", "value": 0, "nation": &"fire", "color": Color(0.94, 0.84, 0.70), "sellable": false},
+	&"scout_orders": {"name": "Scout's Orders", "desc": "Orders carried by a Fire Nation scout: maps, numbers and a careful hand.", "category": &"quest", "value": 0, "nation": &"fire", "color": Color(0.90, 0.80, 0.62), "sellable": false},
+	&"airball_ribbon": {"name": "Airball Ribbon", "desc": "A champion's ribbon from the temple courts.", "category": &"trinket", "value": 12, "nation": &"air", "color": Color(0.96, 0.66, 0.24)},
 	&"spirit_incense": {"name": "Spirit Incense", "desc": "Incense for the shrine of the Pale Moon.", "category": &"quest", "value": 0, "nation": &"water", "color": Color(0.80, 0.74, 0.90), "sellable": false},
 }
 

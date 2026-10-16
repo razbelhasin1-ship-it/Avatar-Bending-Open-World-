@@ -130,7 +130,14 @@ static func resolve_place(place: Dictionary) -> Transform3D:
 			if not place.has("yaw"):
 				yaw = float(a.get("yaw", 0.0))
 			if place.has("offset"):
-				pos += Basis(Vector3.UP, yaw) * (place["offset"] as Vector3)
+				pos += Basis(Vector3.UP, float(a.get("yaw", 0.0))) * (place["offset"] as Vector3)
+	elif place.has("spawn") and place.has("local"):
+		# in the frame of an element's new-game spawn (-Z = the way the player looks on arrival)
+		var sp := WorldData.get_spawn(ElementDefs.from_id(StringName(str(place["spawn"]))))
+		pos = sp * (place["local"] as Vector3)
+		var to := sp.origin - pos
+		if not place.has("yaw") and Vector2(to.x, to.z).length() > 0.01:
+			yaw = atan2(-to.x, -to.z)
 	else:
 		pos = QuestTargets.resolve(place)
 	if not pos.is_finite():
