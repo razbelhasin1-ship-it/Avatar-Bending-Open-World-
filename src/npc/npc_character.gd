@@ -317,7 +317,8 @@ func bark(text: String, seconds: float = 2.6) -> void:
 		_bark.no_depth_test = false
 		_bark.width = 520.0
 		_bark.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		_bark.position = Vector3(0, (rig.get_height() if rig else 1.75) + 0.45, 0)
+		# named NPCs: above their marker glyph (the name plate hides while they bark)
+		_bark.position = Vector3(0, (rig.get_height() if rig else 1.75) + (1.15 if marker != null else 0.45), 0)
 		_bark.visibility_range_end = 30.0
 		add_child(_bark)
 	_bark.text = text

@@ -62,7 +62,7 @@ func _process(delta: float) -> void:
 	if pl != null:
 		var d := pl.global_position.distance_to(global_position)
 		a = clampf((NAME_RANGE - d) / 3.0, 0.0, 1.0) * near
-		if npc != null and npc.in_conversation():
+		if npc != null and (npc.in_conversation() or npc.is_barking()):
 			a = 0.0
 	_name.modulate.a = a
 	_name.visible = a > 0.01

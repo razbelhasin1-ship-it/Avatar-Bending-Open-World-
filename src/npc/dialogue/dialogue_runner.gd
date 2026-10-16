@@ -89,6 +89,7 @@ func run_tree(npc: NpcCharacter, tree: Dictionary) -> void:
 	current = npc
 	transcript.clear()
 	var pl := Quests.get_player()
+	await _settle_box()
 	_begin(npc, pl)
 	var deferred: Array = []
 	var key := String(tree.get("start", "start"))
@@ -142,6 +143,7 @@ func ask(npc: NpcCharacter, text: String, options: Array) -> int:
 		return options.size() - 1
 	busy = true
 	var pl := Quests.get_player()
+	await _settle_box()
 	_begin(npc, pl)
 	var speaker := npc.display_name() if npc != null else ""
 	var i := await _ask(npc, speaker, text, options)
@@ -156,6 +158,7 @@ func say_lines(npc: NpcCharacter, lines: Array) -> void:
 		return
 	busy = true
 	var pl := Quests.get_player()
+	await _settle_box()
 	_begin(npc, pl)
 	for l: Variant in lines:
 		if not _alive():
@@ -163,6 +166,16 @@ func say_lines(npc: NpcCharacter, lines: Array) -> void:
 		await _say(npc, npc.display_name() if npc != null else "", DialogueTree.format_line(String(l)))
 	_end(npc, pl)
 	busy = false
+
+
+## Waits out the box's closing fade: DialogueBox hides itself 0.15 s after close(), so opening it
+## again inside that window (a trainer menu or a shop line right after a tree) would leave it open
+## but invisible.
+func _settle_box() -> void:
+	var frames := 0
+	while _box != null and is_instance_valid(_box) and _box.visible and not _box.is_open and frames < 40:
+		frames += 1
+		await get_tree().process_frame
 
 
 func _alive() -> bool:
@@ -177,6 +190,7 @@ func _opts(npc: NpcCharacter) -> Dictionary:
 
 func _say(npc: NpcCharacter, speaker: String, text: String) -> void:
 	_advanced = false
+	_keep_frame(npc)
 	if npc != null:
 		npc.set_speaking(true)
 	var cb := func() -> void: _advanced = true
@@ -200,6 +214,7 @@ func _say(npc: NpcCharacter, speaker: String, text: String) -> void:
 
 func _ask(npc: NpcCharacter, speaker: String, text: String, labels: Array) -> int:
 	_choice = -1
+	_keep_frame(npc)
 	if npc != null:
 		npc.set_speaking(true)
 	var cb := func(i: int) -> void: _choice = i
@@ -283,7 +298,8 @@ func _frame(npc: NpcCharacter, pl: Node3D) -> void:
 	_framed = true
 
 
-## The conversation camera transform (pull-in when a wall is in the way).
+## The conversation camera transform: over the player's right shoulder (left when something
+## stands there: a companion, a passer-by), pulled in when a wall is in the way.
 static func shot(npc: Node3D, pl: Node3D) -> Transform3D:
 	var hn := npc.global_position + Vector3(0, 1.6, 0)
 	var hp := pl.global_position + Vector3(0, 1.6, 0)
@@ -294,16 +310,54 @@ static func shot(npc: Node3D, pl: Node3D) -> Transform3D:
 	back = back.normalized()
 	var right := Vector3.UP.cross(back).normalized()
 	var sep := Vector2(hn.x - hp.x, hn.z - hp.z).length()
-	# behind and beside the player's right shoulder, a little above eye height
-	var want := hp + back * clampf(1.15 + sep * 0.2, 1.3, 2.0) + right * 1.05 + Vector3(0, 0.02, 0)
+	var dist := clampf(1.15 + sep * 0.2, 1.3, 2.0)
 	var space := pl.get_world_3d().direct_space_state
-	var q := PhysicsRayQueryParameters3D.create(hp, want, Layers.CAMERA_BLOCKERS)
-	var r := space.intersect_ray(q)
-	if not r.is_empty():
-		want = hp.lerp(r["position"], 0.8)
+	var best := Vector3.INF
+	# (side, height, distance behind): right shoulder, left shoulder, then higher and tighter
+	for c: Vector3 in [Vector3(1.05, 0.02, dist), Vector3(-1.05, 0.02, dist), Vector3(0.8, 0.5, dist * 0.75),
+			Vector3(-0.8, 0.5, dist * 0.75), Vector3(0.55, 0.95, dist * 0.55)]:
+		var want := hp + back * c.z + right * c.x + Vector3(0, c.y, 0)
+		var r := space.intersect_ray(PhysicsRayQueryParameters3D.create(hp, want, Layers.CAMERA_BLOCKERS))
+		if not r.is_empty():
+			want = hp.lerp(r["position"], 0.8)
+		if not best.is_finite():
+			best = want
+		if not occupied(npc, pl, want):
+			best = want
+			break
 	# aim below the NPC's face so it sits in the upper half, clear of the dialogue panel
 	var look := hp.lerp(hn, 0.86) + Vector3(0, -0.42, 0)
-	return Transform3D(Basis.looking_at(look - want, Vector3.UP), want)
+	return Transform3D(Basis.looking_at(look - best, Vector3.UP), best)
+
+
+## True when a body (companion, NPC, enemy, animal) other than the two talking fills `at`.
+static func occupied(npc: Node3D, pl: Node3D, at: Vector3) -> bool:
+	var sh := SphereShape3D.new()
+	sh.radius = 0.75
+	var q := PhysicsShapeQueryParameters3D.new()
+	q.shape = sh
+	q.transform = Transform3D(Basis(), at)
+	q.collision_mask = Layers.COMPANION | Layers.NPC | Layers.ENEMY | Layers.WILDLIFE
+	var ex: Array[RID] = []
+	for n: Node3D in [npc, pl]:
+		if n is CollisionObject3D:
+			ex.append((n as CollisionObject3D).get_rid())
+	q.exclude = ex
+	return not pl.get_world_3d().direct_space_state.intersect_shape(q, 1).is_empty()
+
+
+## Re-frames when something walked into the camera's spot since the last line (a companion
+## catching up behind the player).
+func _keep_frame(npc: NpcCharacter) -> void:
+	if not _framed or npc == null or not is_instance_valid(npc):
+		return
+	var pl := Quests.get_player()
+	if not (pl is PlayerCharacter):
+		return
+	var cam := get_viewport().get_camera_3d()
+	if cam == null or not occupied(npc, pl, cam.global_position):
+		return
+	(pl as PlayerCharacter).camera_rig.set_mode(&"cinematic", {"transform": shot(npc, pl), "fov": 44.0, "blend": 0.4})
 
 
 # --- UI actions after the conversation ------------------------------------------------------------

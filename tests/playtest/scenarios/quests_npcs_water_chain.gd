@@ -7,6 +7,7 @@ extends RefCounted
 ## Long trips use the game's fast travel (TravelSystem.travel_to); conversations, choices,
 ## bending, fights and pickups go through the InputMap like a player.
 ## PREFIX=quests_npcs_water. STOP=<stage> stops early (talk, posts, landing, oasis).
+## START=oasis|lesson resumes later for iteration (earlier quests force-completed: not end to end).
 
 var p: Playtest
 var w: WorldScene
@@ -36,6 +37,19 @@ func run(pt: Playtest) -> void:
 	await p.wait_game(2.0)
 	p.check(Quests.is_active(&"wt_born_of_the_tide"), "Born of the Tide started on arrival")
 	await p.screenshot("%s_01_arrival_tracker" % prefix)
+	var start := OS.get_environment("START")
+	if start == "oasis" or start == "lesson":
+		p.note("START=%s: earlier quests force-completed (not an end-to-end run)" % start)
+		for q: StringName in [&"wt_born_of_the_tide", &"wt_first_form", &"wt_smoke_on_the_horizon"]:
+			Quests.force_complete(q)
+		if start == "lesson":
+			Quests.force_complete(&"wt_moon_and_ocean")
+		await p.wait_game(1.0)
+		if start == "oasis":
+			await _moon_and_ocean(stop)
+		if stop != "oasis":
+			await _lesson_and_shop()
+		return
 
 	# --- Born of the Tide ------------------------------------------------------------------------
 	await _talk(&"wt_anaaya", "02_anaaya")
@@ -81,6 +95,13 @@ func run(pt: Playtest) -> void:
 	await _talk(&"wt_tulok", "10_chief_report")
 	p.check(Quests.is_completed(&"wt_smoke_on_the_horizon"), "Smoke on the Horizon complete")
 
+	await _moon_and_ocean(stop)
+	if stop == "oasis":
+		return
+	await _lesson_and_shop()
+
+
+func _moon_and_ocean(stop: String) -> void:
 	# --- Moon and Ocean ----------------------------------------------------------------------------
 	await _go_near(&"wt_naalu", "Walking to the Spirit Oasis")
 	await _talk(&"wt_naalu", "11_naalu")
@@ -96,8 +117,10 @@ func run(pt: Playtest) -> void:
 	await p.wait_game(1.5)
 	await p.screenshot("%s_14_chain_complete" % prefix)
 	if stop == "oasis":
-		return
+		p.note("stopped after the oasis")
 
+
+func _lesson_and_shop() -> void:
 	# --- trainer lesson ------------------------------------------------------------------------------
 	await _trainer_lesson()
 	# --- merchant ------------------------------------------------------------------------------------
@@ -348,7 +371,7 @@ func _alive(ed: EncounterDirector, site_id: StringName) -> Array[EnemyBase]:
 ## Walks to every live quest prop and interacts with it.
 func _take_props(shot: String) -> void:
 	await p.wait_until(func() -> bool: return w.get_tree().get_nodes_in_group(&"quest_prop").size() > 0, 8.0)
-	var props := w.get_tree().get_first_node_in_group(&"quest_prop")
+	var found := w.get_tree().get_nodes_in_group(&"quest_prop").size()
 	var first := true
 	for n in w.get_tree().get_nodes_in_group(&"quest_prop"):
 		var prop := n as Node3D
@@ -364,7 +387,7 @@ func _take_props(shot: String) -> void:
 			await p.screenshot("%s_%s" % [prefix, shot])
 		await p.tap(&"interact")
 		await p.wait_game(1.0)
-	p.check(props != null, "quest props found")
+	p.check(found > 0, "quest props found (%d)" % found)
 
 
 ## A lesson with Master Siku: uses a trainer-taught water technique when the bending module
