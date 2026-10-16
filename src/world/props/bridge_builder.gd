@@ -31,7 +31,19 @@ static func deck_y(a: Vector3, b: Vector3, sag: float, t: float) -> float:
 	return lerpf(a.y, b.y, t) - sag * 4.0 * t * (1.0 - t)
 
 
+## Deck height that never dips under the terrain near the anchors (planks rest on the ground there,
+## so walking on and off the bridge has no step). `origin` = world offset of the kit frame (INF: no
+## terrain, the pure curve).
+static func _deck(a: Vector3, b: Vector3, sag: float, origin: Vector3, t: float) -> float:
+	var y := deck_y(a, b, sag, t)
+	if origin.is_finite():
+		var p := a.lerp(b, t) + origin
+		y = maxf(y, WorldData.get_height(p.x, p.z) - origin.y + 0.06)
+	return y
+
+
 static func suspended(kit: BuildingKit, a: Vector3, b: Vector3, width: float, sag: float, opts: Dictionary = {}) -> void:
+	var origin: Vector3 = opts.get("origin", Vector3.INF)
 	var dir := Vector3(b.x - a.x, 0, b.z - a.z)
 	var length := dir.length()
 	dir = dir.normalized()
@@ -43,10 +55,10 @@ static func suspended(kit: BuildingKit, a: Vector3, b: Vector3, width: float, sa
 	for i in n:
 		var t := (float(i) + 0.5) / n
 		var p := a.lerp(b, t)
-		p.y = deck_y(a, b, sag, t)
+		p.y = _deck(a, b, sag, origin, t)
 		var t0 := float(i) / n
 		var t1 := float(i + 1) / n
-		var slope := atan2(deck_y(a, b, sag, t1) - deck_y(a, b, sag, t0), length / n)
+		var slope := atan2(_deck(a, b, sag, origin, t1) - _deck(a, b, sag, origin, t0), length / n)
 		kit.box_t(Transform3D(Basis(side, Vector3.UP.rotated(side, slope), -dir.rotated(side, slope)).orthonormalized(), p - Vector3(0, 0.05, 0)),
 				Vector3(width + rng_jitter(kit, 0.15), 0.09, plank), &"wood" if i % 5 else &"wood_dark", false)
 	var segs := maxi(int(length / 2.0), 4)
@@ -55,8 +67,8 @@ static func suspended(kit: BuildingKit, a: Vector3, b: Vector3, width: float, sa
 		var t1 := float(i + 1) / segs
 		var p0 := a.lerp(b, t0)
 		var p1 := a.lerp(b, t1)
-		p0.y = deck_y(a, b, sag, t0)
-		p1.y = deck_y(a, b, sag, t1)
+		p0.y = _deck(a, b, sag, origin, t0)
+		p1.y = _deck(a, b, sag, origin, t1)
 		var hw := side * width * 0.5
 		kit.collide_quad(p0 - hw, p0 + hw, p1 + hw, p1 - hw)
 		# rope barrier (invisible walls at the handrails)
@@ -73,8 +85,8 @@ static func suspended(kit: BuildingKit, a: Vector3, b: Vector3, width: float, sa
 		for i in nr + 1:
 			var t := float(i) / nr
 			var p := a.lerp(b, t) + side * s * (width * 0.5 + 0.06)
-			foot.append(Vector3(p.x, deck_y(a, b, sag, t) + 0.02, p.z))
-			rope.append(Vector3(p.x, deck_y(a, b, sag * 0.85, t) + rail_h + 0.25 * (1.0 - 4.0 * t * (1.0 - t)), p.z))
+			foot.append(Vector3(p.x, _deck(a, b, sag, origin, t) + 0.02, p.z))
+			rope.append(Vector3(p.x, maxf(deck_y(a, b, sag * 0.85, t) + rail_h + 0.25 * (1.0 - 4.0 * t * (1.0 - t)), _deck(a, b, sag, origin, t) + 0.9), p.z))
 		var radii := PackedFloat32Array()
 		radii.resize(rope.size())
 		radii.fill(0.035)

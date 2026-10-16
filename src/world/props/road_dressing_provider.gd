@@ -102,9 +102,19 @@ func _index() -> void:
 					dirs.append(-along)
 				if float(hit[2]) < 0.95 or si < q.size() - 2:
 					dirs.append(along)
-				js.append({"pos": Vector3(p.x, 0, p.z), "dirs": dirs})
+				if not _near_structure(Vector2(p.x, p.z), 24.0):
+					js.append({"pos": Vector3(p.x, 0, p.z), "dirs": dirs})
 				break
 	_junctions = js
+
+
+## True near a POI structure (gates, shrines...) that already marks the spot.
+static func _near_structure(p: Vector2, r: float) -> bool:
+	for poi in WorldData.get_pois():
+		var q: Vector3 = poi["position"]
+		if p.distance_to(Vector2(q.x, q.z)) < r + PoiStructures.footprint(poi):
+			return true
+	return false
 
 
 ## [distance, segment index, t] of the closest point of a road polyline to p.

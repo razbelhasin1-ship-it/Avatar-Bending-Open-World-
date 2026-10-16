@@ -7,7 +7,7 @@ extends ContentProvider
 ## with collision, a TerrainHoles capsule so the player can walk in). Claimed ids
 ## (ContentClaims) are left to their owners.
 
-const TUBE_OPTS := {"vertex_color": true, "outline": false, "rim": 0.0, "shade_tint": Color(0.35, 0.35, 0.45)}
+const TUBE_OPTS := {"vertex_color": true, "outline": false, "rim": 0.0, "shade_tint": Color(0.55, 0.52, 0.6)}
 const VEIL_SHADER := preload("res://assets/shaders/content/cave_veil.gdshader")
 
 var cfg: Dictionary = {}

@@ -40,8 +40,8 @@ static func build(rec: Dictionary) -> Dictionary:
 	if frozen:
 		_ice_cascade(kit, path, width, rng, origin)
 	else:
-		res["sheets"].append([_sheet(path, width, 0.0, origin), 0])
-		res["sheets"].append([_sheet(path, width * 0.82, -0.7, origin), 1])
+		res["sheets"].append([_sheet(path, width * 1.25, 0.0, origin), 0])
+		res["sheets"].append([_sheet(path, width * 1.0, -0.7, origin), 1])
 		res["foam"] = _foam_disc(path[path.size() - 1] - origin, width * 1.1)
 	# boulders around the plunge and at the lip
 	var region := WorldData.get_region(bottom.x, bottom.z)
@@ -75,21 +75,20 @@ static func fall_path(top: Vector3, bottom: Vector3) -> PackedVector3Array:
 	var pts := PackedVector3Array()
 	# a short run-in over the lip
 	pts.append(Vector3(top.x - dir.x * 2.5, top.y + 0.15, top.z - dir.y * 2.5))
+	var reach := 0.0          # horizontal distance from the lip never decreases (no zig-zag)
 	for i in n + 1:
 		var s := float(i) / n
 		var fall := s * s
 		var y := top.y - h * fall
 		var out := dist * (1.0 - (1.0 - s) * (1.0 - s))
-		var p := Vector3(top.x + dir.x * out, y, top.z + dir.y * out)
 		# push clear of the cliff
 		var push := 0.0
-		while push < 40.0 and WorldData.get_height(p.x + dir.x * push, p.z + dir.y * push) > y - 1.5 and i < n:
+		while push < 40.0 and i < n and WorldData.get_height(top.x + dir.x * (out + push), top.z + dir.y * (out + push)) > y - 1.5:
 			push += 1.0
-		p.x += dir.x * push
-		p.z += dir.y * push
-		pts.append(p)
-	# smooth (pushing creates kinks)
-	for it in 3:
+		reach = maxf(reach, out + push)
+		pts.append(Vector3(top.x + dir.x * reach, y, top.z + dir.y * reach))
+	# smooth (pushing creates corners)
+	for it in 6:
 		for i in range(2, pts.size() - 1):
 			var a := pts[i - 1]
 			var b := pts[i + 1]
@@ -139,21 +138,41 @@ static func _foam_disc(center: Vector3, r: float) -> Array:
 	return g.arrays()
 
 
-## Frozen fall: glossy ice columns along the path with icicles, a frozen pool slab.
+## Frozen fall: a glossy ice curtain with bulging columns of uneven length, icicles along the
+## lip and the columns, and a frozen plunge pool.
 static func _ice_cascade(kit: BuildingKit, path: PackedVector3Array, width: float, rng: RandomNumberGenerator, origin: Vector3) -> void:
 	var n := path.size()
-	var cols := 5
+	var deep := Color(0.42, 0.66, 0.88).srgb_to_linear()
+	var pale := Color(0.86, 0.94, 1.0).srgb_to_linear()
+	# curtain (faces away from the cliff), widening downwards
+	var gi := kit.g(&"ice")
+	for i in n - 1:
+		var p0 := path[i]
+		var p1 := path[i + 1]
+		var t := Vector3(p1.x - p0.x, 0, p1.z - p0.z)
+		var flat_t := t.normalized() if t.length() > 0.05 else Vector3(0, 0, 1)
+		var side := Vector3.UP.cross(flat_t).normalized()
+		var w0 := width * (0.55 + 0.25 * float(i) / n)
+		var w1 := width * (0.55 + 0.25 * float(i + 1) / n)
+		var back := -flat_t * 0.6
+		var c := pale.lerp(deep, float(i) / n)
+		gi.flat_quad(p1 - side * w1 + back - origin, p1 + side * w1 + back - origin, p0 + side * w0 + back - origin, p0 - side * w0 + back - origin, c)
+	var cols := 7
 	for c in cols:
-		var off := (float(c) / (cols - 1) - 0.5) * width * 0.9
+		var off := (float(c) / (cols - 1) - 0.5) * width * 1.1
+		var stop := n - 1 - rng.randi_range(0, n / 3)
 		var pts := PackedVector3Array()
 		var radii := PackedFloat32Array()
-		for i in range(1, n, 2):
+		for i in range(1, stop, 2):
 			var p := path[i]
 			var t := (path[mini(i + 1, n - 1)] - path[maxi(i - 1, 0)])
 			var side := Vector3.UP.cross(Vector3(t.x, 0, t.z).normalized()).normalized()
-			pts.append(p + side * off + Vector3(rng.randf_range(-0.3, 0.3), 0, rng.randf_range(-0.3, 0.3)) - origin)
-			radii.append(rng.randf_range(0.7, 1.4) * (1.0 - 0.4 * absf(off) / width))
-		kit.g(&"ice").tube(pts, radii, 6, kit.col(&"ice"), kit.col(&"snow"))
+			pts.append(p + side * off * (0.8 + 0.4 * float(i) / n) + Vector3(rng.randf_range(-0.3, 0.3), 0, rng.randf_range(-0.3, 0.3)) - origin)
+			radii.append(rng.randf_range(0.5, 1.5) * (1.0 - 0.45 * absf(off) / width))
+		if pts.size() >= 2:
+			kit.g(&"ice").tube(pts, radii, 6, pale, deep)
+			var tip: Vector3 = pts[pts.size() - 1]
+			kit.g(&"ice").cone(tip, tip - Vector3(0, rng.randf_range(1.5, 4.0), 0), radii[radii.size() - 1], 6, deep, true)
 	for k in 24:
 		var i := rng.randi_range(1, n - 2)
 		var p := path[i] + Vector3(rng.randf_range(-0.5, 0.5) * width, 0, 0) - origin
@@ -197,7 +216,7 @@ static func mist_material() -> ShaderMaterial:
 		WorldShaderGlobals.ensure()
 		_mist_mat = ShaderMaterial.new()
 		_mist_mat.shader = MIST_SHADER
-		_mist_mat.set_shader_parameter(&"tint", Color(0.94, 0.97, 1.0, 0.55))
+		_mist_mat.set_shader_parameter(&"tint", Color(0.94, 0.97, 1.0, 0.8))
 	return _mist_mat
 
 
@@ -243,7 +262,7 @@ static func instantiate(data: Dictionary, parent: Node3D, loops: Array) -> Node3
 static func make_mist(local_pos: Vector3, height: float) -> GPUParticles3D:
 	var p := GPUParticles3D.new()
 	p.name = "Mist"
-	p.amount = maxi(int(26.0 * Settings.effects_scale()), 6)
+	p.amount = maxi(int(34.0 * Settings.effects_scale()), 8)
 	p.lifetime = 4.5
 	p.preprocess = 4.0
 	p.position = local_pos + Vector3(0, 1.0, 0)

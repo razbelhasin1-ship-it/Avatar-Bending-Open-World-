@@ -20,7 +20,7 @@ extends RefCounted
 
 const WIDTH := 5.4
 const HEIGHT := 4.6
-const OUTSIDE := 4.0
+const OUTSIDE := 2.5
 const STEP := 2.0
 const SIDES := 14
 
@@ -88,7 +88,7 @@ static func build(poi: Dictionary) -> Dictionary:
 			var p := ring[k % SIDES]
 			var n := (center - p).normalized()
 			var floor_v := p.y - path[i].y < 0.05
-			var c := (rock_l * 0.8).lerp(rock_d * 0.45, smoothstep(0.0, 1.0, (dist[i] + outside) / 22.0 + 0.1))
+			var c := (rock_l * 0.8).lerp(rock_d * 0.7, smoothstep(0.0, 1.0, (dist[i] + outside) / 22.0 + 0.1))
 			c = c * lerpf(1.0, 0.7, clampf((p.y - path[i].y) / HEIGHT, 0.0, 1.0))
 			if floor_v:
 				c = c * 0.8
@@ -182,18 +182,18 @@ static func build(poi: Dictionary) -> Dictionary:
 	kit.g(slot).blob(lintel, 1.0, 0, rock_d.lerp(shell_rock, 0.45), rng, 0.15, Vector3(WIDTH * 0.72, 0.6, 1.5), Vector3.INF, 0.0, rock_d * 0.7, Vector2.ZERO, true)
 	_features(kit, style, path, dist, rings, rng)
 	# --- veil: where the hill surface starts to cut through the tube --------------------------------
-	var floor_i := 0
-	for i in path.size():
-		floor_i = i
-		if WorldData.get_height(path[i].x, path[i].z) > path[i].y + 0.25:
+	# (fine march: on a sheer cliff the surface crosses the opening within a metre)
+	var cross := dist[dist.size() - 1]
+	var d := dist[0]
+	while d < dist[dist.size() - 1]:
+		var q := _at_dist(path, dist, d)
+		if WorldData.get_height(q.x, q.z) > q.y + 0.1:
+			cross = d
 			break
-	var veil_i := floor_i
-	for i in path.size():
-		if dist[i] >= clampf(dist[floor_i] + 0.3, -outside + 0.8, maxf(cover_s * 0.5, -outside + 0.8)):
-			veil_i = i
-			break
-	var vp := path[veil_i]
-	var vt := (path[mini(veil_i + 1, path.size() - 1)] - path[veil_i]).normalized()
+		d += 0.25
+	var veil_d := clampf(cross - 0.35, -outside + 0.8, maxf(cover_s * 0.5, -outside + 0.8))
+	var vp := _at_dist(path, dist, veil_d)
+	var vt := (_at_dist(path, dist, veil_d + 0.5) - vp).normalized()
 	var vr := vt.cross(Vector3.UP).normalized()
 	var veil := GeoBuilder.new()
 	var vn := -vt
@@ -210,18 +210,20 @@ static func build(poi: Dictionary) -> Dictionary:
 		veil.quad(v00, v00 + 3, v00 + 2, v00 + 1)
 	# hole in the terrain collision where the cliff crosses the tube
 	var hole_end := path[mini(cover_i + 1, path.size() - 1)]
-	var hole_start := path[maxi(floor_i - 1, 0)]
+	var hole_start := _at_dist(path, dist, maxf(cross - 1.0, dist[0]))
 	var markers := {
 		&"entrance": Transform3D(Basis(Vector3.UP, yaw), entrance),
 		&"end": Transform3D(Basis(Vector3.UP, yaw), path[path.size() - 1]),
 	}
+	for l in kit.lights:
+		l["interior"] = true
 	return {"kit": kit.build(), "tube": tube.arrays(), "veil": veil.arrays(), "faces": faces,
 		"hole": [Vector2(hole_start.x, hole_start.z), Vector2(hole_end.x, hole_end.z), WIDTH * 0.5 + 0.8],
 		"markers": markers, "origin": entrance, "style": style}
 
 
 ## Re-anchors a recorded tunnel at the hillside: the tunnel is extended 40 m outwards (rising at
-## its own grade) and starts where the hill first rises over half the opening, so the mouth is
+## its own grade) and starts where the ground first reaches its floor, so the mouth is
 ## neither buried under a slope nor standing in front of it; a mouth below the water level is
 ## lifted out of the water. Returns the tunnel from its new entrance inwards.
 static func anchor(tunnel: PackedVector3Array, out_dir: Vector3) -> PackedVector3Array:
@@ -235,7 +237,7 @@ static func anchor(tunnel: PackedVector3Array, out_dir: Vector3) -> PackedVector
 	pts.append_array(tunnel)
 	var c := 20
 	for i in pts.size():
-		if WorldData.get_height(pts[i].x, pts[i].z) >= pts[i].y + HEIGHT * 0.5:
+		if WorldData.get_height(pts[i].x, pts[i].z) >= pts[i].y + 0.3:
 			c = i if i > 0 else 20
 			break
 	var out := pts.slice(maxi(c - 1, 0))
@@ -245,6 +247,16 @@ static func anchor(tunnel: PackedVector3Array, out_dir: Vector3) -> PackedVector
 		for i in out.size():
 			out[i].y += lift * clampf(1.0 - float(i) / 10.0, 0.35, 1.0)
 	return out
+
+
+## Point at signed distance `d` along the path (dist = distances of the path points).
+static func _at_dist(path: PackedVector3Array, dist: PackedFloat32Array, d: float) -> Vector3:
+	if d <= dist[0]:
+		return path[0]
+	for i in range(1, path.size()):
+		if dist[i] >= d:
+			return path[i - 1].lerp(path[i], (d - dist[i - 1]) / maxf(dist[i] - dist[i - 1], 0.001))
+	return path[path.size() - 1]
 
 
 ## A rock with a darker underside and a moss/snow/ash cap on top (thread-safe).

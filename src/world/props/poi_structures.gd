@@ -108,6 +108,13 @@ static func build(poi: Dictionary, lod: int = 0) -> Dictionary:
 	var seed := ContentHash.hash_name(String(poi.get("id", "poi")))
 	var kit := BuildingKit.new(NationPalette.get_palette(nation), lod, seed)
 	var yaw := facing(poi)
+	if poi.get("type") == &"landmark" and String(poi.get("id", "")).ends_with("_gate"):
+		# a gate straddles the road: centre it on the nearest road point, passage along the road
+		var rd := nearest_road(pos, 45.0)
+		if not rd.is_empty():
+			pos = rd["point"]
+			var dv: Vector3 = rd["dir"]
+			yaw = atan2(-dv.x, -dv.z)
 	var origin := Vector3(pos.x, WorldData.get_height(pos.x, pos.z), pos.z)
 	var ctx := {"kit": kit, "origin": origin, "yaw": yaw, "poi": poi, "extras": [], "nation": nation, "rng": ContentHash.rng(seed)}
 	kit.push(Transform3D(Basis(Vector3.UP, yaw), Vector3.ZERO))
@@ -126,6 +133,27 @@ static func build(poi: Dictionary, lod: int = 0) -> Dictionary:
 
 
 # --- helpers ------------------------------------------------------------------------------------
+
+## Nearest point on any road polyline within max_dist: {"point": Vector3, "dir": Vector3 (unit,
+## along the road)}, or {}.
+static func nearest_road(p: Vector3, max_dist: float) -> Dictionary:
+	var best := max_dist
+	var out := {}
+	var q := Vector2(p.x, p.z)
+	for r in WorldData.get_roads():
+		var pts: PackedVector3Array = r["points"]
+		for i in pts.size() - 1:
+			var a := Vector2(pts[i].x, pts[i].z)
+			var b := Vector2(pts[i + 1].x, pts[i + 1].z)
+			var ab := b - a
+			var t := clampf((q - a).dot(ab) / maxf(ab.length_squared(), 0.0001), 0.0, 1.0)
+			var c := a + ab * t
+			var d := q.distance_to(c)
+			if d < best:
+				best = d
+				out = {"point": Vector3(c.x, 0.0, c.y), "dir": Vector3(ab.x, 0.0, ab.y).normalized()}
+	return out
+
 
 ## Local point (in the POI frame) dropped onto the terrain; returns local coordinates.
 static func ground(ctx: Dictionary, local: Vector3) -> Vector3:
@@ -362,20 +390,20 @@ static func _vista(ctx: Dictionary) -> void:
 	var rail := PackedVector3Array()
 	for k in 9:
 		var a := PI + PI * float(k) / 8.0
-		rail.append(Vector3(cos(a) * 3.0, 0.1, sin(a) * 2.5 - 0.5))
+		rail.append(Vector3(cos(a) * 2.9, 0.2, sin(a) * 2.4 - 0.1))
 	kit.railing(rail, 0.9, {"role": &"stone", "post_role": &"stone_dark", "rails": 1, "spacing": 1.0})
 	# cairn of stacked stones
-	var cp := Vector3(2.2, 0.1, 1.6)
+	var cp := Vector3(2.2, 0.2, 1.6)
 	var y := 0.0
 	for k in 5:
 		var r := 0.45 - k * 0.07
 		kit.g().blob(cp + Vector3(rng.randf_range(-0.05, 0.05), y + r * 0.6, 0), r, 0, kit.col(&"stone") * rng.randf_range(0.85, 1.05), rng, 0.15, Vector3(1.2, 0.6, 1.0), Vector3.INF, 0.0, kit.col(&"stone_dark"), Vector2.ZERO, true)
 		y += r * 1.1
 	# bench and a pole with prayer flags / pennant
-	kit.box(Vector3(-1.6, 0.5, 1.4), Vector3(1.8, 0.1, 0.5), &"wood", true)
+	kit.box(Vector3(-1.6, 0.65, 1.4), Vector3(1.8, 0.1, 0.5), &"wood", true)
 	for s: float in [-1.0, 1.0]:
-		kit.box(Vector3(-1.6 + s * 0.7, 0.25, 1.4), Vector3(0.12, 0.5, 0.4), &"wood_dark", false)
-	kit.flag(Transform3D(Basis(Vector3.UP, rng.randf() * TAU), Vector3(-2.6, 0.1, 2.0)), 4.5, 1.2, 0.7)
+		kit.box(Vector3(-1.6 + s * 0.7, 0.42, 1.4), Vector3(0.12, 0.45, 0.4), &"wood_dark", false)
+	kit.flag(Transform3D(Basis(Vector3.UP, rng.randf() * TAU), Vector3(-2.6, 0.2, 2.0)), 4.5, 1.2, 0.7)
 	extra(ctx, {"type": &"marker", "group": &"vista", "position": Vector3(0, 0.3, -1.0), "yaw": float(ctx["yaw"])})
 
 
@@ -411,7 +439,7 @@ static func _spirit(ctx: Dictionary) -> void:
 	kit.add_light(ground(ctx, Vector3(0, 2.0, 0)), glow_c, 14.0, 1.6, 3)
 	extra(ctx, {"type": &"particles", "kind": &"steam" if id.contains("vent") else &"motes", "position": Vector3(0, 1.0, 0)})
 	extra(ctx, {"type": &"marker", "group": &"spirit_spot", "position": Vector3(0, 0.3, 0), "yaw": 0.0})
-	extra(ctx, {"type": &"pickup", "item": &"spirit_blossom", "count": 1, "name": "Spirit Blossom", "position": Vector3(r * 0.5, 0.1, 0), "mesh_kind": &"blossom"})
+	extra(ctx, {"type": &"pickup", "item": &"spirit_blossom", "count": 1, "name": "Spirit Blossom", "position": ground(ctx, Vector3(r * 0.55, 0.05, r * 0.2)), "mesh_kind": &"blossom"})
 
 
 ## Great twisted tree with glowing leaves and aerial roots (the Whispering Banyan).
@@ -445,32 +473,97 @@ static func _resource(ctx: Dictionary) -> void:
 	var id := String((ctx["poi"] as Dictionary).get("id", ""))
 	var r := clampf(float((ctx["poi"] as Dictionary).get("radius", 25.0)) * 0.6, 8.0, 18.0)
 	var kind: StringName = &"jade" if id.contains("jade") else (&"bone" if id.contains("whale") else &"ore")
+	var item: StringName = {&"jade": &"jade_shard", &"bone": &"whale_bone"}.get(kind, &"iron_ore")
+	var nm: String = {&"jade": "Jade Shard", &"bone": "Whale Bone"}.get(kind, "Iron Ore")
+	if kind == &"bone":
+		_whale_skeleton(ctx, rng)
+	else:
+		# outcrops studded with crystals (jade) or dark ore rock, cut blocks and a hoist
+		for k in 6:
+			var a := TAU * float(k) / 6.0 + rng.randf_range(-0.3, 0.3)
+			var d := rng.randf_range(0.35, 0.9) * r
+			var p := ground(ctx, Vector3(cos(a) * d, 0, sin(a) * d))
+			var rr := rng.randf_range(1.8, 3.0)
+			var rock := kit.col(&"stone") if kind == &"jade" else kit.col(&"stone_dark")
+			kit.g().blob(p, rr, 1, rock, rng, 0.3, Vector3(1.2, 0.75, 1.0), Vector3.INF, 0.0, rock * 0.7, Vector2.ZERO, true)
+			kit.collide_box(p + Vector3(0, rr * 0.35, 0), Vector3(rr * 1.8, rr * 1.2, rr * 1.6))
+			var gb := kit.g(&"glow")
+			gb.uv = Vector2(0, 0.1)
+			var cc := Color(0.22, 0.85, 0.48) if kind == &"jade" else Color(0.95, 0.6, 0.3)
+			for j in (5 if kind == &"jade" else 3):
+				var dir := Vector3(rng.randf_range(-0.6, 0.6), 1.0, rng.randf_range(-0.6, 0.6)).normalized()
+				var q := p + Vector3(rng.randf_range(-0.6, 0.6) * rr, rr * 0.45, rng.randf_range(-0.6, 0.6) * rr)
+				var ln := rng.randf_range(1.0, 2.6) if kind == &"jade" else rng.randf_range(0.4, 0.8)
+				gb.cylinder(q - dir * 0.3, q + dir * ln, rng.randf_range(0.22, 0.42), 0.03, 6, cc, 1, false)
+			if k % 2 == 0:
+				extra(ctx, {"type": &"pickup", "item": item, "count": 1, "name": nm,
+					"position": ground(ctx, Vector3(cos(a) * (d + rr + 0.8), 0.05, sin(a) * (d + rr + 0.8))), "mesh_kind": kind})
+		# stacks of cut blocks
+		for k in 3:
+			var c := ground(ctx, Vector3(-r * 0.4 + k * 2.6, 0, r * 0.55))
+			for j in 3 - k % 2:
+				kit.box(c + Vector3(rng.randf_range(-0.2, 0.2), 0.45 + j * 0.9, rng.randf_range(-0.2, 0.2)), Vector3(1.6, 0.9, 1.1), &"stone", true)
+		# wooden hoist with a rope and a hanging block
+		var hp := ground(ctx, Vector3(r * 0.5, 0, r * 0.3))
+		for s2: float in [-1.0, 1.0]:
+			kit.beam(hp + Vector3(s2 * 1.6, 0, -0.8), hp + Vector3(0, 5.0, 0), 0.18, 0.18, &"wood", false)
+			kit.beam(hp + Vector3(s2 * 1.6, 0, 0.8), hp + Vector3(0, 5.0, 0), 0.18, 0.18, &"wood", false)
+		kit.beam(hp + Vector3(0, 5.0, 0), hp + Vector3(0, 4.6, -3.2), 0.16, 0.16, &"wood_dark", false)
+		kit.g().cylinder(hp + Vector3(0, 4.6, -3.1), hp + Vector3(0, 2.2, -3.1), 0.03, 0.03, 3, kit.col(&"wood_dark"), 0)
+		kit.box(hp + Vector3(0, 1.8, -3.1), Vector3(0.9, 0.8, 0.9), &"stone", false)
+		kit.collide_box(hp + Vector3(0, 2.0, 0), Vector3(3.0, 4.0, 1.8))
+	# a worker's lean-to
+	var lp := ground(ctx, Vector3(-r * 0.75, 0, -r * 0.55))
+	BuildingPresets.tent(kit, Transform3D(Basis(Vector3.UP, 0.4), lp), {"style": &"ridge", "w": 2.6, "d": 3.0, "h": 2.0, "role": &"cloth_alt"})
+
+
+## A beached whale skeleton: skull, a spine of vertebrae, two rows of arching ribs, flipper
+## bones and scattered fragments (Whalefall Skerries); bones are the gatherable resource.
+static func _whale_skeleton(ctx: Dictionary, rng: RandomNumberGenerator) -> void:
+	var kit: BuildingKit = ctx["kit"]
+	var bone := Color(0.90, 0.86, 0.76).srgb_to_linear()
+	var old := Color(0.70, 0.66, 0.58).srgb_to_linear()
+	var length := 26.0
+	var n := 13
+	var spine := PackedVector3Array()
+	for i in n:
+		var t := float(i) / (n - 1)
+		var z := lerpf(-length * 0.5, length * 0.5, t)
+		var g := ground(ctx, Vector3(sin(t * 3.0) * 1.2, 0, z))
+		spine.append(Vector3(g.x, g.y + 0.6 + sin(t * PI) * 1.8, g.z))
+	for i in n:
+		var p := spine[i]
+		var t := float(i) / (n - 1)
+		kit.g().blob(p, 0.45 - t * 0.2, 0, bone.lerp(old, rng.randf()), rng, 0.15, Vector3(1.2, 1.0, 0.8))
+		# ribs over the front two thirds, arching up and out like a hull
+		if t > 0.12 and t < 0.7:
+			var span := sin((t - 0.12) / 0.58 * PI) * 4.2 + 1.5
+			for s: float in [-1.0, 1.0]:
+				var g0 := ground(ctx, Vector3(p.x + s * span, 0, p.z))
+				var tip := Vector3(p.x + s * span, g0.y + rng.randf_range(-0.2, 0.6), p.z + rng.randf_range(-0.5, 0.5))
+				var mid := Vector3(p.x + s * span * 0.75, p.y + 2.2 + span * 0.25, p.z)
+				if rng.randf() < 0.15:
+					tip = mid.lerp(tip, 0.5)          # a broken rib
+				kit.g().tube(PackedVector3Array([p, mid, tip]), PackedFloat32Array([0.24, 0.2, 0.12]), 6, bone, old)
+				kit.collide_box((p + tip) * 0.5, Vector3(0.6, absf(p.y - tip.y) + 0.6, 0.6))
+	# skull at the head end
+	var head := spine[0] + Vector3(0, -0.2, -2.6)
+	kit.g().blob(head, 2.0, 1, bone, rng, 0.12, Vector3(1.3, 0.75, 2.0), Vector3.INF, 0.0, old, Vector2.ZERO, true)
+	kit.g().blob(head + Vector3(0, -0.3, -2.6), 1.0, 0, old, rng, 0.1, Vector3(1.6, 0.5, 2.0))
+	kit.collide_box(head, Vector3(4.6, 2.6, 7.0))
+	# flipper bones and fragments
+	for s: float in [-1.0, 1.0]:
+		var f0 := spine[3] + Vector3(s * 4.5, -1.2, 0)
+		f0.y = ground(ctx, f0).y + 0.25
+		kit.g().tube(PackedVector3Array([f0, f0 + Vector3(s * 1.4, 0.1, 1.6), f0 + Vector3(s * 2.2, 0.0, 3.6)]), PackedFloat32Array([0.2, 0.16, 0.08]), 5, old)
 	for k in 9:
 		var a := rng.randf() * TAU
-		var d := rng.randf_range(0.2, 1.0) * r
-		var p := ground(ctx, Vector3(cos(a) * d, 0, sin(a) * d))
-		match kind:
-			&"jade":
-				kit.g().blob(p, rng.randf_range(0.8, 1.6), 0, kit.col(&"stone"), rng, 0.3, Vector3(1.2, 0.8, 1.0), Vector3.INF, 0.0, kit.col(&"stone_dark"), Vector2.ZERO, true)
-				var gb := kit.g(&"glow")
-				gb.uv = Vector2(0, 0.1)
-				for j in 3:
-					var q := p + Vector3(rng.randf_range(-0.5, 0.5), 0.5, rng.randf_range(-0.5, 0.5))
-					gb.cylinder(q, q + Vector3(rng.randf_range(-0.3, 0.3), rng.randf_range(0.6, 1.3), rng.randf_range(-0.3, 0.3)), 0.18, 0.02, 5, Color(0.25, 0.85, 0.5), 0, false)
-			&"bone":
-				var bone := Color(0.90, 0.86, 0.76).srgb_to_linear()
-				for j in 4:
-					var b0 := p + Vector3(j * 0.9 - 1.4, 0.2, 0)
-					kit.g().tube(PackedVector3Array([b0, b0 + Vector3(0.2, 1.4, 0.3), b0 + Vector3(0.9, 2.4, 0.9)]), PackedFloat32Array([0.2, 0.15, 0.08]), 5, bone)
-			_:
-				kit.g().blob(p, rng.randf_range(0.7, 1.3), 0, kit.col(&"stone_dark"), rng, 0.3, Vector3(1.1, 0.8, 1.0), Vector3.INF, 0.0, kit.col(&"stone_dark") * 0.8, Vector2.ZERO, true)
-		if k % 2 == 0:
-			var item: StringName = {&"jade": &"jade_shard", &"bone": &"whale_bone"}.get(kind, &"iron_ore")
-			var nm: String = {&"jade": "Jade Shard", &"bone": "Whale Bone"}.get(kind, "Iron Ore")
-			extra(ctx, {"type": &"pickup", "item": item, "count": 1, "name": nm, "position": ground(ctx, Vector3(cos(a) * d + 1.2, 0.05, sin(a) * d)), "mesh_kind": kind})
-	# a worker's lean-to and tools
-	var lp := ground(ctx, Vector3(-r * 0.7, 0, -r * 0.5))
-	BuildingPresets.tent(kit, Transform3D(Basis(Vector3.UP, 0.4), lp), {"style": &"ridge", "w": 2.6, "d": 3.0, "h": 2.0, "role": &"cloth_alt"})
+		var d := rng.randf_range(6.0, 14.0)
+		var p := ground(ctx, Vector3(cos(a) * d, 0.15, sin(a) * d))
+		var dir := Vector3(cos(a * 3.0), 0.15, sin(a * 3.0))
+		kit.g().tube(PackedVector3Array([p, p + dir * 1.2, p + dir * 2.0 + Vector3(0, 0.3, 0)]), PackedFloat32Array([0.16, 0.13, 0.08]), 5, bone.lerp(old, 0.5))
+		if k % 3 == 0:
+			extra(ctx, {"type": &"pickup", "item": &"whale_bone", "count": 1, "name": "Whale Bone", "position": p + Vector3(0, 0.1, 0), "mesh_kind": &"bone"})
 
 
 static func _landmark(ctx: Dictionary) -> void:
@@ -490,7 +583,7 @@ static func _landmark(ctx: Dictionary) -> void:
 		kit.door(Transform3D(Basis(), Vector3(0, 0.1, -2.35)), 1.2, 2.2)
 		return
 	if id.contains("pass_gate") or id.ends_with("_gate"):
-		BuildingPresets.gatehouse(kit, Transform3D(Basis(), ground(ctx, Vector3.ZERO) - Vector3(0, 0.3, 0)), {"width": 4.5, "height": 5.5, "depth": 3.5})
+		BuildingPresets.gatehouse(kit, Transform3D(Basis(), ground(ctx, Vector3.ZERO) - Vector3(0, 0.3, 0)), {"width": 8.5, "height": 6.0, "depth": 4.0})
 		return
 	# carved stele on a plinth with two lanterns
 	platform(ctx, 4.0, 3.0)

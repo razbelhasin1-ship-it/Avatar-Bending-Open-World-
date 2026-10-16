@@ -6,7 +6,7 @@ extends RefCounted
 ## signposts) and a resource pickup harvest. `--views=a,b` limits the set (view names below).
 
 const POI_SHOTS := ["wt_moon_shrine", "fn_eternal_flame", "ek_moonmirror_pavilion", "ek_dustwind_camp", "wt_seal_hunters_camp",
-		"ek_stonefist_yard", "wt_ice_flats", "fn_overgrown_sun_temple", "ek_frostbitten_tower", "ek_northreach",
+		"ek_stonefist_yard", "at_meditation_ledge", "fn_overgrown_sun_temple", "ek_frostbitten_tower", "ek_northreach",
 		"wt_kayak_landing", "ek_red_mesa", "ek_whispering_banyan", "fn_hissing_vents", "ek_jade_quarry",
 		"wl_whalefall_skerries", "wl_lantern_isle", "at_pass_gate"]
 
@@ -115,7 +115,8 @@ func _arches(p: Playtest) -> void:
 		var mid := (pa + pb) * 0.5
 		var across := Vector3(pb.x - pa.x, 0, pb.z - pa.z).normalized().cross(Vector3.UP)
 		var span := Vector2(pb.x - pa.x, pb.z - pa.z).length()
-		await _shoot(p, v, _agl(mid + across * span * 1.1, 12.0), Vector3(mid.x, float(a["apex_height"]) - 10.0, mid.z), 9.5)
+		var look := Vector3(mid.x, float(a["apex_height"]) - 10.0, mid.z)
+		await _shoot(p, v, _clear_view(look, across, span * 1.1, 12.0), look, 9.5)
 
 
 func _bridge(p: Playtest) -> void:
@@ -148,6 +149,8 @@ func _bridge(p: Playtest) -> void:
 	p.hold(&"move_forward")
 	var shots := 0
 	var t := 0.0
+	var best_s := 0.0
+	var stall := 0.0
 	while t < 60.0:
 		await p.wait_game(0.5)
 		t += 0.5
@@ -161,6 +164,14 @@ func _bridge(p: Playtest) -> void:
 			await p.screenshot("worldcontent_poi_bridge_walk_%d" % shots)
 		if s >= 0.98 or pos.y < a.y - sag - 20.0:
 			break
+		if s > best_s + 0.01:
+			best_s = s
+			stall = 0.0
+		else:
+			stall += 0.5
+			if stall >= 4.0:
+				p.note("bridge walk stalled at s %.2f, pos %s, state %s" % [s, pos, pl.get_state_name()])
+				break
 	p.release(&"move_forward")
 	var end := pl.global_position
 	var crossed := (end - a).dot(dir) >= length - 2.0
@@ -236,8 +247,16 @@ func _pois(p: Playtest) -> void:
 		var front := Basis(Vector3.UP, yaw) * Vector3(0, 0, -1)
 		var fp := maxf(PoiStructures.footprint(poi), 6.0)
 		var dist := fp * 2.0 + 10.0
+		if poi["type"] == &"dock":
+			# the pier stands at the nearest shoreline, not at the POI point
+			var shore := PoiSites.find_shore(Vector3(pos.x, WorldData.get_height(pos.x, pos.z), pos.z), Vector3.ZERO)
+			if not shore.is_empty():
+				var sd: Vector3 = shore[1]
+				pos = (shore[0] as Vector3) + sd * 14.0
+				front = sd.cross(Vector3.UP)
+				dist = 34.0
 		var cam := _clear_view(_agl(pos, 2.0), front + front.cross(Vector3.UP) * 0.35, dist, dist * 0.5 + 3.0)
-		var hour := 20.5 if id in ["ek_dustwind_camp", "fn_hissing_vents", "ek_whispering_banyan"] else 11.0
+		var hour := 20.5 if id in ["ek_dustwind_camp", "ek_whispering_banyan"] else (17.5 if id == "fn_hissing_vents" else 11.0)
 		await _shoot(p, id, cam, _agl(pos, 2.0), hour, 62.0)
 	if _want("ek_jade_quarry"):
 		var pk: ResourcePickup = null

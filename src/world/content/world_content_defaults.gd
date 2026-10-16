@@ -33,6 +33,8 @@ static func add_feature_exclusions(content: WorldContent) -> void:
 		var r := PoiStructures.footprint(poi)
 		if r > 0.0:
 			content.add_exclusion(poi["position"], r, hard, 6.0)
+			# a clearing around it so the structure reads from a distance
+			content.add_exclusion(poi["position"], r + 8.0, T.TAG_TREES, 10.0)
 	for w in WorldData.get_waterfalls():
 		var top: Vector3 = w["top"]
 		var bottom: Vector3 = w["bottom"]
