@@ -425,7 +425,9 @@ travel (`TravelSystem.travel_to`).
   2 / 5, Fire 3 / 1 / 8, Air: kids' court 9; the Air Temple has no stalls or guard posts).
 * **Mobile** (`RENDERER=mobile MOBILE=1`, low preset, budget 10): touch HUD + dialogue + trade
   panel work; the spawn plaza first showed only 2 townsfolk (density 0.55 / 45 m), so the low
-  preset now keeps a near-full anchor density inside the same 10-NPC cap (re-run: MOBILE_RESULT).
+  preset now keeps a near-full anchor density inside the same 10-NPC cap (re-run: 9 townsfolk
+  around the spawn, 6 at the market stall, 3 at the guard post, 2 at the kids' spot, never more
+  than 10 live).
 * **`quests_npcs_wildlife`** (960x540): a herd of each species found by the provider's own rules,
   spawned when the player arrives, and each fled from a sprinting player: otter penguins on the
   arctic shore, ostrich horses beside an Earth Kingdom road, a komodo rhino on Fire Nation

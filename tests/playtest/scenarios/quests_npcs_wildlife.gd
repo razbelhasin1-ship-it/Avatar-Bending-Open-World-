@@ -125,7 +125,7 @@ func _visit(species: StringName, near: Vector3) -> void:
 	var cam := Camera3D.new()
 	w.add_child(cam)
 	var mid := c + Vector3(0, 0.6 if species != &"sky_bison" else 1.6, 0)
-	var eye := _eye_for(mid, stand - c, (stand - c).length() + 2.0, 2.0 if species != &"sky_bison" else 3.5)
+	var eye := _eye_for(mid, stand - c, minf((stand - c).length() + 2.0, 9.0), 2.0 if species != &"sky_bison" else 3.5)
 	cam.global_transform = Transform3D(Basis.looking_at(mid - eye, Vector3.UP), eye)
 	cam.fov = 50.0
 	cam.make_current()
