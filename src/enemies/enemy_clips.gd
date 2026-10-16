@@ -139,15 +139,21 @@ static func _bow() -> void:
 
 
 static func _life() -> void:
-	# Surrender: drop to the knees, open hands raised (hold).
-	K.reg(&"enemy_surrender", {"length": 1.0, "hold": true, "events": [[0.55, &"knee_down"]], "keys": [
-		[0.55, {"hips": Vector3(0, -0.5, -0.02), "spine": Vector3(10, 0, 0), "chest": Vector3(6, 0, 0), "head": Vector3(18, 0, 0),
-			"foot_l": Vector3(0.04, 0.1, -0.38), "knee_l": Vector3(0.1, -1, 0.3), "foot_rot_l": Vector3(-60, 6, 0), "toe_l": 50.0,
-			"foot_r": Vector3(0.04, 0.1, -0.4), "knee_r": Vector3(0.1, -1, 0.3), "foot_rot_r": Vector3(-60, 6, 0), "toe_r": 50.0,
-			"hand_l": Vector3(0.32, 0.62, 0.12), "hand_r": Vector3(0.32, 0.62, 0.12), "elbow_l": K.ELBOW_OUT, "elbow_r": K.ELBOW_OUT,
-			"wrist_l": Vector3(-70, 90, 0), "wrist_r": Vector3(-70, 90, 0), "fist_l": 0.0, "fist_r": 0.0}, &"inout"],
-		[1.0, {"hips": Vector3(0, -0.51, -0.02), "head": Vector3(22, 0, 0)}],
+	# Surrender: drop to the knees, open hands raised, then stay there (looping kneel with a
+	# nervous breath) until the enemy leaves.
+	var kneel := {"hips": Vector3(0, -0.5, -0.02), "spine": Vector3(10, 0, 0), "chest": Vector3(6, 0, 0), "head": Vector3(18, 0, 0),
+		"foot_l": Vector3(0.04, 0.1, -0.38), "knee_l": Vector3(0.1, -1, 0.3), "foot_rot_l": Vector3(-60, 6, 0), "toe_l": 50.0,
+		"foot_r": Vector3(0.04, 0.1, -0.4), "knee_r": Vector3(0.1, -1, 0.3), "foot_rot_r": Vector3(-60, 6, 0), "toe_r": 50.0,
+		"hand_l": Vector3(0.32, 0.62, 0.12), "hand_r": Vector3(0.32, 0.62, 0.12), "elbow_l": K.ELBOW_OUT, "elbow_r": K.ELBOW_OUT,
+		"wrist_l": Vector3(-70, 90, 0), "wrist_r": Vector3(-70, 90, 0), "fist_l": 0.0, "fist_r": 0.0}
+	K.reg(&"enemy_surrender", {"length": 1.0, "hold": true, "next": &"enemy_surrender_loop", "events": [[0.55, &"knee_down"]], "keys": [
+		[0.55, kneel, &"inout"],
+		[1.0, kneel],
 	]})
+	var kneel_b := kneel.duplicate()
+	kneel_b.merge({"hips": Vector3(0, -0.51, -0.03), "chest": Vector3(9, 0, 0), "head": Vector3(24, 6, 0),
+		"hand_l": Vector3(0.3, 0.58, 0.14), "hand_r": Vector3(0.33, 0.6, 0.1)}, true)
+	K.reg(&"enemy_surrender_loop", {"length": 2.4, "loop": true, "keys": [[0.0, kneel, &"inout"], [0.5, kneel_b, &"inout"]]})
 	# Spotted: a sharp point at the intruder + call (upper body).
 	K.reg(&"enemy_spotted", {"length": 0.9, "mask": &"upper", "events": [[0.2, &"call"]], "keys": [
 		[0.2, {"hand_r": Vector3(-0.02, 0.22, 0.96), "elbow_r": K.ELBOW_DOWN, "wrist_r": Vector3(0, 60, 0), "fist_r": 0.7,

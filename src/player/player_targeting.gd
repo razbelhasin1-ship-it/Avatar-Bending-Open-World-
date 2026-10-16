@@ -168,8 +168,12 @@ func candidates(range_m: float) -> Array[Node3D]:
 	return out
 
 
-func _valid(t: Node3D) -> bool:
-	if t == null or not is_instance_valid(t) or not t.is_inside_tree():
+func _valid(target: Variant) -> bool:
+	# Untyped: a target freed while locked (despawned enemy) must read as invalid, not error.
+	if target == null or not is_instance_valid(target) or not (target is Node3D):
+		return false
+	var t := target as Node3D
+	if not t.is_inside_tree():
 		return false
 	if t.has_meta(&"no_lock"):
 		return false

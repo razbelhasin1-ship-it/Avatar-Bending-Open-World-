@@ -115,7 +115,7 @@ static func outpost_site(o: Dictionary, kind: StringName) -> EncounterSite:
 	s.respawn_time = float(o.get("respawn", 480.0))
 	s.leash = OUTPOST_RADIUS + 26.0
 	# Face the gate toward the nearest road (or the world centre).
-	s.yaw = _yaw_toward(spot, Vector3.ZERO)
+	s.yaw = _gate_yaw(spot)
 	_place_ring(s, o.get("roster", []), 4.6 if kind == &"outpost" else 4.0, hash(s.id))
 	return s
 
@@ -160,6 +160,23 @@ static func _place_ring(s: EncounterSite, roster: Array, r: float, seed_v: int) 
 			pos = s.center + Vector3(sin(s.yaw), 0, cos(s.yaw)) * -1.6
 		pos.y = WorldData.get_height(pos.x, pos.z)
 		s.add_member(id, pos, yaw, seed_v + i * 7919)
+
+
+## Gate direction of an outpost at `spot`: toward the nearest road within 120 m (the way
+## visitors arrive), else toward the world centre.
+static func _gate_yaw(spot: Vector3) -> float:
+	for r: float in [30.0, 50.0, 75.0, 100.0, 120.0]:
+		var best := -1.0
+		var best_a := 0.0
+		for k in 24:
+			var a := TAU * k / 24.0
+			var rd := WorldData.get_road(spot.x + r * cos(a), spot.z + r * sin(a))
+			if rd > best:
+				best = rd
+				best_a = a
+		if best > 0.2:
+			return _yaw_toward(spot, spot + Vector3(cos(best_a), 0.0, sin(best_a)))
+	return _yaw_toward(spot, Vector3.ZERO)
 
 
 ## Yaw (rotation about +Y of a -Z forward body) facing from `from` toward `to`.
@@ -240,18 +257,28 @@ static func _good(x: float, z: float, biomes: Array, radius: float) -> bool:
 	if not biomes.is_empty() and not biomes.has(b):
 		return false
 	var c := WorldData.get_height(x, z)
-	if c < 1.5 or WorldData.get_road(x, z) > 0.08:
+	if c < 1.5 or WorldData.get_road(x, z) > 0.05:
 		return false
 	var wh := WorldData.get_water_height(x, z)
 	if is_finite(wh) and wh > c - 0.3:
 		return false
-	var hints := WorldData.get_ground_hints(x, z)
-	if hints.g > 0.2:
+	if not _open_ground(x, z):
 		return false
-	for rr: float in [radius, radius * 0.5]:
-		for k in 8:
-			var a := TAU * k / 8.0
-			var h := WorldData.get_height(x + rr * cos(a), z + rr * sin(a))
-			if absf(h - c) > 1.6:
+	# Level over the camp disc, and no road / field / town paving inside it or right
+	# outside the barricades (a camp astride a road or in a wheat field reads wrong).
+	for rr: float in [radius * 0.5, radius, radius + 6.0]:
+		for k in 10:
+			var a := TAU * k / 10.0
+			var px := x + rr * cos(a)
+			var pz := z + rr * sin(a)
+			if rr <= radius and absf(WorldData.get_height(px, pz) - c) > 1.6:
+				return false
+			if WorldData.get_road(px, pz) > 0.05 or not _open_ground(px, pz):
 				return false
 	return true
+
+
+## No town paving, paved road or farmland at (x, z).
+static func _open_ground(x: float, z: float) -> bool:
+	var hints := WorldData.get_ground_hints(x, z)
+	return hints.r < 0.1 and hints.g < 0.15 and hints.b < 0.15

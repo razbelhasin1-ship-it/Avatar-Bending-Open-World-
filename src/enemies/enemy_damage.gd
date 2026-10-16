@@ -269,6 +269,7 @@ static func surrender(e: EnemyBase) -> void:
 	e.set_state(EnemyBase.State.SURRENDER)
 	e.set_meta(&"no_lock", true)
 	e.visual.play(&"enemy_surrender", {"blend_in": 0.15})
+	e.visual.drop_weapons()
 	e.bark(["I yield! I yield!", "Mercy! Take it, take it all!", "Enough! I give up!"][e.rng.randi() % 3], 2.5)
 	e.bar.hide_now()
 	GameState.incr_stat("enemies_defeated")

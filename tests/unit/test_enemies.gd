@@ -456,10 +456,19 @@ func test_encounter_sites_on_real_world() -> void:
 	if not WorldData.has_world_data():
 		return
 	var sites := EncounterSites.build_all()
-	expect(sites.size() >= 9, "sites built (%d)" % sites.size())
+	expect(sites.size() >= 11, "sites built (%d)" % sites.size())
 	var kinds := {}
 	for s in sites:
 		kinds[s.kind] = true
+		print("    site %-26s %-8s %s yaw %.2f" % [s.id, s.kind, s.center.snapped(Vector3.ONE * 0.1), s.yaw])
+		if s.kind == &"outpost" or s.kind == &"den":
+			# Not astride a road, in a field or on town paving.
+			for k in 12:
+				var a := TAU * k / 12.0
+				var q := s.center + Vector3(cos(a), 0, sin(a)) * s.radius
+				expect(WorldData.get_road(q.x, q.z) <= 0.05, "%s: no road inside the camp" % s.id)
+				var hints := WorldData.get_ground_hints(q.x, q.z)
+				expect(hints.b < 0.15 and hints.g < 0.15, "%s: not in farmland / town" % s.id)
 		expect(not s.members.is_empty(), "%s has members" % s.id)
 		var c := s.center
 		expect(WorldData.get_biome(c.x, c.z) != WorldData.Biome.OCEAN and WorldData.get_biome(c.x, c.z) != WorldData.Biome.CITY, "%s on land, outside cities" % s.id)
@@ -625,6 +634,28 @@ func test_heavy_blasts_topple_light_fighters_not_brutes() -> void:
 	# A follow-up stagger on the floor keeps it down (no knockdown -> stagger downgrade).
 	Combat.deal(archer, _hit(p, 2.0, R.STAGGER, Vector3.LEFT, {"poise": 30.0}))
 	expect(archer.state == S.KNOCKDOWN, "still down after a stagger hit (%s)" % archer.get_state_name())
+
+
+# --- budget ---------------------------------------------------------------------------------------------------
+
+func test_cost_of_a_full_budget_fight() -> void:
+	# The high-detail budget (15) all engaged around the player: AI + physics + animation
+	# per physics frame on this machine (printed; bounded loosely against regressions).
+	var p := _player(Vector3.ZERO)
+	p.health.invulnerable = true
+	var ids: Array[StringName] = [&"bandit_brawler", &"bandit_skirmisher", &"bandit_archer", &"fire_soldier", &"fire_shieldbearer"]
+	var nodes: Array = [p]
+	for i in 15:
+		var a := TAU * i / 15.0
+		var e := EnemySim.enemy(self, ids[i % ids.size()], Vector3(cos(a) * 10.0, 0, sin(a) * 10.0), p, {"seed": 900 + i})
+		e.brain.engage(p)
+		nodes.append(e)
+	await EnemySim.step(nodes, 60)
+	var t0 := Time.get_ticks_usec()
+	await EnemySim.step(nodes, 180)
+	var per_frame := float(Time.get_ticks_usec() - t0) / 180.0 / 1000.0
+	print("    15 engaged enemies + player: %.2f ms per physics frame" % per_frame)
+	expect(per_frame < 25.0, "15 engaged enemies cost %.2f ms per frame" % per_frame)
 
 
 # --- robustness ---------------------------------------------------------------------------------------------

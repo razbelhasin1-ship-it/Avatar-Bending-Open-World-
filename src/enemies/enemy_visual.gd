@@ -301,6 +301,34 @@ func socket_pos(socket: StringName) -> Vector3:
 	return o + Vector3.UP * 1.2 + fwd * 0.3
 
 
+## Surrender: hand-held weapons fall to the ground (copies tumble and lie there; they
+## leave with the body). The shield and quiver stay on.
+func drop_weapons() -> void:
+	if rig == null:
+		return
+	for s: StringName in [&"hand_r", &"hand_l"]:
+		var pr := rig.get_prop(s)
+		if pr == null or not is_instance_valid(pr) or props.get(s, &"") in [&"shield", &"bow"]:
+			continue
+		var copy := pr.duplicate() as Node3D
+		var from := pr.global_transform
+		rig.detach_prop(s)
+		props.erase(s)
+		copy.top_level = true
+		body.add_child(copy)
+		copy.global_transform = from
+		var side := 1.0 if s == &"hand_r" else -1.0
+		var land_at := body.global_position + body.global_basis * Vector3(0.45 * side, 0.0, -0.55)
+		land_at.y = WorldData.get_height(land_at.x, land_at.z) if WorldData.has_world_data() else body.global_position.y
+		land_at.y += 0.04
+		var lie := Basis(Vector3.UP, body.rotation.y + 0.6 * side) * Basis(Vector3.BACK, PI * 0.5)
+		var tw := copy.create_tween().set_parallel(true)
+		tw.tween_property(copy, "global_position", land_at, 0.38).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+		tw.tween_property(copy, "global_basis", lie, 0.38)
+	if body.is_inside_tree():
+		Audio.play_sfx(&"block_impact", body.global_position + Vector3.UP * 0.3, -10.0)
+
+
 ## [node, local offset] that tracks `socket` as the body animates (glints ride the
 ## weapon tip / hand through the wind-up), or [] when nothing fits.
 func socket_anchor(socket: StringName) -> Array:

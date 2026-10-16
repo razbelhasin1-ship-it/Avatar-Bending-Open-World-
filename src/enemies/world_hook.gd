@@ -21,6 +21,8 @@ func world_setup(p_scene: Node) -> void:
 		for s in director.sites:
 			if s.kind == &"outpost" or s.kind == &"den":
 				content.add_exclusion(s.center, s.radius + 4.0, ContentExclusions.TAG_TREES | ContentExclusions.TAG_PROPS | ContentExclusions.TAG_ROCKS, 4.0)
+				# Trampled ground inside the barricades (tall grass thins out toward the fence).
+				content.add_exclusion(s.center, s.radius - 2.0, ContentExclusions.TAG_GRASS, 5.0)
 		content.register_provider(EncounterProvider.new(director.sites))
 
 

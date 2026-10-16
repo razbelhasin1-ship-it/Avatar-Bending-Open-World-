@@ -12,6 +12,8 @@ extends RefCounted
 
 const R_TENTS := 9.5
 const R_FENCE := 13.0
+const TENT_DARK := Color(0.38, 0.1, 0.08)
+const DIRT := Color(0.47, 0.38, 0.27)
 
 
 static func build(site: EncounterSite, lod: int = 0) -> Dictionary:
@@ -51,10 +53,34 @@ static func face_center(p: Vector3) -> float:
 	return atan2(p.x, p.z)
 
 
+## Trampled earth: a ragged two-ring disc of radius `r` around local `c` that follows the
+## terrain (camp floor, paths to the tents).
+static func dirt(ctx: Dictionary, c: Vector3, r: float, col: Color = DIRT) -> void:
+	var kit: BuildingKit = ctx["kit"]
+	var rng: RandomNumberGenerator = ctx["rng"]
+	var n := 12
+	var inner: Array[Vector3] = []
+	var outer: Array[Vector3] = []
+	for k in n:
+		var a := TAU * k / n
+		var ro := r * rng.randf_range(0.72, 1.08)
+		inner.append(ground(ctx, Vector3(c.x + cos(a) * ro * 0.55, 0, c.z + sin(a) * ro * 0.55)) + Vector3.UP * 0.06)
+		outer.append(ground(ctx, Vector3(c.x + cos(a) * ro, 0, c.z + sin(a) * ro)) + Vector3.UP * 0.04)
+	var cc := ground(ctx, Vector3(c.x, 0, c.z)) + Vector3.UP * 0.07
+	var g := kit.g()
+	var edge := col.lerp(Color(0.42, 0.45, 0.28), 0.35)
+	for k in n:
+		var k2 := (k + 1) % n
+		g.flat_tri(cc, inner[k2], inner[k], col)
+		g.flat_tri(inner[k], inner[k2], outer[k2], col.lerp(edge, 0.5))
+		g.flat_tri(inner[k], outer[k2], outer[k], edge)
+
+
 static func _fire_pit(ctx: Dictionary) -> void:
 	var kit: BuildingKit = ctx["kit"]
 	var rng: RandomNumberGenerator = ctx["rng"]
 	var fp := ground(ctx, Vector3.ZERO)
+	dirt(ctx, Vector3.ZERO, 4.2)
 	for k in 9:
 		var a := TAU * k / 9.0
 		kit.g().blob(fp + Vector3(cos(a) * 0.95, 0.1, sin(a) * 0.95), 0.24, 0, kit.col(&"stone_dark"), rng, 0.2, Vector3(1.2, 0.8, 1.0))
@@ -75,9 +101,14 @@ static func _war_camp(ctx: Dictionary) -> void:
 	var rng: RandomNumberGenerator = ctx["rng"]
 	var lod := int(ctx["lod"])
 	# Tents (doors toward the fire), the command tent at the back.
+	# Army tents: Fire Nation red, every other one a darker maroon (no gold: it reads as a sign).
 	for a: float in [30.0, 150.0, -20.0, 200.0]:
 		var p := ground(ctx, ring(a, R_TENTS))
-		_tent(kit, p, face_center(p), {"w": 3.2, "d": 3.8, "h": 2.5, "role": &"cloth" if int(a) % 60 == 30 else &"cloth_alt"})
+		_tent(kit, p, face_center(p), {"w": 3.2, "d": 3.8, "h": 2.5, "role": &"cloth" if int(a) % 60 == 30 else TENT_DARK})
+		dirt(ctx, ring(a, R_TENTS - 3.2), 1.9)
+	# Worn path from the gate to the fire.
+	for z: float in [-6.5, -10.0, -13.0]:
+		dirt(ctx, Vector3(rng.randf_range(-0.4, 0.4), 0, z), 2.0)
 	var cmd := ground(ctx, ring(90.0, R_TENTS + 1.5))
 	_tent(kit, cmd, face_center(cmd), {"w": 4.4, "d": 5.4, "h": 3.1, "role": &"cloth"})
 	kit.banner(Transform3D(Basis(Vector3.UP, face_center(cmd)), cmd + Vector3(0, 2.9, 0) + (Vector3.ZERO - cmd).normalized() * 2.8), 0.9, 1.8,
@@ -112,6 +143,7 @@ static func _pirate_cove(ctx: Dictionary) -> void:
 	var kit: BuildingKit = ctx["kit"]
 	var rng: RandomNumberGenerator = ctx["rng"]
 	for a: float in [60.0, 130.0, 200.0]:
+		dirt(ctx, ring(a, R_TENTS - 4.0), 1.8, Color(0.6, 0.53, 0.4))
 		var p := ground(ctx, ring(a, R_TENTS - 1.0))
 		_tent(kit, p, face_center(p), {"w": 3.0, "d": 3.6, "h": 2.3, "role": Color(0.55, 0.47, 0.36) if int(a) % 20 == 0 else Color(0.36, 0.42, 0.5)})
 	# Beached rowboat on its side by the camp.

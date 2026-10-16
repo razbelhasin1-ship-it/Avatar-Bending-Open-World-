@@ -36,8 +36,20 @@ func run(pt: Playtest) -> void:
 			info = s
 	if not p.check(info != null, "site %s exists" % site_id):
 		return
+	# Start 65 m out on the gate side, on the most level spot (not on a hillside).
 	var gate := Basis(Vector3.UP, info.yaw) * Vector3.FORWARD
-	var start := info.center + gate * 70.0
+	var start := info.center + gate * 65.0
+	var best := INF
+	for deg: float in [0.0, 15.0, -15.0, 30.0, -30.0, 45.0, -45.0]:
+		var q := info.center + gate.rotated(Vector3.UP, deg_to_rad(deg)) * 65.0
+		var h0 := WorldData.get_height(q.x, q.z)
+		var spread := 0.0
+		for k in 6:
+			var a := TAU * k / 6.0
+			spread = maxf(spread, absf(WorldData.get_height(q.x + 4.0 * cos(a), q.z + 4.0 * sin(a)) - h0))
+		if spread < best - 0.2:
+			best = spread
+			start = q
 	start.y = WorldData.get_height(start.x, start.z)
 	var to := info.center - start
 	var spawn := Transform3D(Basis(Vector3.UP, atan2(-to.x, -to.z)), start + Vector3.UP * 0.3)
@@ -70,7 +82,8 @@ func run(pt: Playtest) -> void:
 	Events.enemy_alerted.connect(func(e: Node3D) -> void: alerted.append(e))
 	var toasts: Array = []
 	Events.notify.connect(func(text: String, _k: StringName) -> void: toasts.append(text))
-	await p.wait_game(1.0)
+	# Let the "Region Discovered" card pass.
+	await p.wait_game(5.0)
 	await p.screenshot("camp_1_approach_view")
 	await _overview("camp_1_approach")
 	for e in _members():
@@ -87,6 +100,7 @@ func run(pt: Playtest) -> void:
 	p.release(&"move_forward")
 	p.check(not alerted.is_empty(), "spotted on the way in (%.1f s, %.0f m from the centre)" % [t, _flat(pl.global_position, site.center)])
 	await p.wait_game(0.25)
+	await p.screenshot("camp_2_spotted_view")
 	await _group_shot("camp_2_spotted")
 	ok = await p.wait_until(func() -> bool: return director.in_combat, 8.0)
 	p.check(ok and combat_events.has(true), "combat state on (music)")
@@ -239,8 +253,8 @@ func _overview(name: String) -> void:
 	dir.y = 0.0
 	dir = dir.normalized() if dir.length_squared() > 0.01 else Vector3.BACK
 	var side := Vector3(-dir.z, 0, dir.x)
-	var pos := site.center + dir * 26.0 + side * 12.0 + Vector3.UP * 11.0
-	pos.y = maxf(pos.y, WorldData.get_height(pos.x, pos.z) + 6.0)
+	var pos := site.center + dir * 21.0 + side * 9.0 + Vector3.UP * 15.0
+	pos.y = maxf(pos.y, WorldData.get_height(pos.x, pos.z) + 12.0)
 	cam.look_at_from_position(pos, c, Vector3.UP)
 	cam.make_current()
 	await p.screenshot(name)
@@ -251,7 +265,7 @@ func _overview(name: String) -> void:
 func _group_shot(name: String) -> void:
 	var pts: Array[Vector3] = [pl.global_position]
 	for e in _alive():
-		if e.perception.engaged and _flat(e.global_position, pl.global_position) < 18.0:
+		if e.perception.engaged and _flat(e.global_position, pl.global_position) < 11.0:
 			pts.append(e.global_position)
 	var c := Vector3.ZERO
 	for q in pts:
@@ -265,8 +279,8 @@ func _group_shot(name: String) -> void:
 	var fwd := to.normalized() if to.length_squared() > 0.01 else -pl.global_basis.z
 	var side := Vector3(-fwd.z, 0, fwd.x)
 	var dist := 5.0 + r * 1.6
-	var pos := c - fwd * dist * 0.75 + side * dist * 0.6 + Vector3.UP * (3.0 + r * 0.5)
-	pos.y = maxf(pos.y, WorldData.get_height(pos.x, pos.z) + 2.0)
+	var pos := c - fwd * dist * 0.7 + side * dist * 0.55 + Vector3.UP * (4.5 + r * 0.6)
+	pos.y = maxf(pos.y, WorldData.get_height(pos.x, pos.z) + 4.0)
 	cam.look_at_from_position(pos, c + Vector3.UP * 1.0, Vector3.UP)
 	cam.make_current()
 	await p.screenshot(name)
