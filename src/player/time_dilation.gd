@@ -14,6 +14,8 @@ const MAX_DURATION := 1.5
 const MIN_SCALE := 0.02
 
 static var _node: TimeDilation = null
+## Tests that step the simulation manually can turn dilation off.
+static var enabled := true
 ## [scale, end_usec]
 var _requests: Array = []
 var _owns_scale := false
@@ -34,6 +36,8 @@ static func _instance(tree: SceneTree = null) -> TimeDilation:
 
 ## Dips Engine.time_scale to `scale` for `real_seconds` of wall-clock time.
 static func request(scale: float, real_seconds: float) -> void:
+	if not enabled:
+		return
 	var n := _instance()
 	if n == null:
 		return

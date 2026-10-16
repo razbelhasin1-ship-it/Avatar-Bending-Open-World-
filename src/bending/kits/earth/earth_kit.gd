@@ -16,7 +16,7 @@ static func defs() -> Array[AbilityDef]:
 			"params": {"steps": [
 				{"clip": &"combo_earth_1", "start": 0.32, "speed": 1.15, "event": &"release", "chain_at": 0.8, "hand": &"hand_r", "rock": 0.2, "move": "brake"},
 				{"clip": &"combo_earth_2", "start": 0.32, "speed": 1.15, "event": &"release", "chain_at": 0.8, "hand": &"hand_l", "rock": 0.2, "move": "brake"},
-				{"clip": &"combo_earth_3", "start": 0.42, "speed": 1.1, "event": &"release", "hand": &"hands", "rock": 0.36, "move": "brake",
+				{"clip": &"combo_earth_3", "start": 0.5, "speed": 1.1, "event": &"release", "hand": &"hands", "rock": 0.36, "move": "brake",
 					"hit": {"damage": 16.0, "reaction": R.KNOCKBACK, "force": 8.0, "poise": 30.0, "heavy": true}},
 			], "speed": 30.0, "range": 28.0},
 			"fx": {"vfx": &"rock", "sfx": &"cast_light"}, "script_path": DIR + "earth_punch.gd"}),

@@ -26,7 +26,8 @@ static func on_result(ctx: BendingContext, hit: HitInfo, target: Node, result: i
 			if player_involved:
 				hitstop(HITSTOP_HEAVY if hit.is_heavy or result == Combat.Result.KILLED else HITSTOP_LIGHT)
 				shake(0.32 if hit.is_heavy else 0.14, 0.18 if hit.is_heavy else 0.1)
-			if ctx != null and ctx.is_player():
+			# Parry counters are already paid by the parry's +15.
+			if ctx != null and ctx.is_player() and not ctx.no_focus and not hit.has_meta(&"no_focus"):
 				ctx.add_focus(10.0 if hit.is_heavy else 6.0)
 		Combat.Result.BLOCKED:
 			ImpactFx.block(from, hit.element, hit.position, -hit.direction)

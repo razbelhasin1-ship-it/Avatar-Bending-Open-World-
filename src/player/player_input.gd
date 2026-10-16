@@ -26,11 +26,18 @@ var sprinting := false
 ## Game-time clock (sum of physics deltas).
 var clock := 0.0
 
+## Virtual mode: actions come from `virtual` (action -> strength) instead of the
+## Input singleton. Used by tests, fuzzing and scripted/AI control; the
+## gameplay code above this layer cannot tell the difference.
+var virtual_mode := false
+var virtual: Dictionary = {}
+
 var _pressed_at: Dictionary = {}
 var _released_now: Dictionary = {}
 var _held_since: Dictionary = {}
 var _sprint_toggled := false
 var _idle_time := 0.0
+var _virtual_prev: Dictionary = {}
 
 
 func poll(delta: float) -> void:
@@ -43,31 +50,70 @@ func poll(delta: float) -> void:
 		_sprint_toggled = false
 		_held_since.clear()
 		_pressed_at.clear()
+		_virtual_prev = virtual.duplicate()
 		return
-	move_input = Input.get_vector(&"move_left", &"move_right", &"move_forward", &"move_back")
+	move_input = Vector2(_strength(&"move_right") - _strength(&"move_left"), _strength(&"move_back") - _strength(&"move_forward"))
 	if move_input.length() > 1.0:
 		move_input = move_input.normalized()
 	move_vector = _to_world(move_input)
 	for a: StringName in BUFFERED:
-		if not InputMap.has_action(a):
+		if not virtual_mode and not InputMap.has_action(a):
 			continue
-		if Input.is_action_just_pressed(a):
+		if _just_pressed(a):
 			_pressed_at[a] = clock
 			_held_since[a] = clock
-		elif Input.is_action_just_released(a):
+		elif _just_released(a):
 			_released_now[a] = true
 			_held_since.erase(a)
-		elif not Input.is_action_pressed(a) and _held_since.has(a):
+		elif not _pressed(a) and _held_since.has(a):
 			# Missed release (focus loss): never leave a hold stuck.
 			_released_now[a] = true
 			_held_since.erase(a)
 	_update_sprint(delta)
+	_virtual_prev = virtual.duplicate()
+
+
+func _strength(a: StringName) -> float:
+	if virtual_mode:
+		return float(virtual.get(a, 0.0))
+	return Input.get_action_strength(a) if InputMap.has_action(a) else 0.0
+
+
+func _pressed(a: StringName) -> bool:
+	if virtual_mode:
+		return float(virtual.get(a, 0.0)) > 0.0
+	return Input.is_action_pressed(a)
+
+
+func _just_pressed(a: StringName) -> bool:
+	if virtual_mode:
+		return _pressed(a) and float(_virtual_prev.get(a, 0.0)) <= 0.0
+	return Input.is_action_just_pressed(a)
+
+
+func _just_released(a: StringName) -> bool:
+	if virtual_mode:
+		return not _pressed(a) and float(_virtual_prev.get(a, 0.0)) > 0.0
+	return Input.is_action_just_released(a)
+
+
+## Virtual mode helpers.
+func press(action: StringName, strength: float = 1.0) -> void:
+	virtual[action] = strength
+
+
+func release(action: StringName) -> void:
+	virtual.erase(action)
+
+
+func release_all() -> void:
+	virtual.clear()
 
 
 func _update_sprint(delta: float) -> void:
 	var toggle := bool(Settings.get_value("controls", "toggle_sprint", false))
 	if toggle:
-		if Input.is_action_just_pressed(&"sprint"):
+		if _just_pressed(&"sprint"):
 			_sprint_toggled = not _sprint_toggled
 		if move_input.length() < 0.1:
 			_idle_time += delta
@@ -77,7 +123,7 @@ func _update_sprint(delta: float) -> void:
 			_idle_time = 0.0
 		sprinting = _sprint_toggled
 	else:
-		sprinting = Input.is_action_pressed(&"sprint")
+		sprinting = _pressed(&"sprint")
 
 
 func _to_world(v: Vector2) -> Vector3:
@@ -126,7 +172,11 @@ func clear_all() -> void:
 
 
 func is_held(action: StringName) -> bool:
-	return enabled and InputMap.has_action(action) and Input.is_action_pressed(action)
+	if not enabled:
+		return false
+	if virtual_mode:
+		return _pressed(action)
+	return InputMap.has_action(action) and Input.is_action_pressed(action)
 
 
 ## True on the tick `action` was released.

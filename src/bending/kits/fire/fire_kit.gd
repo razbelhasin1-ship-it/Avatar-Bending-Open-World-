@@ -16,7 +16,7 @@ static func defs() -> Array[AbilityDef]:
 			"params": {"steps": [
 				{"clip": &"combo_fire_1", "start": 0.18, "speed": 1.0, "event": &"release", "chain_at": 0.62, "kind": "bolt", "hand": &"hand_r"},
 				{"clip": &"combo_fire_2", "start": 0.18, "speed": 1.0, "event": &"release", "chain_at": 0.62, "kind": "bolt", "hand": &"hand_l"},
-				{"clip": &"combo_fire_3", "start": 0.25, "speed": 1.2, "event": &"impact", "chain_at": 0.7, "kind": "kick", "hand": &"foot_r", "move": "lunge", "lunge": 2.2,
+				{"clip": &"combo_fire_3", "start": 0.28, "speed": 1.2, "event": &"impact", "chain_at": 0.7, "kind": "kick", "hand": &"foot_r", "move": "lunge", "lunge": 2.2,
 					"hit": {"damage": 9.0, "force": 4.0, "poise": 12.0}},
 				{"clip": &"fire_spin_kick_r", "start": 0.32, "speed": 1.15, "event": &"release", "kind": "wave", "hand": &"foot_r",
 					"hit": {"damage": 13.0, "reaction": R.KNOCKBACK, "force": 9.0, "poise": 26.0, "heavy": true, "status": {"burn": 3.0}}},

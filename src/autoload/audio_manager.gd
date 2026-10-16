@@ -339,9 +339,11 @@ func play_hit(hit: HitInfo, target: Node, result: int) -> void:
 		var sweet := 0.0 if i == 0 else (-7.0 if hit.element != BendingSounds.NONE else -4.0)
 		_play_3d(layers[i], pos, null, vol + sweet, 0.07, 0.0, 10.0)
 	if result == Combat.Result.KILLED and target is Node3D:
-		var t := target as Node3D
+		# Weak reference: the target may be freed before the body hits the ground.
+		var wr: WeakRef = weakref(target)
 		get_tree().create_timer(0.45, true).timeout.connect(func() -> void:
-			var p := t.global_position if is_instance_valid(t) else pos
+			var t := wr.get_ref() as Node3D
+			var p := t.global_position if t != null and t.is_inside_tree() else pos
 			_play_3d(&"body_fall", p, null, 0.0, 0.06, 0.0, 5.0))
 
 

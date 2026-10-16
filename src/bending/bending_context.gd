@@ -50,6 +50,8 @@ var poise_armor := 0.0
 var invulnerable := false
 ## Damage reduction 0..1 while executing (earth armor style actions).
 var damage_reduction := 0.0
+## Set while delivering parry counters: those hits grant no extra Focus.
+var no_focus := false
 
 
 func _init(p_caster: Node3D = null, p_rig: HumanoidRig = null, p_element: int = ElementDefs.Element.NONE, p_team: int = Combat.Team.PLAYER) -> void:

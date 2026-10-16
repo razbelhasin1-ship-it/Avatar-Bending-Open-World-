@@ -86,7 +86,7 @@ const TABLE := {
 	},
 	ElementDefs.Element.WATER: {
 		"walk_speed": 3.0, "run_speed": 6.5, "sprint_speed": 9.2, "skate_speed": 12.0, "accel": 20.0, "decel": 12.0,
-		"turn_rate": 520.0, "turn_smoothing": 0.07, "jump_velocity": 6.0, "gravity_scale": 1.0, "fall_gravity_mult": 1.1,
+		"turn_rate": 520.0, "turn_smoothing": 0.035, "jump_velocity": 6.0, "gravity_scale": 1.0, "fall_gravity_mult": 1.1,
 		"air_control": 0.55, "knockback_mult": 0.9, "landing": &"spray", "snow_ignored_when_sprinting": true,
 		"dodge_distance": 4.0, "dodge_duration": 0.36, "dodge_iframes": 0.26, "rig_preset": &"water_tribe", "rig_style": &"water",
 		"swim_speed": 3.8, "swim_sprint_speed": 5.6,

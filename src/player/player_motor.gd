@@ -51,6 +51,8 @@ var _last_safe := Vector3.INF
 var _sense_tick := 0
 ## Horizontal speed multiplier from external effects (armor, chill...). 1 = none.
 var speed_scale := 1.0
+## Climbing out of water: keep pushing onto the ledge for this long.
+var _climb_time := 0.0
 
 
 func _init(p_body: CharacterBody3D, p_profile: LocomotionProfile) -> void:
@@ -145,6 +147,13 @@ func air_move(delta: float, move: Vector3, sprint: bool, face_dir: Vector3 = Vec
 	var p := profile
 	var mag := clampf(move.length(), 0.0, 1.0)
 	var hv := Vector3(body.velocity.x, 0.0, body.velocity.z)
+	if _climb_time > 0.0:
+		# Vaulting out of water: keep driving onto the ledge until landed.
+		_climb_time -= delta
+		var f := _forward() * 3.0
+		body.velocity.x = f.x
+		body.velocity.z = f.z
+		return
 	if gliding:
 		var top := p.glide_speed
 		var fwd := move.normalized() if mag > 0.05 else _forward()
@@ -314,21 +323,32 @@ func try_swim_exit() -> bool:
 	if not body.test_move(xf, fwd * 0.6):
 		return false
 	# Wall ahead: is there standing room above it?
-	var up := Vector3.UP * 1.6
+	var up := Vector3.UP * 1.8
 	if body.test_move(xf, up):
 		return false
 	if body.test_move(xf.translated(up), fwd * 0.8):
 		return false
-	body.velocity.y = 6.2
-	body.velocity += fwd * 2.0
+	# Ledge height (ray down just past the wall) -> exact vault velocity.
+	var from := body.global_position + fwd * 0.75 + up
+	var q := PhysicsRayQueryParameters3D.create(from, from + Vector3.DOWN * 3.5, Layers.SOLID)
+	var ex: Array[RID] = [body.get_rid()]
+	q.exclude = ex
+	var hit := body.get_world_3d().direct_space_state.intersect_ray(q)
+	var top: float = (hit["position"] as Vector3).y if not hit.is_empty() else body.global_position.y + 1.4
+	var rise := maxf(0.5, top - body.global_position.y + 0.65)
+	body.velocity.y = sqrt(2.0 * profile.gravity() * rise)
+	body.velocity.x = fwd.x * 3.0
+	body.velocity.z = fwd.z * 3.0
 	swimming = false
+	_climb_time = 1.0
 	jumped.emit(&"climb")
 	return true
 
 
-## Variable jump height: releasing jump early cuts the rise.
+## Variable jump height: releasing jump early cuts the rise of a GROUND jump
+## (the Air jump is a burst of wind and always gives its full height).
 func release_jump() -> void:
-	if body.velocity.y > 2.0 and not gliding:
+	if body.velocity.y > 2.0 and not gliding and air_jumps_used == 0 and _climb_time <= 0.0:
 		body.velocity.y *= 0.55
 
 
@@ -376,6 +396,7 @@ func integrate(delta: float, gravity_mult: float = 1.0) -> void:
 		air_jumps_used = 0
 		jumped_this_air = false
 		gliding = false
+		_climb_time = 0.0
 		peak_y = body.global_position.y
 	on_floor = now_floor
 
@@ -423,5 +444,6 @@ func teleport(xform: Transform3D) -> void:
 	air_jumps_used = 0
 	gliding = false
 	swimming = false
+	_climb_time = 0.0
 	peak_y = xform.origin.y
 	_last_safe = xform.origin

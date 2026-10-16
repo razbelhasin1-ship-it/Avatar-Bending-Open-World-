@@ -87,6 +87,7 @@ func guard(hit: HitInfo) -> Dictionary:
 	var proj: Variant = hit.get_meta(&"projectile", null) if hit.has_meta(&"projectile") else null
 	if in_parry_window():
 		var attacker := hit.source as Node3D
+		ctx.no_focus = true
 		counter(hit, attacker)
 		ctx.add_focus(15.0)
 		if attacker != null and is_instance_valid(attacker) and not hit.is_projectile:
@@ -94,6 +95,7 @@ func guard(hit: HitInfo) -> Dictionary:
 					"stun": 0.6, "poise": 40.0}, attacker.global_position - ctx.origin(), 0, def.id)
 			sh.position = BendingContext.target_point(attacker)
 			BendingHits.deliver(ctx, attacker, sh)
+		ctx.no_focus = false
 		if proj is BendingProjectile and is_instance_valid(proj):
 			if bool(param("redirect", false)) and hit.deflectable:
 				var back := (BendingContext.target_point(attacker) - ctx.hands_pos()) if attacker != null and is_instance_valid(attacker) else -hit.direction
