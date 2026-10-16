@@ -139,6 +139,9 @@ func refresh() -> void:
 		c.queue_free()
 	glyph_row.visible = dev != &"touch"
 	if dev != &"touch":
+		var explicit: Dictionary = step.get("glyphs", {})
+		if not explicit.is_empty():
+			glyph_row.add_child(PromptGlyph.for_entries(explicit.get("kbm", []), explicit.get("pad", []), 40))
 		for a: StringName in step.get("actions", []):
 			if InputMap.has_action(a):
 				glyph_row.add_child(PromptGlyph.for_action(a, 40))

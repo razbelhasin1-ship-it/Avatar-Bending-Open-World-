@@ -14,10 +14,13 @@ extends RefCounted
 static func build(e: int, light_steps: int, has_companion: bool, technique_name: String = "your technique") -> Array[Dictionary]:
 	var elem := String(ElementDefs.get_data(e).get("element_name", "your element")).to_lower()
 	var out: Array[Dictionary] = []
-	out.append(_s(&"look", "Look Around", 150.0, "°",
+	var look := _s(&"look", "Look Around", 150.0, "°",
 			{"kbm": "Move the mouse to look around the training grounds.",
 			"pad": "Use the right stick to look around the training grounds.",
-			"touch": "Drag on the right half of the screen to look around."}, [&"look_right"]))
+			"touch": "Drag on the right half of the screen to look around."}, [])
+	# explicit glyphs: a mouse / the right stick (camera look has no rebindable key)
+	look["glyphs"] = {"kbm": [{"type": "mouse", "button": 0}], "pad": [{"type": "joy_axis", "axis": JOY_AXIS_RIGHT_X, "value": 1.0}]}
+	out.append(look)
 	out.append(_s(&"move", "Find Your Footing", 12.0, "m",
 			{"kbm": "Walk with {move_forward} {move_left} {move_back} {move_right} - the camera decides what forward means.",
 			"pad": "Walk with the left stick: push gently to walk, fully to run.",

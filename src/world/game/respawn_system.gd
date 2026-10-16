@@ -116,6 +116,11 @@ func _place(at: Transform3D, revive: bool) -> void:
 	last_respawn = x
 	if revive:
 		player.respawn_at(x, health_ratio)
+		# respawn_at only revives a depleted HealthComponent; a scripted death keeps full health.
+		var h := player.health
+		if h and not is_equal_approx(h.health, h.max_health * health_ratio):
+			h.health = h.max_health * health_ratio
+			h.changed.emit(h.health, h.max_health)
 		respawned.emit(x)
 	else:
 		if player.get_state() == PlayerCharacter.State.MOUNTED:

@@ -18,10 +18,11 @@ const SITES := {
 	ElementDefs.Element.FIRE: &"fn_flame_kata_grounds",
 	ElementDefs.Element.AIR: &"at_airball_courts",
 }
-## Extra yaw (deg) on top of "face the home city" for a better backdrop.
+## Extra yaw (deg) on top of "face the home city" for a better backdrop (the Airball Courts
+## face the open sky over the lower terraces instead of the temple's cliff wall).
 const YAW_OFFSET := {
 	ElementDefs.Element.WATER: 0.0, ElementDefs.Element.EARTH: 0.0,
-	ElementDefs.Element.FIRE: 0.0, ElementDefs.Element.AIR: 0.0,
+	ElementDefs.Element.FIRE: 0.0, ElementDefs.Element.AIR: -140.0,
 }
 ## Sparring circle radius (m).
 const RING := 13.0

@@ -101,6 +101,8 @@ func _exit_tree() -> void:
 			Input.action_release(a)
 	Engine.time_scale = 1.0
 	WorldData.clear_water_sources()
+	if Events.companion_spawned.is_connected(_on_companion_spawned):
+		Events.companion_spawned.disconnect(_on_companion_spawned)
 
 
 # --- virtual steps -------------------------------------------------------------------------------
