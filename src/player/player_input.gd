@@ -38,6 +38,7 @@ var _held_since: Dictionary = {}
 var _sprint_toggled := false
 var _idle_time := 0.0
 var _virtual_prev: Dictionary = {}
+var _real_prev: Dictionary = {}
 
 
 func poll(delta: float) -> void:
@@ -59,10 +60,25 @@ func poll(delta: float) -> void:
 	for a: StringName in BUFFERED:
 		if not virtual_mode and not InputMap.has_action(a):
 			continue
-		if _just_pressed(a):
+		var jp := false
+		var jr := false
+		if virtual_mode:
+			jp = _just_pressed(a)
+			jr = _just_released(a)
+		else:
+			# Edge detection against the previous tick: a press made between
+			# physics ticks (touch overlay, scripted input) counts exactly once.
+			# is_action_just_pressed() only adds taps pressed AND released
+			# between two ticks.
+			var now := Input.is_action_pressed(a)
+			var before := bool(_real_prev.get(a, false))
+			jp = (now and not before) or (not now and not before and Input.is_action_just_pressed(a))
+			jr = not now and before
+			_real_prev[a] = now
+		if jp:
 			_pressed_at[a] = clock
 			_held_since[a] = clock
-		elif _just_released(a):
+		elif jr:
 			_released_now[a] = true
 			_held_since.erase(a)
 		elif not _pressed(a) and _held_since.has(a):

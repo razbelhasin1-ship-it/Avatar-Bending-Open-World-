@@ -13,8 +13,18 @@ func on_guard_up() -> void:
 		"kind": &"earth", "size": Vector3(1.7, 1.95, 0.5), "hp": hp, "rise_time": 0.16, "follow": ctx.caster,
 		"follow_offset": Vector3(0, 0, 0.95)})
 	_slab.broken.connect(_on_slab_broken)
+	_slab.hit_filter = _slab_filter
 	if ctx.is_player():
 		BendingFeedback.shake(0.12, 0.1)
+
+
+## Hits on the slab inside the parry window are parries (the slab is in front
+## of the bender, so projectiles meet it before the body).
+func _slab_filter(hit: HitInfo) -> int:
+	if not is_defending() or not in_parry_window():
+		return -1
+	var r: Dictionary = guard(hit)
+	return int(r["result"])
 
 
 func _on_slab_broken(_c: BendingConstruct) -> void:

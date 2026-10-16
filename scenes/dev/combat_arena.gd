@@ -80,8 +80,8 @@ func _build_environment() -> void:
 	sun = DirectionalLight3D.new()
 	sun.name = "Sun"
 	sun.rotation_degrees = Vector3(-42, 148, 0)
-	sun.light_energy = 1.35
-	sun.light_color = Color(1.0, 0.93, 0.82)
+	sun.light_energy = 1.2
+	sun.light_color = Color(1.0, 0.92, 0.8)
 	add_child(sun)
 	Settings.configure_sun(sun)
 	var we := WorldEnvironment.new()
@@ -89,24 +89,24 @@ func _build_environment() -> void:
 	env.background_mode = Environment.BG_SKY
 	var sky := Sky.new()
 	var mat := ProceduralSkyMaterial.new()
-	mat.sky_top_color = Color(0.22, 0.42, 0.78)
-	mat.sky_horizon_color = Color(0.7, 0.78, 0.86)
-	mat.ground_horizon_color = Color(0.62, 0.58, 0.5)
-	mat.ground_bottom_color = Color(0.32, 0.28, 0.23)
+	mat.sky_top_color = Color(0.16, 0.36, 0.74)
+	mat.sky_horizon_color = Color(0.58, 0.7, 0.84)
+	mat.ground_horizon_color = Color(0.5, 0.47, 0.42)
+	mat.ground_bottom_color = Color(0.26, 0.23, 0.2)
 	mat.sun_angle_max = 20.0
 	sky.sky_material = mat
 	env.sky = sky
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-	env.ambient_light_energy = 0.6
+	env.ambient_light_energy = 0.45
 	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
-	env.tonemap_exposure = 1.0
+	env.tonemap_exposure = 0.95
 	env.glow_enabled = true
-	env.glow_intensity = 0.3
+	env.glow_intensity = 0.25
 	env.glow_bloom = 0.0
-	env.glow_hdr_threshold = 1.05
+	env.glow_hdr_threshold = 1.1
 	env.fog_enabled = true
-	env.fog_light_color = Color(0.72, 0.76, 0.82)
-	env.fog_density = 0.0022
+	env.fog_light_color = Color(0.6, 0.68, 0.8)
+	env.fog_density = 0.0012
 	env.fog_aerial_perspective = 0.5
 	Settings.configure_environment(env)
 	env.volumetric_fog_enabled = false
@@ -174,7 +174,7 @@ func _build_ground() -> void:
 	_static_box(Vector3(POOL.get_center().x, 0.12, pz1 + 0.2), Vector3(POOL.size.x + 0.8, 0.24, 0.4), rim_c)
 	_static_box(Vector3(px1 + 0.2, 0.12, POOL.get_center().y), Vector3(0.4, 0.24, POOL.size.y), rim_c)
 	# Snow patch and ice rink (surface zones; visual layers on the floor).
-	_patch(SNOW, Color(0.94, 0.96, 1.0), 0.03, 0.9)
+	_patch(SNOW, Color(0.86, 0.9, 0.96), 0.03, 0.9)
 	_patch(ICE, Color(0.72, 0.88, 0.97), 0.02, 0.15)
 
 
@@ -194,7 +194,7 @@ func _ground_slab(r: Rect2, tex: Texture2D) -> void:
 	mi.position = Vector3(0, 0.5, 0)
 	# The tile texture holds 16 x 16 tiles: 2 m tiles -> one repeat per 32 m.
 	mi.mesh = _uv_plane(r.size, r.size / 32.0)
-	mi.material_override = ToonMaterials.make(Color(0.74, 0.7, 0.63), {"outline": false, "texture": tex, "unique": true})
+	mi.material_override = ToonMaterials.make(Color(0.62, 0.57, 0.5), {"outline": false, "texture": tex, "unique": true})
 	sb.add_child(mi)
 
 
@@ -230,7 +230,7 @@ func _tile_texture() -> Texture2D:
 			var line := (x % 16) == 0 or (y % 16) == 0
 			var cell := Vector2i(x / 16, y / 16)
 			var tone := 0.9 + 0.08 * fn.get_noise_2d(cell.x * 7.0, cell.y * 7.0) + 0.03 * fn.get_noise_2d(x * 3.0, y * 3.0)
-			img.set_pixel(x, y, Color(0.6, 0.57, 0.52) if line else Color(tone, tone * 0.97, tone * 0.92))
+			img.set_pixel(x, y, Color(0.72, 0.69, 0.64) if line else Color(tone, tone * 0.97, tone * 0.92))
 	img.generate_mipmaps()
 	return ImageTexture.create_from_image(img)
 
@@ -285,17 +285,28 @@ func _add_ui() -> void:
 	var cl := CanvasLayer.new()
 	cl.layer = 20
 	add_child(cl)
-	_help = Label.new()
-	_help.position = Vector2(24, 300)
-	_help.add_theme_font_size_override(&"font_size", 18)
-	_help.modulate = Color(1, 1, 1, 0.8)
-	_help.text = "COMBAT ARENA\nF1-F4 element  F5 reset dummies  F6 bot on/off  F7 infinite chi  F8 hide\nLMB light  RMB heavy (hold)  Q defend  C dodge  1-4 techniques  Tab lock-on"
-	cl.add_child(_help)
+	# Top-right corner: the HUD uses the other corners and the top centre.
+	var box := VBoxContainer.new()
+	box.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT, Control.PRESET_MODE_MINSIZE, 16)
+	box.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	box.offset_top = 64.0
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	cl.add_child(box)
 	_info = Label.new()
-	_info.position = Vector2(24, 380)
-	_info.add_theme_font_size_override(&"font_size", 16)
-	_info.modulate = Color(1, 0.95, 0.8, 0.85)
-	cl.add_child(_info)
+	_info.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_info.add_theme_font_size_override(&"font_size", 14)
+	_info.add_theme_constant_override(&"outline_size", 4)
+	_info.add_theme_color_override(&"font_outline_color", Color(0, 0, 0, 0.6))
+	_info.modulate = Color(1, 0.95, 0.8, 0.9)
+	box.add_child(_info)
+	_help = Label.new()
+	_help.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_help.add_theme_font_size_override(&"font_size", 12)
+	_help.add_theme_constant_override(&"outline_size", 4)
+	_help.add_theme_color_override(&"font_outline_color", Color(0, 0, 0, 0.6))
+	_help.modulate = Color(1, 1, 1, 0.75)
+	_help.text = "COMBAT ARENA\nF1-F4 element · F5 reset dummies · F6 bot · F7 infinite chi · F8 hide\nLMB light · RMB heavy (hold) · Q defend · C dodge · 1-4 techniques · Tab lock-on"
+	box.add_child(_help)
 
 
 func _process(_delta: float) -> void:
@@ -319,9 +330,19 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		KEY_F8: _help.visible = not _help.visible
 
 
+## Dev: switches the player's element (GameState.element too, so the HUD emblem follows).
 func switch_element(e: int) -> void:
+	if e == player.element:
+		return
+	GameState.element = e
+	# Dev only: technique slots start empty so the new element's starters
+	# fill them from slot 1.
+	GameState.equipped_abilities = [&"", &"", &"", &""] as Array[StringName]
 	player.set_element(e)
 	if hud and hud.has_method("bind_player"):
+		var cb := Callable(hud, &"set_resource")
+		if player.resource_changed.is_connected(cb):
+			player.resource_changed.disconnect(cb)
 		hud.call("bind_player", player)
 
 

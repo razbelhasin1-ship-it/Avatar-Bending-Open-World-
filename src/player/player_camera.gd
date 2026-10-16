@@ -25,6 +25,7 @@ extends Node3D
 const BASE_DISTANCE := 4.3
 const PIVOT_HEIGHT := 1.55
 const SHOULDER := 0.42
+const LOCK_SHOULDER := 0.95
 const PITCH_MIN := deg_to_rad(-38.0)
 const PITCH_MAX := deg_to_rad(72.0)
 const MOUSE_RAD_PER_PX := 0.0026
@@ -53,6 +54,7 @@ var _override: Node3D = null
 var _pivot := Vector3.ZERO
 var _pivot_init := false
 var _distance := BASE_DISTANCE
+var _shoulder := SHOULDER
 var _trauma := 0.0
 var _trauma_hold := 0.0
 var _shake_t := 0.0
@@ -227,6 +229,8 @@ func _process(delta: float) -> void:
 			var dy := (lock.global_position.y - tpos.y)
 			var want_pitch := clampf(deg_to_rad(12.0) - atan2(dy, maxf(sep, 1.0)) * 0.6, deg_to_rad(-10.0), deg_to_rad(40.0))
 			pitch = lerpf(pitch, want_pitch, 1.0 - exp(-real_dt * 3.0))
+			# Wider over-the-shoulder offset so the player never hides the target.
+			shoulder = maxf(shoulder, LOCK_SHOULDER)
 	elif mode == &"flight" and bool(mode_params.get("auto_align", true)) and _idle_look > 1.2:
 		var v: Vector3 = follow.get("velocity") if "velocity" in follow else Vector3.ZERO
 		var hv := Vector3(v.x, 0, v.z)
@@ -244,7 +248,8 @@ func _process(delta: float) -> void:
 	var yb := Basis(Vector3.UP, yaw)
 	var right := yb.x
 	var offset_dir := yb * Vector3(0.0, sin(pitch), cos(pitch))
-	var pivot := _pivot + right * shoulder
+	_shoulder = lerpf(_shoulder, shoulder, 1.0 - exp(-real_dt * 4.0))
+	var pivot := _pivot + right * _shoulder
 	# Collision: never put the camera behind a wall / under the terrain.
 	var want := base_dist
 	var hit := _cast(_pivot, pivot + offset_dir * want, follow)

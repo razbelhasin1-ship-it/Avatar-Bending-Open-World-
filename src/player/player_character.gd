@@ -149,7 +149,10 @@ func set_element(e: int) -> void:
 	if GameState.element == element:
 		AbilityRegistry.grant_starters(element)
 	controller.load_equipped()
-	if controller.get_slot_def(&"technique_1") == null:
+	var any_equipped := false
+	for s in BendingController.TECHNIQUE_SLOTS:
+		any_equipped = any_equipped or controller.get_slot_def(s) != null
+	if not any_equipped:
 		# Not this save's element (dev arenas): equip the element's starters directly.
 		var i := 0
 		for id in AbilityRegistry.starter_techniques(element):

@@ -20,7 +20,8 @@ static func gust(ab: BendingAbility, from: Vector3, dir: Vector3, cfg: Dictionar
 	d = d.normalized()
 	var travel := range_m / speed
 	var xf := Transform3D(Basis.looking_at(d, Vector3.UP if absf(d.y) < 0.95 else Vector3.RIGHT), from)
-	var g := AirFx.gust(ctx.caster, xf, range_m, radius + grow * 0.6, travel * 1.3, {"opacity": float(cfg.get("opacity", 0.9)), "tail": 0.55})
+	# The current lingers a little after the hit volume passed (readability).
+	var g := AirFx.gust(ctx.caster, xf, range_m, radius + grow * 0.6, travel * 1.3 + 0.18, {"opacity": float(cfg.get("opacity", 0.9)), "tail": 0.55})
 	var puffer := GustPuffer.new()
 	puffer.ctx = ctx
 	puffer.dir = d

@@ -2,7 +2,8 @@ class_name PlayerTargeting
 extends Node
 ## Soft aim assist + hard lock-on (docs/GAME_DESIGN.md §5).
 ## * Soft target: best damageable of another team inside a 25° cone around the
-##   camera forward (within SOFT_RANGE, line of sight), refreshed at 15 Hz.
+##   camera's view direction, measured from the player (within SOFT_RANGE,
+##   line of sight), refreshed at 15 Hz.
 ## * Lock-on (lock_on action): locks the best target in a wider cone (or the
 ##   nearest in front); pressing again releases. While locked, a mouse flick /
 ##   right-stick flick / cycle(dir) switches to the next target in that screen
@@ -183,9 +184,14 @@ func _view() -> Transform3D:
 	return owner_body.global_transform
 
 
+## Best target in a horizontal cone around the camera's view direction, measured
+## from the PLAYER (not the camera: things between the camera and the player
+## are behind the player), within +-50 deg of elevation.
 func _best(cone_deg: float, range_m: float, exclude: Node3D) -> Node3D:
-	var view := _view()
-	var fwd := -view.basis.z
+	var f := -_view().basis.z
+	var fwd := Vector2(f.x, f.z)
+	fwd = fwd.normalized() if fwd.length_squared() > 1e-6 else Vector2(0, -1)
+	var origin := owner_body.global_position + Vector3.UP * 1.2
 	var cos_lim := cos(deg_to_rad(cone_deg))
 	var best: Node3D = null
 	var best_score := -INF
@@ -193,11 +199,12 @@ func _best(cone_deg: float, range_m: float, exclude: Node3D) -> Node3D:
 		if t == exclude:
 			continue
 		var p := BendingContext.target_point(t)
-		var to := p - view.origin
-		var d := to.length()
-		if d < 0.01:
+		var to := p - origin
+		var h := Vector2(to.x, to.z)
+		var d := h.length()
+		if d < 0.3 or absf(atan2(to.y, d)) > deg_to_rad(50.0):
 			continue
-		var c := fwd.dot(to / d)
+		var c := fwd.dot(h / d)
 		if c < cos_lim:
 			continue
 		if not _has_los(t):

@@ -37,6 +37,7 @@ var _kind: StringName = &"projectile"
 var _ring: FxRing = null
 var _stun := 0.0
 var _flame_t := 0.0
+var _forced: StringName = &""
 
 
 func _ready() -> void:
@@ -123,6 +124,15 @@ func _revive() -> void:
 	_t = interval
 
 
+## Schedules the next telegraph in `seconds` (tests / playtests time defenses
+## with it). `kind` forces &"projectile" or &"melee" for that attack.
+func attack_in(seconds: float, kind: StringName = &"") -> void:
+	_interrupt()
+	_t = maxf(0.0, seconds)
+	_forced = kind
+	active = true
+
+
 func _interrupt() -> void:
 	_phase = 0
 	_t = interval
@@ -162,6 +172,9 @@ func _physics_process(delta: float) -> void:
 		0:
 			if _t <= 0.0:
 				_kind = &"melee" if (mode == &"melee" or (mode == &"mixed" and to.length() < 2.6)) else &"projectile"
+				if _forced != &"":
+					_kind = _forced
+					_forced = &""
 				_phase = 1
 				_t = telegraph
 				_start_telegraph()

@@ -51,21 +51,27 @@ func _update_stream() -> void:
 	if u <= 1.0:
 		e = 1.0 - pow(1.0 - clampf(u, 0.0, 1.0), 2.2)
 	else:
-		e = clampf(1.0 - (time - _t0 - _t_hit) / maxf(clip_end - _t0 - _t_hit, 0.05), 0.0, 1.0)
+		# Recoil: the lash stays out a moment after the crack, then retracts.
+		var hold := 0.06
+		e = clampf(1.0 - (time - _t0 - _t_hit - hold) / maxf(clip_end - _t0 - _t_hit - hold, 0.08), 0.0, 1.0)
 		e = e * e * (3.0 - 2.0 * e)
 	var length := _reach * maxf(e, 0.04)
-	# The lash curls sideways while it travels and straightens at the crack.
-	var bend := (1.0 - clampf(u, 0.0, 1.0)) * 0.9 + 0.12
+	# The lash swings in from the side (its tip sweeping across toward the
+	# target) and keeps a visible arc at the crack: seen from behind the
+	# bender, a straight lash pointing away would vanish.
+	var sweep := 1.0 - clampf(u, 0.0, 1.0)
+	var side := _side if _side != 0.0 else 0.6
+	var tip_dir := dir.rotated(Vector3.UP, -deg_to_rad(80.0) * side * sweep)
+	var bend := sweep * 0.6 + 0.3
+	var p2 := hand + tip_dir * length
+	var p1 := hand + dir * length * 0.55 + right * side * bend * length * 0.32 + Vector3.UP * (0.25 + 0.35 * bend)
 	var pts := PackedVector3Array()
-	for k in 6:
-		var s := float(k) / 5.0
-		var p := hand + dir * length * s
-		p += right * _side * sin(PI * s) * bend * length * 0.22
-		p += Vector3.UP * sin(PI * s * 1.3) * 0.25 * bend
-		pts.append(p)
-	_tip = pts[5]
+	for k in 9:
+		var s := float(k) / 8.0
+		pts.append(hand.lerp(p1, s).lerp(p1.lerp(p2, s), s))
+	_tip = pts[8]
 	var r := float(param("whip_radius", 0.42)) * (1.0 if bool(_src.get("found", false)) else 0.8)
-	_stream.set_points(pts, 0.075 * (r / 0.42), 0.055 * (r / 0.42))
+	_stream.set_points(pts, 0.095 * (r / 0.42), 0.06 * (r / 0.42))
 	_stream.set_spray(e > 0.6 and u <= 1.2)
 
 
@@ -76,6 +82,8 @@ func strike(_i: int, sd: Dictionary) -> void:
 	var push: StringName = &"pull" if bool(sd.get("pull", false)) else &"forward"
 	var res := BendingHits.sweep(ctx, hand, _tip, float(param("whip_radius", 0.42)), h, attack_id, def.id, {"push": push})
 	sound(&"cast_light", _tip, -1.0)
+	# The crack: a spray burst at the tip, hit or miss.
+	FxBurst.spawn(ctx.caster, &"droplets", _tip, {"count": 0.6, "size": 0.8})
 	if BendingHits.count_landed(res) == 0:
 		var gy := ctx.ground_y(_tip, 1.0, 2.0)
 		if _tip.y - gy < 0.8:

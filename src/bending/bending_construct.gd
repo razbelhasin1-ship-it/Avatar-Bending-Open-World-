@@ -37,6 +37,9 @@ var _mat_flash: ShaderMaterial = null
 ## (x right, z forward of the node, ground level) and never expires on its own.
 var follow: Node3D = null
 var follow_offset := Vector3(0, 0, 0.9)
+## Optional (hit: HitInfo) -> int: returns a Combat.Result to resolve a hit
+## without damaging the construct (Earth Shield parries), or -1 to take it.
+var hit_filter: Callable = Callable()
 
 ## Live constructs (tests / AI queries).
 static var live: Array[BendingConstruct] = []
@@ -126,6 +129,12 @@ func get_display_name() -> String:
 func receive_hit(hit: HitInfo) -> int:
 	if _state >= 2:
 		return Combat.Result.IGNORED
+	if hit_filter.is_valid():
+		var r := int(hit_filter.call(hit))
+		if r >= 0:
+			if r == Combat.Result.DEFLECTED:
+				hit.damage = 0.0
+			return r
 	var dmg := hit.damage * (1.6 if hit.is_heavy else 1.0)
 	if kind == &"ice" and hit.element == ElementDefs.Element.FIRE:
 		dmg *= 1.8
@@ -174,7 +183,7 @@ func _physics_process(delta: float) -> void:
 				queue_free()
 	if _flash > 0.0 and _mat_flash:
 		_flash = maxf(0.0, _flash - delta * 6.0)
-		_mat_flash.set_shader_parameter(&"hit_flash", _flash * 0.6)
+		_mat_flash.set_shader_parameter(&"hit_flash", _flash * 0.35)
 
 
 func _launch_overlapping() -> void:
