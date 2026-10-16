@@ -62,9 +62,9 @@ static func stall(kit: BuildingKit, v: int) -> void:
 			kit.beam(p, p + Vector3(0, 2.3 + (0.25 if sz > 0.0 else 0.0), 0), 0.08, 0.08, tim)
 	var aw: Color = EkStyle.AWNINGS[v % EkStyle.AWNINGS.size()]
 	if kit.lod < 2:
-		EkHomes.awning(kit, Vector3(0, 2.55, d * 0.5), w + 0.5, d + 0.6, 0.45, aw)
+		EkHomes.awning(kit, Vector3(0, 2.65, d * 0.5), w + 0.4, d + 0.2, 0.4, aw)
 	else:
-		kit.box(Vector3(0, 2.35, 0), Vector3(w + 0.4, 0.1, d + 0.4), aw, false)
+		kit.box(Vector3(0, 2.4, 0), Vector3(w + 0.4, 0.1, d + 0.2), aw, false)
 	if kit.lod == 0:
 		# baskets on the ground, a sign
 		for k in 2:

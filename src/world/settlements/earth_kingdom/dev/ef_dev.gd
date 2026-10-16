@@ -29,7 +29,11 @@ const EF_VIEWS := {
 	# --- Omashu ---
 	"omashu_far": {"pos": Vector3(980, 260, -300), "look": Vector3(380, 190, -420), "hour": 15.0, "fov": 55.0},
 	"omashu_bridge": {"pos": Vector3(752, 166, -414), "look": Vector3(640, 176, -420), "hour": 16.0, "fov": 66.0},
-	"omashu_city": {"pos": Vector3(560, 168, -400), "look": Vector3(380, 215, -420), "hour": 10.0, "fov": 64.0},
+	"omashu_city": {"pos": Vector3(655, 163.8, -414), "look": Vector3(380, 215, -420), "hour": 10.0, "fov": 64.0},
+	"omashu_market": {"pos": Vector3(439.5, 179.8, -583.5), "look": Vector3(491.8, 179.0, -553.3), "hour": 11.0, "fov": 68.0},
+	"omashu_summit": {"pos": Vector3(470, 230, -300), "look": Vector3(380, 225, -420), "hour": 15.0, "fov": 62.0},
+	"fmb_square": {"pos": Vector3(-282, 9.0, 1712), "look": Vector3(-300, 7.0, 1700), "hour": 11.0, "fov": 68.0},
+	"fmb_harbor": {"pos": Vector3(-600, 12, 1760), "look": Vector3(-520, 6, 1760), "hour": 16.0, "fov": 62.0},
 	# --- Earth Kingdom villages ---
 	"fmb_port": {"pos": Vector3(-560, 30, 1900), "look": Vector3(-320, 10, 1720), "hour": 9.5, "fov": 60.0},
 	"millet_hollow": {"pos": Vector3(780, 112, 470), "look": Vector3(860, 94, 420), "hour": 11.0, "fov": 62.0},

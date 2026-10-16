@@ -82,3 +82,44 @@ func test_bss_cells_build() -> void:
 	if not WorldData.has_world_data():
 		return
 	_cells_build(Settlements.BA_SING_SE, 6000.0)
+
+
+func test_omashu_plan_counts() -> void:
+	if not WorldData.has_world_data():
+		return
+	var t0 := Time.get_ticks_usec()
+	var p := Settlements.plan(Settlements.OMASHU)
+	var ms := (Time.get_ticks_usec() - t0) / 1000.0
+	var counts := _counts(p)
+	print("    omashu plan: %d pieces, %d anchors, %d cells, %.0f ms" % [p.pieces.size(), p.anchors.size(), p.cells().size(), ms])
+	print("    ", counts)
+	expect_eq(int(counts.get(&"omashu_bridge", 0)), 1, "the great bridge")
+	expect(int(counts.get(&"omashu_chute", 0)) >= 30, "three mail chutes")
+	expect_eq(int(counts.get(&"omashu_chute_hub", 0)), 1, "the chute station")
+	expect_eq(int(counts.get(&"grand_stair", 0)), 9, "a stair on every ramp of every tier step")
+	expect_eq(int(counts.get(&"great_gate", 0)), 2, "bridge + causeway gates")
+	expect(int(counts.get(&"ring_wall", 0)) > 40, "tier walls")
+	expect(p.pieces.size() > 400, "a full city")
+	expect((p.data.get("claims", []) as Array).has(&"omashu_great_bridge"), "the generic bridge is claimed")
+
+
+func test_ek_villages_plan_counts() -> void:
+	if not WorldData.has_world_data():
+		return
+	var p := Settlements.plan(Settlements.EK_VILLAGES)
+	var counts := _counts(p)
+	print("    ek villages: %d pieces, %d anchors, %d cells, districts %s" % [p.pieces.size(), p.anchors.size(), p.cells().size(),
+		p.districts.map(func(d: Dictionary) -> StringName: return d["id"])])
+	print("    ", counts)
+	expect(p.districts.size() >= 4, "every Earth Kingdom village")
+	expect(int(counts.get(&"harbor_quay", 0)) >= 2, "harbour quays")
+	expect(int(counts.get(&"ek_pier", 0)) >= 2, "piers")
+	expect(int(counts.get(&"farmhouse", 0)) >= 6, "farmsteads")
+	expect(int(counts.get(&"row_house", 0)) >= 60, "town houses")
+
+
+func test_omashu_and_villages_cells_build() -> void:
+	if not WorldData.has_world_data():
+		return
+	_cells_build(Settlements.OMASHU, 6000.0)
+	_cells_build(Settlements.EK_VILLAGES, 6000.0)

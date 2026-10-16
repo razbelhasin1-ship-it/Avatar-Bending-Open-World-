@@ -72,6 +72,19 @@ static var AWNINGS: Array = [_l(Color(0.70, 0.30, 0.18)), _l(Color(0.26, 0.50, 0
 	_l(Color(0.80, 0.78, 0.66)), _l(Color(0.42, 0.56, 0.62))]
 
 
+## Masonry tones: 0 Ba Sing Se grey-tan, 1 Omashu warm sandstone, 2 village fieldstone.
+## [stone, stone_2, dark, top]
+static var TONES: Array = [
+	[_l(Color(0.62, 0.58, 0.51)), _l(Color(0.57, 0.53, 0.47)), _l(Color(0.44, 0.41, 0.37)), _l(Color(0.70, 0.66, 0.58))],
+	[_l(Color(0.74, 0.64, 0.48)), _l(Color(0.68, 0.58, 0.43)), _l(Color(0.52, 0.44, 0.33)), _l(Color(0.80, 0.72, 0.58))],
+	[_l(Color(0.58, 0.55, 0.50)), _l(Color(0.52, 0.50, 0.46)), _l(Color(0.40, 0.38, 0.35)), _l(Color(0.64, 0.61, 0.56))],
+]
+
+
+static func stone(tone: int, k: int) -> Color:
+	return TONES[clampi(tone, 0, TONES.size() - 1)][clampi(k, 0, 3)]
+
+
 static func wall(style: int, v: int) -> Color:
 	return WALLS[clampi(style, 0, WALLS.size() - 1)][posmod(v, 3)]
 

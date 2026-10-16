@@ -1,5 +1,5 @@
 class_name BssPlanner
-extends RefCounted
+extends EkRingPlanner
 ## Lays out Ba Sing Se from its WorldData ring layout (deterministic, main thread): the colossal
 ## outer wall (r 700, 38 m, 22 m thick) and the inner wall (r 380) as chord pieces with bastions,
 ## gatehouses on the five avenues and wall stairs, the retaining walls of the Middle / Upper Ring
@@ -24,15 +24,10 @@ const STAIR_W := 4.0
 ## The overlook sector of the Upper Ring edge (balustrade instead of a crenellated wall).
 const OVERLOOK := [222.0, 292.0]
 
-var L: RingLayout
-var plan: SettlementPlan
-var rng: RandomNumberGenerator
-var cam: ArrivalClearance
 ## Tier heights by id, wall records by id.
 var th := {}
 var walls := {}
-## Avenue bearings (the five gates) and the WorldData gate records.
-var avenues: Array[float] = []
+## The WorldData gate records (their bearings are the five avenues).
 var gates: Array[Dictionary] = []
 ## Wall bases (world y of the chord frames) and tops.
 var out_base := 58.0
@@ -83,22 +78,6 @@ func radius_of(wall_id: StringName) -> float:
 	return float((walls.get(wall_id, {}) as Dictionary).get("radius", 0.0))
 
 
-func ground(x: float, z: float) -> float:
-	return WorldData.get_height(x, z)
-
-
-func p3(r: float, b: float, y: float = NAN) -> Vector3:
-	return L.point(r, b, y)
-
-
-static func yaw_in(b: float) -> float:
-	return RingLayout.yaw_of(b + 180.0)
-
-
-static func yaw_out(b: float) -> float:
-	return RingLayout.yaw_of(b)
-
-
 ## Low quantile of the ground along a ring (a wall base that is buried rather than floating).
 func _ring_ground(r: float, q: float) -> float:
 	var ys: Array[float] = []
@@ -107,44 +86,6 @@ func _ring_ground(r: float, q: float) -> float:
 		ys.append(ground(p.x, p.y))
 	ys.sort()
 	return snappedf(ys[int(q * (ys.size() - 1))], 0.1)
-
-
-## Gaps ([bearing, half width m]) of the avenues.
-func avenue_gaps(half_m: float) -> Array:
-	var out := []
-	for b in avenues:
-		out.append([b, half_m])
-	return out
-
-
-## True when bearing b at radius r lies within `half_m` metres of an avenue axis.
-func on_avenue(b: float, r: float, half_m: float) -> bool:
-	for a in avenues:
-		if RingLayout.arc_len(RingLayout.bdiff(b, a), r) < half_m:
-			return true
-	return false
-
-
-## Spans of a full ring between the gaps: [[b0, b1], ...] with b1 > b0 (may exceed 180).
-static func ring_spans(r: float, gaps: Array) -> Array:
-	var cuts := []
-	for g: Array in gaps:
-		var ha := RingLayout.half_angle(float(g[1]) * 2.0, r)
-		cuts.append([wrapf(float(g[0]), 0.0, 360.0), ha])
-	cuts.sort_custom(func(a: Array, b: Array) -> bool: return a[0] < b[0])
-	var out := []
-	if cuts.is_empty():
-		return [[0.0, 360.0]]
-	for i in cuts.size():
-		var a: Array = cuts[i]
-		var b: Array = cuts[(i + 1) % cuts.size()]
-		var b0 := float(a[0]) + float(a[1])
-		var b1 := float(b[0]) - float(b[1])
-		if i == cuts.size() - 1:
-			b1 += 360.0
-		if b1 > b0 + 0.05:
-			out.append([b0, b1])
-	return out
 
 
 # --- districts + keep-outs ---------------------------------------------------------------------
@@ -290,49 +231,11 @@ func _ring_walls() -> void:
 func _step_wall(wall_id: StringName, y_lo: float, y_hi: float, r_hi: float, r_lo: float, P: float, style: StringName) -> void:
 	var H := y_hi - y_lo
 	var nominal := radius_of(wall_id) if radius_of(wall_id) > 0.0 else (r_hi + r_lo) * 0.5
-	var gaps := avenue_gaps(RAMP_HALF)
-	var vi := 0
-	var faces: Array = []
-	for span: Array in ring_spans(nominal, gaps):
-		var len_m := RingLayout.arc_len(float(span[1]) - float(span[0]), nominal)
-		var n := maxi(int(ceil(len_m / RING_CHORD)), 1)
-		# measured foot of the step at every chord end (in front of the slope)
-		var pts: Array[Vector2] = []
-		var rs: Array[float] = []
-		for k in n + 1:
-			var b := lerpf(float(span[0]), float(span[1]), float(k) / n)
-			rs.append(SettlementLayout.face_r(L, b, r_hi, r_lo, y_lo + 0.35) + 0.6)
-		# smooth (the face line must not zig-zag)
-		var sm: Array[float] = []
-		for k in rs.size():
-			var acc := 0.0
-			var cnt := 0
-			for j in range(maxi(k - 2, 0), mini(k + 3, rs.size())):
-				acc += rs[j]
-				cnt += 1
-			sm.append(acc / cnt)
-		for k in n + 1:
-			pts.append(L.xz(sm[k], lerpf(float(span[0]), float(span[1]), float(k) / n)))
-		for k in n:
-			var a := pts[k]
-			var b := pts[k + 1]
-			var m := (a + b) * 0.5
-			var bm := L.polar(m.x, m.y).y
-			var top_r := SettlementLayout.face_r(L, bm, r_hi, r_lo, y_hi - 0.35)
-			var depth := snappedf(clampf(L.polar(m.x, m.y).x - top_r + 3.0, 4.0, 14.0), 0.5)
-			var st := style
-			var p_h := P
-			if wall_id == &"upper_wall" and RingLayout.in_arc(wrapf(bm, 0.0, 360.0), OVERLOOK):
-				st = &"balustrade"
-				p_h = 1.2
-			var spec := {"L": snappedf(a.distance_to(b) + 0.08, 0.1), "H": H, "P": p_h, "depth": depth, "bottom": -1.5, "style": st,
-				"v": vi % 6, "end": k % 2 == 0, "banner": st == &"crenel" and vi % 9 == 4}
-			var face_dir := (m - L.center).normalized()
-			plan.add(&"ring_wall", Vector3(m.x, y_lo, m.y), SettlementLayout.yaw_dir(face_dir), spec, 2, "",
-					a.distance_to(b) * 0.5)
-			plan.reserve(m.x, m.y, 3.5)
-			faces.append([bm, L.polar(m.x, m.y).x])
-			vi += 1
+	var style_at := Callable()
+	if wall_id == &"upper_wall":
+		style_at = func(bm: float) -> Array:
+			return [&"balustrade", 1.2] if RingLayout.in_arc(wrapf(bm, 0.0, 360.0), OVERLOOK) else [style, P]
+	var faces := step_wall(ring_spans(nominal, avenue_gaps(RAMP_HALF)), y_lo, y_hi, r_hi, r_lo, nominal, RING_CHORD, P, style, 0, style_at)
 	plan.data[StringName("%s_faces" % wall_id)] = faces
 	# guard towers flanking the avenue ramps of the Middle / Upper Ring walls
 	if wall_id == &"palace_edge":

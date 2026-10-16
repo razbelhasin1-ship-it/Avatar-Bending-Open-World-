@@ -19,7 +19,7 @@ const HOMES: Array[StringName] = [&"row_house", &"tenement", &"shack", &"town_ho
 const CIVIC: Array[StringName] = [&"plaza", &"garden", &"pavilion", &"teahouse", &"footbridge", &"canal"]
 const PLACES: Array[StringName] = [&"tea_shop", &"training_hall"]
 const PALACE: Array[StringName] = [&"palace_podium", &"throne_hall", &"palace_hall", &"palace_gate", &"pagoda"]
-const FARM: Array[StringName] = [&"windmill", &"water_wheel", &"granary", &"field_hut"]
+const FARM: Array[StringName] = [&"windmill", &"water_wheel", &"granary", &"field_hut", &"veg_plot"]
 const PROPS: Array[StringName] = [&"lamp_post", &"stall", &"crates", &"cart", &"bench", &"well", &"banner_pole", &"statue",
 	&"planter", &"haystack", &"scarecrow", &"noticeboard"]
 

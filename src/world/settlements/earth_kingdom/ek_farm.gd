@@ -21,6 +21,47 @@ static func build(kit: BuildingKit, kind: StringName, spec: Dictionary) -> void:
 		&"water_wheel": water_wheel(kit, v)
 		&"granary": granary(kit, v)
 		&"field_hut": field_hut(kit, v)
+		&"veg_plot": veg_plot(kit, spec)
+
+
+## Vegetable garden (spec w x d, v): dark soil beds with rows of crops (cabbages, beans on
+## poles, leeks) inside a low wattle fence with a gap at the front.
+static func veg_plot(kit: BuildingKit, spec: Dictionary) -> void:
+	var w := float(spec.get("w", 10.0))
+	var d := float(spec.get("d", 8.0))
+	var v := int(spec.get("v", 0))
+	var soil := Color(0.30, 0.22, 0.15).srgb_to_linear()
+	var leaf: Array = [Color(0.30, 0.52, 0.20).srgb_to_linear(), Color(0.42, 0.60, 0.24).srgb_to_linear(), Color(0.24, 0.44, 0.22).srgb_to_linear()]
+	kit.box(Vector3(0, 0.08, 0), Vector3(w, 0.16, d), EkStyle.FIELD_DIRT, false)
+	var rows := maxi(int(d / 1.3), 2)
+	for r in rows:
+		var z := -d * 0.5 + (r + 0.5) * d / rows
+		kit.box(Vector3(0, 0.2, z), Vector3(w - 0.8, 0.14, 0.7), soil, false)
+		if kit.lod >= 2:
+			continue
+		var kind := (r + v) % 3
+		var n := maxi(int((w - 1.0) / 0.7), 2)
+		var c: Color = leaf[kind]
+		if kit.lod == 1:
+			kit.box(Vector3(0, 0.38, z), Vector3(w - 1.0, 0.3, 0.5), c, false)
+			continue
+		for k in n:
+			var x := -w * 0.5 + 0.8 + k * (w - 1.6) / maxf(n - 1, 1)
+			match kind:
+				0: kit.g().blob(Vector3(x, 0.42, z), 0.26, 0, kit.col(c), null, 0.0, Vector3(1.0, 0.7, 1.0))
+				1:
+					kit.g().cylinder(Vector3(x, 0.25, z), Vector3(x, 1.5, z), 0.03, 0.02, 3, kit.col(&"wood_dark"), 0)
+					kit.g().blob(Vector3(x, 1.0, z), 0.22, 0, kit.col(c), null, 0.0, Vector3(0.7, 1.8, 0.7))
+				_: kit.g().cone(Vector3(x, 0.25, z), Vector3(x, 0.85, z), 0.12, 4, kit.col(c))
+	if kit.lod < 2:
+		# wattle fence
+		var tim := EkStyle.timber(EkStyle.FARM)
+		var hw := w * 0.5
+		var hd := d * 0.5
+		var pts := [[Vector3(-hw, 0, -hd), Vector3(-1.0, 0, -hd)], [Vector3(1.0, 0, -hd), Vector3(hw, 0, -hd)], [Vector3(hw, 0, -hd), Vector3(hw, 0, hd)],
+			[Vector3(hw, 0, hd), Vector3(-hw, 0, hd)], [Vector3(-hw, 0, hd), Vector3(-hw, 0, -hd)]]
+		for sg: Array in pts:
+			kit.railing(PackedVector3Array([sg[0], sg[1]]), 0.8, {"role": tim, "spacing": 1.4, "rails": 2, "collide": true})
 
 
 static func windmill(kit: BuildingKit, v: int) -> void:

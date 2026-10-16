@@ -11,7 +11,7 @@ const LOWER_BANDS := [
 ]
 const LOWER_KINDS := {&"row_house": 9, &"tenement": 2, &"shack": 1}
 const MIDDLE_BANDS := [[163.0, 22.0, true], [207.0, 21.0, false], [216.0, 22.0, true], [252.0, 13.0, false]]
-const MIDDLE_KINDS := {&"town_house": 5, &"court_house": 4, &"teahouse": 1}
+const MIDDLE_KINDS := {&"town_house": 4, &"court_house": 6, &"teahouse": 1}
 const UPPER_BANDS := [[98.0, 30.0, false], [108.0, 30.0, true]]
 ## Ring streets: [tier, radius] (lamp posts, benches, patrols).
 const STREETS := [[&"lower_ring", 272.0], [&"lower_ring", 306.0], [&"lower_ring", 338.5], [&"lower_ring", 369.0],
@@ -324,59 +324,8 @@ func _tree_rows(points: Array, species: StringName, _y: float) -> void:
 
 # --- house bands -------------------------------------------------------------------------------------
 
-## A row of buildings along a ring street: fronts at radius rf facing the street (inward when
-## facing_in), up to `depth` deep, gaps where lanes / plazas / avenues are reserved.
 func _band(tier: StringName, rf: float, depth: float, facing_in: bool, kinds: Dictionary, style: int) -> void:
-	var y := y_of(tier)
-	var inside := func(w: Vector3) -> bool:
-		var t := L.tier_at(w.x, w.z)
-		return not t.is_empty() and StringName(t["id"]) == tier and absf(P.ground(w.x, w.z) - y) < 0.9
-	var b := 0.0
-	var since := 0
-	while b < 360.0:
-		var kind: StringName = SettlementLayout.pick(kinds, rng)
-		var v := rng.randi() % 12
-		var fp := EkHomes.footprint(kind, v)
-		if fp.y > depth:
-			kind = &"row_house" if style <= EkStyle.LOWER else &"town_house"
-			fp = EkHomes.footprint(kind, v)
-			if fp.y > depth:
-				v = 0
-				fp = EkHomes.footprint(kind, v)
-		var bc := b + RingLayout.half_angle(fp.x, rf)
-		var rc := rf + fp.y * 0.5 if facing_in else rf - fp.y * 0.5
-		var bw := wrapf(bc, -180.0, 180.0)
-		var yaw := BssPlanner.yaw_in(bw) if facing_in else BssPlanner.yaw_out(bw)
-		var pos := P.p3(rc, bw, y)
-		var hgt := EkHomes.height(kind, v)
-		if SettlementLayout.fits(plan, pos, yaw, fp, inside) and cam.ok(pos.x, pos.z, maxf(fp.x, fp.y) * 0.5, y + hgt):
-			SettlementLayout.reserve_rect(plan, pos, yaw, fp)
-			var arch := "ek_%s:%d:%d" % [kind, v, style]
-			var spec := {"v": v, "style": style}
-			if kind == &"teahouse":
-				spec = {"v": v % 2, "style": style}
-				arch = "ek_teahouse:%d:%d" % [v % 2, style]
-			plan.add(kind, pos, yaw, spec, 2, arch, maxf(fp.x, fp.y) * 0.5)
-			var door := world(pos, yaw, Vector3(0, 0, -fp.y * 0.5 - 1.2))
-			match kind:
-				&"teahouse":
-					plan.anchor(&"worker", door, yaw + PI, {"tags": [String(tier), "teahouse"], "building": kind})
-					plan.anchor(&"idle", world(pos, yaw, Vector3(-fp.x * 0.3, 0.5, -fp.y * 0.12)), yaw, {"tags": [String(tier), "teahouse", "customer"]})
-				&"row_house":
-					var shop: bool = v % 4 == 0 and style == EkStyle.LOWER
-					plan.anchor(&"market_stall" if shop else &"home", door, yaw + PI, {"tags": [String(tier)] + (["shop"] as Array if shop else []),
-						"building": kind, "capacity": 2 + v % 4, "goods": EkProps.GOODS[v % EkProps.GOODS.size()] if shop else ""})
-				_:
-					plan.anchor(&"home", door, yaw + PI, {"tags": [String(tier)], "building": kind, "capacity": {&"tenement": 9, &"shack": 2,
-						&"town_house": 4, &"court_house": 7, &"mansion": 12}.get(kind, 3)})
-			since += 1
-			var gap := rng.randf_range(0.05, 0.4) if style == EkStyle.LOWER else rng.randf_range(0.6, 2.0)
-			if since >= 4 + rng.randi() % 3:
-				gap = rng.randf_range(1.6, 3.0)
-				since = 0
-			b += RingLayout.half_angle((fp.x + gap) * 2.0, rf)
-		else:
-			b += RingLayout.half_angle(2.0 * 2.5, rf)
+	P.band(tier, y_of(tier), rf, depth, facing_in, kinds, style)
 
 
 # --- street furniture ----------------------------------------------------------------------------
