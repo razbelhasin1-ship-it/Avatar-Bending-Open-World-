@@ -67,7 +67,7 @@ static func defs() -> Array[AbilityDef]:
 			"startup": 0.38, "active": 0.16, "recovery": 0.35, "starter": true, "poise_armor": 25.0,
 			"unlock": {"level": 1, "tier": 1, "branch": &"stone", "column": 0},
 			"hit": {"damage": 14.0, "reaction": R.LAUNCH, "lift": 10.0, "force": 2.0, "poise": 45.0, "heavy": true, "unblockable": true},
-			"params": {"range": 16.0, "distance": 5.0, "min_distance": 2.6, "height": 2.8, "radius": 0.75, "hp": 120.0, "lifetime": 9.0,
+			"params": {"range": 16.0, "distance": 5.0, "min_distance": 2.6, "max_spot": 9.0, "height": 2.8, "radius": 0.75, "hp": 120.0, "lifetime": 9.0,
 				"rise_time": 0.16, "launch_radius": 1.15, "self_lift": true, "self_height": 3.0, "self_rise_time": 0.32, "max_stack": 6.0},
 			"fx": {"vfx": &"pillar", "sfx": &"wall"}, "script_path": DIR + "earth_pillar.gd"}),
 		AbilityDef.make({"id": &"earth_stomp", "element": E, "slot": AbilityDef.Slot.TECHNIQUE, "display_name": "Earth Stomp",

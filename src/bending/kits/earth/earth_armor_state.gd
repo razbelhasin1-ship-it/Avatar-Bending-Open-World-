@@ -63,8 +63,10 @@ static var live: Array[EarthArmorState] = []
 static func of(caster: Node) -> EarthArmorState:
 	if caster == null or not is_instance_valid(caster):
 		return null
-	var n := caster.get_node_or_null(^"EarthArmor") as EarthArmorState
-	return n if n != null and n._state < 2 else null
+	for c in caster.get_children():
+		if c is EarthArmorState and (c as EarthArmorState)._state < 2:
+			return c
+	return null
 
 
 ## Is `caster` wearing the armor right now (plates locked on)?

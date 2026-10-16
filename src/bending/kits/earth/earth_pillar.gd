@@ -64,7 +64,7 @@ func _choose() -> void:
 		var to := pt - ctx.origin()
 		to.y = 0.0
 		if to.length() > 0.1 and to.normalized().dot(dir) > 0.5:
-			dist = clampf(to.length(), float(param("min_distance", 2.6)), rng)
+			dist = clampf(to.length(), float(param("min_distance", 2.6)), float(param("max_spot", 9.0)))
 	spot = ctx.origin() + dir * dist
 
 
