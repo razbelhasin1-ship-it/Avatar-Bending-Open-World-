@@ -41,10 +41,11 @@ const EF_VIEWS := {
 	"northreach": {"pos": Vector3(-420, 30, -1760), "look": Vector3(-300, 6, -1610), "hour": 12.0, "fov": 62.0},
 	# --- Fire Nation ---
 	"fnc_rim": {"pos": Vector3(-2879, 306, 2177), "look": Vector3(-2600, 150, 2600), "hour": 16.0, "fov": 58.0},
-	"fnc_gorge": {"pos": Vector3(-2190, 98, 2330), "look": Vector3(-2290, 115, 2400), "hour": 15.0, "fov": 64.0},
+	"fnc_aerial": {"pos": Vector3(-2600, 520, 3130), "look": Vector3(-2600, 130, 2640), "hour": 15.0, "fov": 55.0},
+	"fnc_gorge": {"pos": Vector3(-2180, 100, 2318), "look": Vector3(-2240, 104, 2366), "hour": 15.0, "fov": 64.0},
 	"fnc_palace": {"pos": Vector3(-2600, 141, 2720), "look": Vector3(-2600, 160, 2600), "hour": 15.6, "fov": 64.0},
 	"fnc_courtyard": {"pos": Vector3(-2600, 148, 2640), "look": Vector3(-2600, 152, 2600), "hour": 15.0, "fov": 70.0},
-	"fnc_lower": {"pos": Vector3(-2600, 114, 2930), "look": Vector3(-2600, 116, 2860), "hour": 11.0, "fov": 68.0},
+	"fnc_lower": {"pos": Vector3(-2618, 114, 2935.5), "look": Vector3(-2570, 115, 2932), "hour": 11.0, "fov": 68.0},
 	"fnc_noble": {"pos": Vector3(-2450, 126, 2700), "look": Vector3(-2510, 126, 2650), "hour": 13.0, "fov": 68.0},
 	"fnc_spawn": {"pos": Vector3(-2484.82, 141, 2562.23), "look": Vector3(-2428.6, 138.5, 2525.78), "hour": 15.6, "fov": 72.0},
 	"fnc_night": {"pos": Vector3(-2879, 306, 2177), "look": Vector3(-2600, 140, 2600), "hour": 22.5, "fov": 58.0},

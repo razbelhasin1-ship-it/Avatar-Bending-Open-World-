@@ -69,15 +69,7 @@ func piece_extras(piece: Dictionary) -> Array:
 	var spec: Dictionary = piece["spec"]
 	match piece["kind"]:
 		&"tree_row":
-			var items: Array = []
-			var h := ContentHash.hash4(int(pos.x * 10.0), int(pos.z * 10.0), 17)
-			var i := 0
-			for p: Vector3 in spec.get("points", []):
-				var s := 0.85 + ContentHash.unit(h + i * 7) * 0.3
-				items.append([spec.get("species", &"cypress"), 0, Transform3D(Basis(Vector3.UP, ContentHash.unit(h + i * 3) * TAU).scaled(Vector3(s, s, s)), p),
-					Color(1, 1, 1, ContentHash.unit(h + i * 11))])
-				i += 1
-			out.append(_veg(items))
+			out.append(veg_extra(tree_row_items(piece)))
 		&"orchard":
 			var items: Array = []
 			var h := ContentHash.hash4(int(pos.x * 10.0), int(pos.z * 10.0), 19)
@@ -88,9 +80,9 @@ func piece_extras(piece: Dictionary) -> Array:
 				var s := float(it[2])
 				items.append([it[0], 0, Transform3D(Basis(Vector3.UP, ContentHash.unit(h + i) * TAU).scaled(Vector3(s, s, s)), p), Color(1, 1, 1, ContentHash.unit(h + i * 5))])
 				i += 1
-			out.append(_veg(items))
+			out.append(veg_extra(items))
 		&"garden":
-			out.append(_veg(garden_plants(piece)))
+			out.append(veg_extra(garden_plants(piece)))
 		&"windmill":
 			var hub := SettlementBuilder.at(piece, EkFarm.SAIL_HUB)
 			var sd := ContentHash.hash4(int(pos.x), int(pos.z), 5)
@@ -107,9 +99,25 @@ func piece_extras(piece: Dictionary) -> Array:
 	return out
 
 
-func _veg(items: Array) -> Dictionary:
+static func veg_extra(items: Array) -> Dictionary:
 	return {"type": &"node", "make": func(cell: ContentCell) -> Node3D:
 		return SettlementFx.vegetation_node(items, cell.origin())}
+
+
+## Plants of a tree_row piece (spec points: world positions, species; any nation's builder).
+static func tree_row_items(piece: Dictionary) -> Array:
+	var pos: Vector3 = piece["pos"]
+	var spec: Dictionary = piece["spec"]
+	var items: Array = []
+	var h := ContentHash.hash4(int(pos.x * 10.0), int(pos.z * 10.0), 17)
+	var i := 0
+	var smin := float(spec.get("scale", 0.85))
+	for p: Vector3 in spec.get("points", []):
+		var s := smin + ContentHash.unit(h + i * 7) * 0.3
+		items.append([spec.get("species", &"cypress"), 0, Transform3D(Basis(Vector3.UP, ContentHash.unit(h + i * 3) * TAU).scaled(Vector3(s, s, s)), p),
+			Color(1, 1, 1, ContentHash.unit(h + i * 11))])
+		i += 1
+	return items
 
 
 ## Plants of a garden piece (world transforms): trees at the back corners and along the edges,
