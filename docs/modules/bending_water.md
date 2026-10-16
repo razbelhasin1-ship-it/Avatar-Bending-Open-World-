@@ -17,6 +17,7 @@ casters (enemies) through `BendingContext`.
 | Icons | `src/bending/kits/water/icons/ability_{ice_trap,water_wave,water_jet,healing,tidal}.svg` |
 | VFX | `src/fx/water/`: `WaterWaveFx` (crest), `WaterVortexFx`, `IcePrisonFx`, `WaterFx` (`pull`, `orb`), `WaterMeshes` (crest / ice prison meshes), `fx_water_wave.gdshader`; `WaterStream.glow` + `fx_water.gdshader` glow/foam bands (bending module, additive) |
 | Tests | `tests/unit/test_bending_water.gd` (15 tests) |
+| Playtest pose sheets | `bending_water_poses` (clips frozen at their key frames) |
 | Playtests | `bending_water_arena`, `bending_water_enemies`, `bending_water_world`, `bending_water_mobile`, `bending_water_poses` (`tests/playtest/scenarios/`) |
 
 ## Kit
@@ -27,7 +28,7 @@ casters (enemies) through `BendingContext`.
 | Heavy | **Water Blast / Torrent** | 10 chi (+14 over the charge) | tap: bolt 14 (knockback, soak 5 s). Hold 1.2 s: one coil, then a second counter-rotating coil, a far source keeps feeding in, full charge flashes (ready cue); release: piercing torrent 20-36 dmg that keeps flowing from the hands, carries what it hit, leaves a wet trail and douses fires. |
 | Defense | **Water Shield** | 4 chi/s | two counter-rotating bands, 80 % / 110° block, deflects projectiles; parry redirects projectiles and freezes melee attackers (ice prison, x1.5 when soaked). |
 | Dodge | **Flow Slide** | - | 4 m slide, 0.26 s i-frames, water spray or snow spray on snow, perfect dodge slow-mo. |
-| Tech, starter | **Ice Shards** | 22 / 5 s | three daggers frozen from drawn water, slight homing; on a SOAKED target the dagger **flash-freezes** it (0.9 s FREEZE, x1.5 if soaked... the soak is consumed). |
+| Tech, starter | **Ice Shards** | 22 / 5 s | three daggers frozen from drawn water, slight homing; a dagger striking a SOAKED target **flash-freezes** it (FREEZE 0.9 x 1.5 s, ice prison) and the soak is used up. |
 | Tech, starter | **Water Surge** | 26 / 7 s | scoop, circle the mass overhead on the back foot, step in and drive it down: a 4.6 m wide, 2.2 m tall crest rolls 10 m at 14 m/s over ground or water, 18 dmg KNOCKBACK heavy + soak 6 s, carries the targets it hits, douses fires and fire projectiles, crashes against walls. |
 | Tech, starter | **Ice Wall** | 28 / 9 s | 4.6 x 2.8 x 0.9 m ice construct (150 HP, 10 s, fire x1.8), launches whoever stands where it rises. **Broken by enemies it shatters into 7 ice shards** flying at them; expiring walls melt harmlessly. Aimed at open water it stands on a fresh ice floe. |
 | Tech | **Ice Trap** | 24 / 8 s | low palm sweep: water skims the ground to the target's feet (tracks a moving target until it arrives) and freezes on the fist clench (`freeze` clip event): FREEZE 2 s (x1.5 soaked) in 1.4 m, ice prison around the legs. Missed: the frozen patch stays **armed** 4 s and catches the first enemy stepping in. On open water: a walkable ice floe. |
@@ -181,8 +182,21 @@ add_child(ExtinguishableFire.new())
 * No per-frame physics queries beyond the hit volumes: waves query one sphere per tick,
   the jet one ray + one capsule per 0.15 s pulse, the vortex one sphere per 0.25 s.
 * Every shader is a plain spatial shader (no screen textures), so Forward+, Mobile and
-  Compatibility render the same. Tested on the Mobile renderer with the mobile preset and
-  touch controls (`bending_water_mobile`).
+  Compatibility render the same. Verified: Forward+ (all playtests), the Mobile renderer with
+  the mobile preset + touch controls (`RENDERER=mobile MOBILE=1 tools/playtest.sh
+  bending_water_mobile`: effects scale 0.35, tier 0, every technique from its touch button, the
+  jet held on its button, the signature from the signature button) and Compatibility
+  (`RENDERER=gl_compatibility TECH=surge,tidal tools/playtest.sh bending_water_arena`).
+
+## Playtests
+
+| Scenario | What it shows |
+| --- | --- |
+| `bending_water_arena` (`TECH=core,defense,shards,surge,wall,trap,wave,jet,heal,tidal,env`) | every technique at its anticipation / active / impact frames from the player camera and an observer camera; whip chain, torrent charge + release, shield + parry, slide on snow, shards flash-freezing a soaked dummy, pool / snow draws, a brazier put out, a floe on the pool |
+| `bending_water_enemies` | a whip x3 -> Water Surge combo string frame by frame on a bandit, then a firebender squad vs Surge, Ice Trap, Water Jet and Tidal Torrent (hit report by ability) |
+| `bending_water_world` | the real world on the Northern Water Tribe coast: water pulled from the sea, a floe frozen on the sea and stood on, an ice wall on the sea, a wave ride over the sea ending dry, snow pulled up inland |
+| `bending_water_mobile` | Mobile renderer + touch overlay (above) |
+| `bending_water_poses` | pose sheets of the water clips at their key frames |
 
 ## Changes outside the module (all additive)
 
@@ -190,6 +204,9 @@ add_child(ExtinguishableFire.new())
 * `src/fx/shaders/fx_water.gdshader`: banded foam caps, slightly deeper blue, `glow` uniform.
 * `tests/unit/test_bending.gd`: the starter check accepts several starters per element
   (`starter_techniques(e).has(...)`).
+* `src/bending/ability_registry.gd`: `starter_techniques()` sorts the ids alphabetically by
+  string (a plain `Array[StringName].sort()` orders by interned pointer, so with several starters
+  the slot order changed between runs: slot 1 must stay `ice_shards`, the tutorial technique).
 
 ## Known limitations
 
