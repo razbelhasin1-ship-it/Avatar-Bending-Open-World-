@@ -46,6 +46,44 @@ func run(pt: Playtest) -> void:
 	if npc != null:
 		await _talk(npc, prefix + "_" + el)
 	await _vantage(prefix + "_" + el)
+	if OS.get_environment("TOUR") != "0":
+		var sid: StringName = {&"water": &"northern_water_tribe", &"earth": &"ba_sing_se", &"fire": &"fire_nation_capital", &"air": &"southern_air_temple"}.get(StringName(el), &"")
+		for kind: StringName in [&"market_stall", &"guard_post", &"child_play"]:
+			await _visit(sid, kind, "%s_%s_%s" % [prefix, el, kind])
+
+
+## Fast-travels to the anchor of `kind` nearest the spawn that has people around it, looks at it.
+func _visit(sid: StringName, kind: StringName, shot: String) -> void:
+	var sp := WorldData.get_spawn(w.element).origin
+	var best := {}
+	var bd := INF
+	for a in Settlements.get_anchors(sid, kind):
+		if bool(a.get("interior", false)):
+			continue
+		var d := (a["position"] as Vector3).distance_to(sp)
+		if d < bd:
+			bd = d
+			best = a
+	if best.is_empty():
+		p.note("no %s anchor in %s" % [kind, sid])
+		return
+	var at: Vector3 = best["position"]
+	var fwd := Basis(Vector3.UP, float(best.get("yaw", 0.0))) * Vector3.FORWARD
+	var stand := at + fwd * 7.0
+	var d2 := at - stand
+	var ok: bool = await w.travel.travel_to(Transform3D(Basis(Vector3.UP, atan2(-d2.x, -d2.z)), stand), {"text": "", "autosave": false})
+	p.check(ok, "travelled to a %s" % kind)
+	await p.wait_game(4.0)
+	var dir := _director()
+	var near := 0
+	for n in dir.live_npcs():
+		if n.global_position.distance_to(at) < 25.0:
+			near += 1
+	p.note("%s: %d NPCs within 25 m, %d live" % [kind, near, dir.live_count()])
+	p.check(near >= 1, "people at the %s (%d)" % [kind, near])
+	w.player.camera_rig.snap_behind(w.player)
+	await p.wait_game(0.4)
+	await p.screenshot(shot)
 
 
 func _director() -> NpcDirector:

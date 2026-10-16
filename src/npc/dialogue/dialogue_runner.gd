@@ -295,7 +295,7 @@ static func shot(npc: Node3D, pl: Node3D) -> Transform3D:
 	var right := Vector3.UP.cross(back).normalized()
 	var sep := Vector2(hn.x - hp.x, hn.z - hp.z).length()
 	# behind and beside the player's right shoulder, a little above eye height
-	var want := hp + back * clampf(0.9 + sep * 0.25, 1.0, 1.9) + right * 0.85 + Vector3(0, 0.05, 0)
+	var want := hp + back * clampf(1.15 + sep * 0.2, 1.3, 2.0) + right * 1.05 + Vector3(0, 0.02, 0)
 	var space := pl.get_world_3d().direct_space_state
 	var q := PhysicsRayQueryParameters3D.create(hp, want, Layers.CAMERA_BLOCKERS)
 	var r := space.intersect_ray(q)

@@ -177,6 +177,8 @@ func _talk(id: StringName, shot: String) -> void:
 	if not p.check(started, "conversation with %s started" % id):
 		return
 	await p.wait_game(1.4)
+	var cam := w.get_viewport().get_camera_3d()
+	p.note("talk %s: player %s, npc %s, camera %s" % [id, pl.global_position, n.global_position, cam.global_position if cam else Vector3.INF])
 	await p.screenshot("%s_%s_a" % [prefix, shot])
 	var guard := 0
 	var shot_choice := false
@@ -198,10 +200,10 @@ func _talk(id: StringName, shot: String) -> void:
 	await p.wait_game(0.6)
 
 
-func _key(code: Key) -> void:
+func _key(code: int) -> void:
 	var ev := InputEventKey.new()
-	ev.physical_keycode = code
-	ev.keycode = code
+	ev.physical_keycode = code as Key
+	ev.keycode = code as Key
 	ev.pressed = true
 	Input.parse_input_event(ev)
 	var up := ev.duplicate() as InputEventKey
@@ -354,11 +356,21 @@ func _trainer_lesson() -> void:
 	while guard < 80 and w.get_tree().get_first_node_in_group(&"bending_challenge") == null:
 		guard += 1
 		if box.is_open and box.choices.size() > 0:
-			if box.choices.size() >= 3 and not menu_shot:
+			var labels: Array = box.choices.map(func(b: Button) -> String: return b.text)
+			if not menu_shot and String(labels[0]).contains("Teach me"):
 				menu_shot = true
 				await p.screenshot("%s_15_trainer_menu" % prefix)
-			_key(KEY_1)
+			# pick "Train me" / "Teach me ..." when offered, else the first option
+			var pick := 0
+			for i in labels.size():
+				if String(labels[i]).contains("Train me") or String(labels[i]).contains("Teach me"):
+					pick = i
+					break
+			_key(KEY_1 + pick)
 		elif box.is_open:
+			await p.tap(&"interact")
+		elif not runner.busy and n != null:
+			await _walk_to(n.global_position, 1.7, 2.0)
 			await p.tap(&"interact")
 		await p.wait_game(0.35)
 	var c := await _challenge()
@@ -385,11 +397,21 @@ func _merchant() -> void:
 	await p.wait_until(func() -> bool: return runner.busy, 3.0)
 	var box: DialogueBox = w.dialogue
 	var guard := 0
-	while guard < 40 and w.get_tree().get_first_node_in_group(&"shop_panel") == null:
+	var yara := NpcRegistry.live_npc(&"wt_yara")
+	while guard < 60 and w.get_tree().get_first_node_in_group(&"shop_panel") == null:
 		guard += 1
 		if box.is_open and box.choices.size() > 0:
-			_key(KEY_1)
+			var pick := 0
+			for i in box.choices.size():
+				var t := box.choices[i].text
+				if t.contains("remedies") or t.contains("wares"):
+					pick = i
+					break
+			_key(KEY_1 + pick)
 		elif box.is_open:
+			await p.tap(&"interact")
+		elif not runner.busy and yara != null:
+			await _walk_to(yara.global_position, 1.7, 2.0)
 			await p.tap(&"interact")
 		await p.wait_game(0.3)
 	var shop := w.get_tree().get_first_node_in_group(&"shop_panel") as ShopPanel

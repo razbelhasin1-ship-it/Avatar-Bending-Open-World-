@@ -127,10 +127,11 @@ func _decide() -> void:
 		return
 	match state:
 		&"rest":
-			if _t <= 0.0:
-				_t = rng.randf_range(8.0, 16.0)
-				if rng.randf() < 0.4:
-					rig.play_action(&"yawn" if rng.randf() < 0.5 else &"ear_twitch")
+			# lying in the stall (a hold action): only the rig's own breathing and idle motion
+			if pl != null and pl.global_position.distance_to(global_position) < 9.0:
+				rig.look_at_point(pl.global_position + Vector3(0, 1.5, 0), 0.6)
+			else:
+				rig.clear_look()
 		&"flee":
 			if _t <= 0.0:
 				state = &"idle"
