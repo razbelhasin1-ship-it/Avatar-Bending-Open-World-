@@ -87,8 +87,3 @@ func on_cancel(_reason: StringName) -> void:
 		state.break_off(&"interrupted")
 		state = null
 
-
-## Is the caster wearing the armor right now?
-static func is_armored(caster: Node) -> bool:
-	var s := EarthArmorState.of(caster)
-	return s != null and s.active

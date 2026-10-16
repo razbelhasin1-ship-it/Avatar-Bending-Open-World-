@@ -20,7 +20,7 @@ const TEX := {
 	&"furrow": [preload("res://src/fx/earth/textures/furrow_albedo.png"), preload("res://src/fx/earth/textures/furrow_normal.png")],
 }
 ## Live marks per kind (before effects scaling) by Settings detail level 0..3.
-const CAPS := {&"crater": [4, 6, 10, 14], &"fissure": [6, 10, 16, 22], &"furrow": [2, 3, 5, 6]}
+const CAPS := {&"crater": [4, 6, 10, 14], &"fissure": [8, 12, 20, 28], &"furrow": [2, 3, 5, 6]}
 ## Seconds a mark stays (fades over the last 30 %) by detail level.
 const LIFE := [12.0, 18.0, 26.0, 36.0]
 
@@ -93,7 +93,7 @@ static func _ensure_caps() -> void:
 	for k: StringName in CAPS:
 		var c: int = CAPS[k][lvl]
 		if Settings.is_mobile_renderer():
-			c = mini(c, 4 if k == &"fissure" else 3)
+			c = mini(c, 6 if k == &"fissure" else 3)
 		FxLib.set_cap(StringName("earth_mark_" + String(k)), c)
 
 

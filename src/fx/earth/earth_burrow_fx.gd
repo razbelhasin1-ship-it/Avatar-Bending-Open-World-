@@ -50,7 +50,7 @@ func _place(u: float) -> void:
 	var d := b - a
 	d.y = 0.0
 	if d.length_squared() > 1e-4:
-		hump.basis = Basis.looking_at(d.normalized(), Vector3.UP) * Basis.from_scale(Vector3(0.75, 0.42, 1.1))
+		hump.basis = Basis.looking_at(d.normalized(), Vector3.UP) * Basis.from_scale(Vector3(1.05, 0.62, 1.5))
 	# Rises out of the ground at the start, stays proud while running.
 	hump.position = Vector3.DOWN * lerpf(0.25, 0.05, clampf(u * 4.0, 0.0, 1.0))
 
@@ -65,7 +65,7 @@ func _process(delta: float) -> void:
 	_place(u)
 	var traveled := a.distance_to(b) * u
 	if traveled >= _next_puff and u < 1.0:
-		_next_puff += 0.9
+		_next_puff += 0.7
 		FxBurst.spawn(self, &"dust", global_position, {"color": EarthPalette.color(kind, "dust"), "count": 0.3, "size": 0.55, "speed": 0.6})
 		FxDebris.spawn(self, global_position, {"count": 2, "size": 0.07, "up": 2.0, "out": 0.6, "ground_y": global_position.y,
 				"color": EarthPalette.color(kind, "debris")})

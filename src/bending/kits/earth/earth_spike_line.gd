@@ -10,7 +10,7 @@ extends Node3D
 ##
 ##   EarthSpikeLine.start(ctx, ground_from, dir, {"length": 12, "speed": 24, "hit": h, "attack_id": id, "ability_id": &"earth_spikes"})
 
-const MAX := 28
+const MAX := 56
 
 var ctx: BendingContext
 var dir := Vector3.FORWARD
@@ -126,9 +126,17 @@ func _erupt(at: float) -> void:
 	_last = gp
 	_last_y = gp.y
 	var u := at / maxf(length, 0.1)
-	var h := lerpf(0.9, 1.75, u) * power * randf_range(0.85, 1.15)
+	var h := lerpf(1.0, 1.85, u) * power * randf_range(0.85, 1.15)
+	var side_dir := Vector3(-dir.z, 0.0, dir.x)
 	var b := Basis.looking_at(dir, Vector3.UP).rotated(Vector3.UP, randf_range(-0.35, 0.35))
+	b = b.rotated(dir, randf_range(-0.2, 0.2))
 	spikes.append([0.0, Transform3D(b, gp), h])
+	# A smaller shard leaning out beside the main spike (jagged clusters, not a fence).
+	if spikes.size() < MAX:
+		var sgn := -1.0 if i % 2 == 0 else 1.0
+		var off := side_dir * sgn * randf_range(0.3, 0.45) + dir * randf_range(-0.15, 0.15)
+		var b2 := Basis.looking_at(dir, Vector3.UP).rotated(dir, sgn * randf_range(0.35, 0.6))
+		spikes.append([-0.03, Transform3D(b2, gp + off + Vector3.DOWN * 0.05), h * randf_range(0.45, 0.65)])
 	mmi.multimesh.visible_instance_count = spikes.size()
 	if i % 2 == 0:
 		FxDebris.spawn(self, gp, {"count": 3, "size": 0.09, "up": 3.5, "out": 1.2, "ground_y": gp.y, "color": EarthPalette.color(m["kind"], "debris")})
@@ -163,7 +171,9 @@ func _animate(delta: float) -> void:
 		s[0] = float(s[0]) + delta
 		var age := float(s[0])
 		var k := 0.0
-		if age < 0.09:
+		if age < 0.0:
+			k = 0.0
+		elif age < 0.09:
 			var u := age / 0.09
 			k = 1.0 + 2.2 * pow(u - 1.0, 3.0) + 1.2 * pow(u - 1.0, 2.0)
 		elif age < hold:
@@ -175,7 +185,7 @@ func _animate(delta: float) -> void:
 		var base: Transform3D = s[1]
 		var h := float(s[2])
 		var sink := (1.0 - clampf(k, 0.0, 1.0)) * h * 0.9
-		mm.set_instance_transform(i, Transform3D(base.basis * Basis.from_scale(Vector3(h * 0.55, h, h * 0.55)), base.origin + Vector3.DOWN * sink))
+		mm.set_instance_transform(i, Transform3D(base.basis * Basis.from_scale(Vector3(h * 0.95, h, h * 0.95)), base.origin + Vector3.DOWN * sink))
 	if stopped and alive == 0:
 		_finish()
 

@@ -229,7 +229,17 @@ static func crater(ctx: BendingContext, at: Vector3, radius: float, kind: String
 static func fissure(ctx: BendingContext, a: Vector3, b: Vector3, width: float, kind: StringName, slabs: int = 0) -> void:
 	if ctx == null or not ctx.is_valid():
 		return
-	EarthMarks.fissure(ctx.caster, a, b, width, kind)
+	var d := b - a
+	d.y = 0.0
+	if d.length() > 7.0:
+		# Long cracks wander: two segments with a kink, not one ruler-straight line.
+		var side := Vector3(-d.z, 0.0, d.x).normalized()
+		var mid := a.lerp(b, randf_range(0.42, 0.58)) + side * randf_range(-0.6, 0.6)
+		mid.y = ground_y(ctx, mid)
+		EarthMarks.fissure(ctx.caster, a, mid, width, kind)
+		EarthMarks.fissure(ctx.caster, mid, b, width * 0.85, kind)
+	else:
+		EarthMarks.fissure(ctx.caster, a, b, width, kind)
 	if slabs > 0:
 		var n := clampi(int(round(slabs * clampf(FxLib.scale(), 0.5, 1.2))), 2, 16)
 		EarthRubble.spawn(ctx.caster, EarthRubble.line_xforms(a, b, n, ground_fn(ctx), 0.32 + width * 0.12, width * 0.45), kind, &"chunk")

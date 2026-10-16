@@ -12,15 +12,15 @@ extends RefCounted
 ## mud    wet earth (shallow water)
 
 const PALETTES := {
-	&"stone": {"rock": Color(0.6, 0.58, 0.55), "dark": Color(0.4, 0.39, 0.38), "band": Color(0.5, 0.48, 0.46),
-		"cap": Color(0.68, 0.66, 0.62), "dust": Color(0.74, 0.72, 0.68), "crack": Color(0.2, 0.19, 0.18), "debris": Color(0.55, 0.53, 0.5)},
+	&"stone": {"rock": Color(0.63, 0.58, 0.51), "dark": Color(0.42, 0.38, 0.34), "band": Color(0.54, 0.5, 0.44),
+		"cap": Color(0.7, 0.66, 0.58), "dust": Color(0.68, 0.63, 0.55), "crack": Color(0.21, 0.19, 0.17), "debris": Color(0.58, 0.53, 0.47)},
 	&"dirt": {"rock": Color(0.58, 0.45, 0.32), "dark": Color(0.4, 0.3, 0.21), "band": Color(0.5, 0.38, 0.27),
 		"cap": Color(0.63, 0.5, 0.36), "dust": Color(0.68, 0.56, 0.42), "crack": Color(0.2, 0.14, 0.1), "debris": Color(0.5, 0.38, 0.27)},
 	&"grass": {"rock": Color(0.56, 0.44, 0.32), "dark": Color(0.38, 0.29, 0.2), "band": Color(0.48, 0.37, 0.27),
 		"cap": Color(0.4, 0.55, 0.24), "dust": Color(0.66, 0.56, 0.42), "crack": Color(0.19, 0.14, 0.1), "debris": Color(0.48, 0.38, 0.27)},
 	&"sand": {"rock": Color(0.84, 0.72, 0.5), "dark": Color(0.66, 0.53, 0.35), "band": Color(0.77, 0.63, 0.43),
 		"cap": Color(0.9, 0.8, 0.6), "dust": Color(0.9, 0.81, 0.62), "crack": Color(0.42, 0.32, 0.2), "debris": Color(0.8, 0.68, 0.47)},
-	&"ash": {"rock": Color(0.32, 0.29, 0.29), "dark": Color(0.17, 0.15, 0.15), "band": Color(0.42, 0.27, 0.22),
+	&"ash": {"rock": Color(0.32, 0.29, 0.29), "dark": Color(0.17, 0.15, 0.15), "band": Color(0.37, 0.29, 0.26),
 		"cap": Color(0.46, 0.44, 0.42), "dust": Color(0.42, 0.39, 0.38), "crack": Color(0.1, 0.08, 0.08), "debris": Color(0.27, 0.24, 0.24)},
 	&"snow": {"rock": Color(0.53, 0.52, 0.53), "dark": Color(0.35, 0.35, 0.37), "band": Color(0.46, 0.45, 0.47),
 		"cap": Color(0.94, 0.96, 1.0), "dust": Color(0.93, 0.96, 1.0), "crack": Color(0.3, 0.33, 0.38), "debris": Color(0.85, 0.88, 0.93)},

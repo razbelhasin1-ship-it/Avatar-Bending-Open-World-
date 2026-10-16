@@ -16,6 +16,7 @@ var grabbed: Array[Node] = []
 var shackle: EarthShackleFx = null
 var _locked := false
 var _done := false
+var _from := Vector3.ZERO
 
 
 func can_use() -> StringName:
@@ -86,6 +87,7 @@ func on_event(event: StringName) -> void:
 			if not ctx.is_player():
 				_locked = true
 			var from := ctx.ground_point(ctx.origin() + _flat_to(spot) * 0.8)
+			_from = from
 			var to := Vector3(spot.x, EarthEnv.ground_y(ctx, spot), spot.z)
 			var dur := maxf(time_to_event(&"grab"), 0.12)
 			EarthBurrowFx.spawn(ctx.caster, from, to, dur, info["kind"], EarthEnv.ground_fn(ctx))
@@ -126,6 +128,9 @@ func _grab() -> void:
 	if caught != null:
 		at = Vector3(caught.global_position.x, EarthEnv.ground_y(ctx, caught.global_position + Vector3.UP * 0.5), caught.global_position.z)
 	shackle = EarthShackleFx.spawn(ctx.caster, at, m["kind"], caught, hold if caught != null else 0.45)
+	if _from != Vector3.ZERO and _from.distance_to(at) > 1.5:
+		# The ripple tore the ground open on its way.
+		EarthEnv.fissure(ctx, _from, at - _flat_to(at) * 0.6, 0.35, m["kind"])
 	sound(&"wall", at, -2.0)
 	sound(&"impact", at, -4.0)
 	EarthEnv.shake(ctx, at, 0.22, 0.15)

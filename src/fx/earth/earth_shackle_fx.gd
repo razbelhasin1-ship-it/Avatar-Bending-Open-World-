@@ -23,7 +23,7 @@ var _angles: Array[float] = []
 var _radius := 0.5
 
 
-static func spawn(from: Node, ground_pos: Vector3, p_surface: StringName, p_target: Node3D, p_hold: float, radius: float = 0.5) -> EarthShackleFx:
+static func spawn(from: Node, ground_pos: Vector3, p_surface: StringName, p_target: Node3D, p_hold: float, radius: float = 0.46) -> EarthShackleFx:
 	FxLib.set_cap(&"earth_shackle", 4)
 	var s := FxLib.take(from, &"earth_shackle", EarthShackleFx._make) as EarthShackleFx
 	s.global_transform = Transform3D(Basis.IDENTITY, ground_pos)

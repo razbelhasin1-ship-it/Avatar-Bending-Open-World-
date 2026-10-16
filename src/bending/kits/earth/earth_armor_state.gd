@@ -19,21 +19,24 @@ signal ended(reason: StringName)
 
 ## [name, bone_a, bone_b, t (0..1 along a->b), facing, offset (m along facing), scale (w, thick, len)]
 const SLOTS := [
-	[&"chest", &"upper_chest", &"neck", 0.15, &"fwd", 0.15, Vector3(0.44, 0.42, 0.42)],
-	[&"back", &"upper_chest", &"neck", 0.1, &"back", 0.15, Vector3(0.42, 0.36, 0.3)],
-	[&"belly", &"spine", &"chest", 0.5, &"fwd", 0.14, Vector3(0.34, 0.3, 0.2)],
-	[&"pauldron_l", &"upperarm_l", &"forearm_l", 0.12, &"out_up_l", 0.09, Vector3(0.26, 0.42, 0.24)],
-	[&"pauldron_r", &"upperarm_r", &"forearm_r", 0.12, &"out_up_r", 0.09, Vector3(0.26, 0.42, 0.24)],
-	[&"bracer_l", &"forearm_l", &"hand_l", 0.5, &"out_l", 0.05, Vector3(0.15, 0.32, 0.2)],
-	[&"bracer_r", &"forearm_r", &"hand_r", 0.5, &"out_r", 0.05, Vector3(0.15, 0.32, 0.2)],
-	[&"greave_l", &"shin_l", &"foot_l", 0.42, &"fwd", 0.07, Vector3(0.17, 0.34, 0.22)],
-	[&"greave_r", &"shin_r", &"foot_r", 0.42, &"fwd", 0.07, Vector3(0.17, 0.34, 0.22)],
+	[&"chest", &"chest", &"upper_chest", 0.75, &"fwd", 0.17, Vector3(0.5, 0.48, 0.42)],
+	[&"back", &"upper_chest", &"neck", 0.05, &"back", 0.17, Vector3(0.5, 0.45, 0.46)],
+	[&"belly", &"spine", &"chest", 0.5, &"fwd", 0.16, Vector3(0.42, 0.4, 0.3)],
+	[&"pauldron_l", &"upperarm_l", &"forearm_l", 0.1, &"out_up_l", 0.1, Vector3(0.34, 0.55, 0.32)],
+	[&"pauldron_r", &"upperarm_r", &"forearm_r", 0.1, &"out_up_r", 0.1, Vector3(0.34, 0.55, 0.32)],
+	[&"bracer_l", &"forearm_l", &"hand_l", 0.5, &"out_l", 0.06, Vector3(0.2, 0.42, 0.28)],
+	[&"bracer_r", &"forearm_r", &"hand_r", 0.5, &"out_r", 0.06, Vector3(0.2, 0.42, 0.28)],
+	[&"thigh_l", &"thigh_l", &"shin_l", 0.45, &"out_fwd_l", 0.1, Vector3(0.24, 0.42, 0.3)],
+	[&"thigh_r", &"thigh_r", &"shin_r", 0.45, &"out_fwd_r", 0.1, Vector3(0.24, 0.42, 0.3)],
+	[&"greave_l", &"shin_l", &"foot_l", 0.42, &"fwd", 0.08, Vector3(0.22, 0.42, 0.3)],
+	[&"greave_r", &"shin_r", &"foot_r", 0.42, &"fwd", 0.08, Vector3(0.22, 0.42, 0.3)],
 ]
 ## Rig-less casters: slot positions relative to the caster (right, up, back).
 const FALLBACK := {
 	&"chest": Vector3(0, 1.35, -0.2), &"back": Vector3(0, 1.35, 0.2), &"belly": Vector3(0, 1.05, -0.18),
 	&"pauldron_l": Vector3(-0.28, 1.5, 0), &"pauldron_r": Vector3(0.28, 1.5, 0), &"bracer_l": Vector3(-0.32, 1.0, -0.1),
-	&"bracer_r": Vector3(0.32, 1.0, -0.1), &"greave_l": Vector3(-0.12, 0.35, -0.08), &"greave_r": Vector3(0.12, 0.35, -0.08),
+	&"bracer_r": Vector3(0.32, 1.0, -0.1), &"thigh_l": Vector3(-0.14, 0.7, -0.08), &"thigh_r": Vector3(0.14, 0.7, -0.08),
+	&"greave_l": Vector3(-0.12, 0.35, -0.08), &"greave_r": Vector3(0.12, 0.35, -0.08),
 }
 
 var ctx: BendingContext
@@ -62,6 +65,12 @@ static func of(caster: Node) -> EarthArmorState:
 		return null
 	var n := caster.get_node_or_null(^"EarthArmor") as EarthArmorState
 	return n if n != null and n._state < 2 else null
+
+
+## Is `caster` wearing the armor right now (plates locked on)?
+static func is_worn(caster: Node) -> bool:
+	var s := of(caster)
+	return s != null and s.active
 
 
 ## Starts the plates flying in from the ground around the feet (they attach on
@@ -330,4 +339,8 @@ static func _facing(kind: StringName, fwd: Vector3, right: Vector3, along: Vecto
 			return (-right * 0.7 + Vector3.UP * 0.7).normalized()
 		&"out_up_r":
 			return (right * 0.7 + Vector3.UP * 0.7).normalized()
+		&"out_fwd_l":
+			return (-right * 0.6 + fwd * 0.8).normalized()
+		&"out_fwd_r":
+			return (right * 0.6 + fwd * 0.8).normalized()
 	return fwd

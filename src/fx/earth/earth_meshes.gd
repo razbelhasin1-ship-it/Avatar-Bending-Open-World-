@@ -56,7 +56,8 @@ static func plate(variant: int, surface: StringName) -> ArrayMesh:
 	var k := "plate_%d_%s" % [variant % 6, EarthPalette.key(surface)]
 	if not _cache.has(k):
 		var squashed := transformed(FxMeshes.rock(variant % 6, 1), Basis.from_scale(Vector3(1.0, 0.34, 0.78)))
-		_cache[k] = recolor(squashed, surface, 0.55)
+		# Compressed rock: a touch darker than loose rock, reads against clothing.
+		_cache[k] = recolor(squashed, surface, 0.55, 0.82)
 	return _cache[k]
 
 
@@ -72,7 +73,7 @@ static func chunk(variant: int, surface: StringName) -> ArrayMesh:
 
 ## Maps a near-white vertex-coloured mesh onto the palette: luminance picks
 ## dark .. rock, faces pointing up take the cap colour (turf, snow, dust).
-static func recolor(src: ArrayMesh, surface: StringName, cap_from: float = 0.6) -> ArrayMesh:
+static func recolor(src: ArrayMesh, surface: StringName, cap_from: float = 0.6, tint: float = 1.0) -> ArrayMesh:
 	var pal := EarthPalette.of(surface)
 	var dark: Color = (pal["dark"] as Color).srgb_to_linear()
 	var rockc: Color = (pal["rock"] as Color).srgb_to_linear()
@@ -95,7 +96,7 @@ static func recolor(src: ArrayMesh, surface: StringName, cap_from: float = 0.6) 
 			var ny := norms[i].y if i < norms.size() else 0.0
 			if ny > cap_from:
 				c = c.lerp(cap, smoothstep(cap_from, minf(cap_from + 0.25, 1.0), ny))
-			cols[i] = c
+			cols[i] = Color(c.r * tint, c.g * tint, c.b * tint, 1.0)
 		arr[Mesh.ARRAY_COLOR] = cols
 		out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
 	return out
@@ -194,7 +195,8 @@ static func spike(height: float, radius: float, variant: int, surface: StringNam
 	var pal := EarthPalette.of(surface)
 	var rockc: Color = (pal["rock"] as Color).srgb_to_linear()
 	var dark: Color = (pal["dark"] as Color).srgb_to_linear()
-	var light: Color = (pal["dust"] as Color).srgb_to_linear().lerp(rockc, 0.45)
+	var band: Color = (pal["band"] as Color).srgb_to_linear()
+	var light := rockc.lightened(0.06)
 	var levels := [[-0.4, 1.12], [0.0, 1.0], [height * 0.45, 0.62], [height * 0.8, 0.27]]
 	var rings: Array = []
 	for li in levels.size():
@@ -216,7 +218,7 @@ static func spike(height: float, radius: float, variant: int, surface: StringNam
 	for li in rings.size() - 1:
 		var a: PackedVector3Array = rings[li]
 		var b: PackedVector3Array = rings[li + 1]
-		var c := dark if li == 0 else rockc.lerp(light, float(li - 1) * 0.35)
+		var c := dark if li == 0 else (band if li == 1 else rockc.lerp(light, float(li - 2) * 0.5))
 		var axis := Vector3(0, (a[0].y + b[0].y) * 0.5, -lean * height * pow(clampf((a[0].y + b[0].y) * 0.5 / height, 0.0, 1.0), 2.0))
 		for i in sides:
 			var j := (i + 1) % sides
@@ -238,7 +240,7 @@ static func spike(height: float, radius: float, variant: int, surface: StringNam
 static func jaw(height: float, variant: int, surface: StringName) -> ArrayMesh:
 	var k := "jaw_%.2f_%d_%s" % [height, variant % 3, EarthPalette.key(surface)]
 	if not _cache.has(k):
-		_cache[k] = transformed(spike(height, 0.2, variant, surface, -0.38), Basis.from_scale(Vector3(1.25, 1.0, 0.7)))
+		_cache[k] = transformed(spike(height, 0.3, variant, surface, -0.42), Basis.from_scale(Vector3(1.35, 1.0, 0.75)))
 	return _cache[k]
 
 
