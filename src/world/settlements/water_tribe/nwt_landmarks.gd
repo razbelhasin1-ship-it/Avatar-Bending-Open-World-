@@ -76,9 +76,9 @@ static func sea_wall(kit: BuildingKit, spec: Dictionary) -> void:
 			kit.box(Vector3(-hl, top + 1.2, side * (ht + 0.4)), Vector3(3.0, 0.5, 1.8), &"trim", false)
 	# giant banners on the ocean face, braziers on the walkway
 	if v % 2 == 0:
-		kit.banner(Transform3D(Basis(), Vector3(0, top - 3.8, oz - 0.55)), 3.0, minf(top * 0.5, 16.0), {"role": &"cloth", "alt_role": &"cloth_alt"})
+		KitX.banner(kit, Transform3D(Basis(), Vector3(0, top - 3.8, oz - 0.55)), 3.0, minf(top * 0.5, 16.0))
 	if v % 2 == 1:
-		kit.banner(Transform3D(Basis(Vector3.UP, PI), Vector3(0, top - 3.8, ht + 0.55)), 2.4, minf(top * 0.38, 12.0), {"role": &"cloth", "alt_role": &"cloth_alt"})
+		KitX.banner(kit, Transform3D(Basis(Vector3.UP, PI), Vector3(0, top - 3.8, ht + 0.55)), 2.4, minf(top * 0.38, 12.0))
 	if kit.lod == 0:
 		kit.box(Vector3(0, top + 0.05, 0), Vector3(L, 0.1, T - 3.0), &"snow", false)
 		# walkway paving lines
@@ -160,13 +160,21 @@ static func sea_gate(kit: BuildingKit, spec: Dictionary) -> void:
 				kit.push(Transform3D(Basis(Vector3.UP, -sx * PI * 0.5), Vector3(cx - sx * tw * 0.5, 0, face * T * 0.25)))
 				KitX.doorway(kit, Vector3(0, 3.0, 0), 3.0, 6.0, &"trim", null, 0.0)
 				kit.pop()
-			kit.banner(Transform3D(Basis(), Vector3(cx, top + 8.0, -T * 0.5 - 3.1)), 4.0, 22.0, {"role": &"cloth", "alt_role": &"cloth_alt"})
-			kit.banner(Transform3D(Basis(Vector3.UP, PI), Vector3(cx, top + 8.0, T * 0.5 + 3.1)), 3.2, 16.0, {"role": &"cloth", "alt_role": &"cloth_alt"})
+			KitX.banner(kit, Transform3D(Basis(), Vector3(cx, top + 8.0, -T * 0.5 - 3.1)), 4.0, 22.0)
+			KitX.banner(kit, Transform3D(Basis(Vector3.UP, PI), Vector3(cx, top + 8.0, T * 0.5 + 3.1)), 3.2, 16.0)
 			if kit.lod == 0:
 				for k in 3:
 					kit.push(Transform3D(Basis(), Vector3(cx + (k - 1) * 4.5, top + 3.0 + k % 2 * 2.0, -T * 0.5 - 3.05)))
 					KitX.window(kit, Vector3.ZERO, 1.0, 2.2, &"trim", 0.0, true)
 					kit.pop()
+	# the great ice gate leaves, swung open into the bay against the passage walls
+	for sx: float in [-1.0, 1.0]:
+		var lw := W * 0.5 - 1.0
+		kit.box(Vector3(sx * (W * 0.5 - 1.8), (clear - 1.5) * 0.5 + base * 0.0 - 1.0, T * 0.5 + lw * 0.5 - 0.5), Vector3(2.4, clear + 1.5, lw),
+				NwtStyle.dome(1), true, &"ice")
+		if kit.lod < 2:
+			for k in 3:
+				kit.box(Vector3(sx * (W * 0.5 - 3.05), clear * (0.25 + k * 0.25), T * 0.5 + lw * 0.5 - 0.5), Vector3(0.2, 0.8, lw - 1.0), NwtStyle.navy(), false)
 	# lintel bridge over the passage carrying the walkway; underside arch
 	var span := W + 2.0
 	kit.box(Vector3(0, (top + clear) * 0.5, 0), Vector3(span, top - clear, T), &"wall")
@@ -182,7 +190,8 @@ static func sea_gate(kit: BuildingKit, spec: Dictionary) -> void:
 			kit.box(Vector3(0, top - 3.0, face * (T * 0.5 + 0.3)), Vector3(span, 1.4, 0.6), &"trim", false)
 			KitX.merlons(kit, Vector3(-span * 0.5, top, face * (T * 0.5 - 0.7)), Vector3(span * 0.5, top, face * (T * 0.5 - 0.7)), 1.4, 1.6, 1.5, 0.8)
 		# the great emblem on the ocean face
-		KitX.emblem_water(kit, Vector3(0, (top + clear) * 0.5 + 1.0, -T * 0.5 - 0.2), 7.0, &"trim", 0.3)
+		KitX.emblem_water(kit, Vector3(0, (top + clear) * 0.5 + 0.5, -T * 0.5 - 0.2), 11.0, NwtStyle.navy(), 0.4)
+		KitX.emblem_water(kit, Vector3(0, (top + clear) * 0.5 + 0.5, T * 0.5 + 0.2), 8.0, NwtStyle.navy(), -0.3)
 		if kit.lod == 0:
 			KitX.icicles(kit, Vector3(-W * 0.5, clear - 0.2, -T * 0.5), Vector3(W * 0.5, clear - 0.2, -T * 0.5), 0.6, 2.4)
 			kit.box(Vector3(0, top + 0.05, 0), Vector3(span, 0.1, T - 3.0), &"snow", false)
@@ -217,9 +226,9 @@ static func palace(kit: BuildingKit, spec: Dictionary) -> void:
 			kit.beam(rim[i] - Vector3(0, drop * 0.5, 0) + Vector3(cos(a), 0, sin(a)) * 0.4, rim[i + 1] - Vector3(0, drop * 0.5, 0) + Vector3(cos(a), 0, sin(a)) * 0.4, 0.3, 0.4, &"trim")
 	kit.stairs(Vector3(0, -drop, -pr - drop * 3.2), Vector3(0, 0.0, -pr + 0.5), 16.0, {"role": &"wall_alt", "sides": true, "side_role": &"trim"})
 	# main hall
-	var w := 40.0
-	var d := 24.0
-	var h := 13.0
+	var w := 52.0
+	var d := 30.0
+	var h := 17.0
 	var hz := -2.0
 	kit.box(Vector3(0, h * 0.5, hz), Vector3(w, h, d), &"wall")
 	if kit.lod < 2:
@@ -233,38 +242,39 @@ static func palace(kit: BuildingKit, spec: Dictionary) -> void:
 			var wx := lerpf(-w * 0.42, w * 0.42, i / 7.0)
 			if absf(wx) < 5.0:
 				continue
-			KitX.window(kit, Vector3(wx, 6.5, hz - d * 0.5), 1.2, 3.6, &"trim", 0.0, i % 3 == 0)
+			KitX.window(kit, Vector3(wx, 8.0, hz - d * 0.5), 1.5, 4.6, NwtStyle.navy(), 0.0, i % 3 == 0)
 		if kit.lod == 0:
 			KitX.joints(kit, -w * 0.5, w * 0.5, 1.2, h - 1.4, hz - d * 0.5, 1.4)
 			KitX.icicles(kit, Vector3(-w * 0.5, h - 1.4, hz - d * 0.5 - 0.2), Vector3(w * 0.5, h - 1.4, hz - d * 0.5 - 0.2), 0.8, 1.2)
 	# portico: ice columns, pediment with the emblem, great door
-	var pz := hz - d * 0.5 - 4.5
-	for i in 6:
-		var cx := lerpf(-12.0, 12.0, i / 5.0)
-		kit.column(Vector3(cx, 0.0, pz), 10.0, 0.75, &"ice", &"ice", &"wall_alt")
-	kit.box(Vector3(0, 10.6, pz + 1.8), Vector3(27.0, 1.4, 5.0), &"wall", true)
+	var pz := hz - d * 0.5 - 5.5
+	for i in 8:
+		var cx := lerpf(-16.0, 16.0, i / 7.0)
+		kit.column(Vector3(cx, 0.0, pz), 13.0, 0.95, &"ice", &"ice", &"wall_alt")
+	kit.box(Vector3(0, 13.7, pz + 2.2), Vector3(35.0, 1.6, 6.0), &"wall", true)
 	if kit.lod < 2:
-		kit.box(Vector3(0, 10.0, pz - 0.6), Vector3(27.2, 0.4, 0.4), &"trim", false)
-		KitX.emblem_water(kit, Vector3(0, 12.6, pz - 0.3), 3.6, &"trim", 0.1)
-		kit.box(Vector3(0, 12.4, pz + 1.0), Vector3(10.0, 2.6, 1.0), &"wall_alt", false)
-		kit.door(Transform3D(Basis(), Vector3(0, 0, hz - d * 0.5 - 0.05)), 4.0, 6.0, {"frame_role": &"trim", "leaf": &"closed", "thickness": 0.5})
+		kit.box(Vector3(0, 13.0, pz - 0.8), Vector3(35.2, 0.5, 0.5), NwtStyle.navy(), false)
+		KitX.emblem_water(kit, Vector3(0, 16.4, pz - 0.4), 4.6, NwtStyle.navy(), 0.1)
+		kit.box(Vector3(0, 16.0, pz + 1.0), Vector3(13.0, 3.4, 1.0), &"wall_alt", false)
+		kit.door(Transform3D(Basis(), Vector3(0, 0, hz - d * 0.5 - 0.05)), 5.0, 8.0, {"frame_role": &"trim", "leaf": &"closed", "thickness": 0.5})
 	# great dome on a drum
-	kit.cylinder(Vector3(0, h, hz), 5.0, 11.0, &"wall_alt", 24, true)
+	kit.cylinder(Vector3(0, h, hz), 6.0, 14.0, &"wall_alt", 24, true)
 	if kit.lod < 2:
-		kit.cylinder(Vector3(0, h + 4.4, hz), 0.6, 11.3, &"trim", 24, false)
+		kit.cylinder(Vector3(0, h + 5.3, hz), 0.7, 14.3, NwtStyle.navy(), 24, false)
 		if kit.lod == 0:
 			for k in 12:
 				var a := TAU * k / 12.0
 				var dir := Vector3(cos(a), 0, sin(a))
-				kit.push(Transform3D(Basis(Vector3.UP, atan2(dir.x, dir.z) + PI), dir * 10.98 + Vector3(0, h + 2.4, hz)))
+				kit.push(Transform3D(Basis(Vector3.UP, atan2(dir.x, dir.z) + PI), dir * 13.98 + Vector3(0, h + 2.8, hz)))
 				KitX.window(kit, Vector3.ZERO, 0.7, 1.8, &"trim", 0.0, k % 2 == 0)
 				kit.pop()
-	KitRoofs.dome(kit, Vector3(0, h + 5.0, hz), 11.4, {"squash": 0.95, "role": NwtStyle.dome(2), "rib_role": &"wall_alt", "slot": &"ice",
+	KitRoofs.dome(kit, Vector3(0, h + 6.0, hz), 14.6, {"squash": 0.95, "role": NwtStyle.dome(2), "rib_role": &"wall_alt", "slot": &"ice",
 		"finial": true, "finial_role": &"trim"})
 	# towers: two front, two back corners, the high keep behind the dome
-	var towers := [[Vector3(-w * 0.5 - 2.0, 0, hz - d * 0.5 + 1.0), 4.2, 30.0, 15.0], [Vector3(w * 0.5 + 2.0, 0, hz - d * 0.5 + 1.0), 4.2, 30.0, 15.0],
-		[Vector3(-w * 0.5 - 1.0, 0, hz + d * 0.5), 3.4, 22.0, 10.0], [Vector3(w * 0.5 + 1.0, 0, hz + d * 0.5), 3.4, 22.0, 10.0],
-		[Vector3(0, 0, hz + d * 0.5 + 6.0), 5.4, 44.0, 22.0]]
+	var towers := [[Vector3(-w * 0.5 - 2.5, 0, hz - d * 0.5 + 1.5), 5.4, 40.0, 20.0], [Vector3(w * 0.5 + 2.5, 0, hz - d * 0.5 + 1.5), 5.4, 40.0, 20.0],
+		[Vector3(-w * 0.5 - 1.0, 0, hz + d * 0.5), 4.2, 30.0, 14.0], [Vector3(w * 0.5 + 1.0, 0, hz + d * 0.5), 4.2, 30.0, 14.0],
+		[Vector3(0, 0, hz + d * 0.5 + 7.0), 7.0, 60.0, 30.0], [Vector3(-14.0, 0, hz + d * 0.5 + 4.0), 3.6, 46.0, 16.0],
+		[Vector3(14.0, 0, hz + d * 0.5 + 4.0), 3.6, 46.0, 16.0]]
 	for t: Array in towers:
 		var tc: Vector3 = t[0]
 		var tr: float = t[1]
@@ -289,19 +299,19 @@ static func palace(kit: BuildingKit, spec: Dictionary) -> void:
 			"flare": 0.12, "trim_role": &"trim", "finial_role": &"trim", "sides": 16})
 	# side wings with small domes
 	for sx: float in [-1.0, 1.0]:
-		var wc := Vector3(sx * (w * 0.5 + 9.0), 0, hz + 3.0)
-		kit.box(wc + Vector3(0, 4.5, 0), Vector3(14.0, 9.0, 16.0), &"wall_alt")
+		var wc := Vector3(sx * (w * 0.5 + 8.5), 0, hz + 3.0)
+		kit.box(wc + Vector3(0, 5.5, 0), Vector3(13.0, 11.0, 18.0), &"wall_alt")
 		if kit.lod < 2:
-			kit.box(wc + Vector3(0, 8.6, 0), Vector3(14.3, 0.5, 16.3), &"trim", false)
+			kit.box(wc + Vector3(0, 10.6, 0), Vector3(13.3, 0.6, 18.3), NwtStyle.navy(), false)
 			for k in 3:
-				KitX.window(kit, wc + Vector3((k - 1) * 4.0, 4.5, -8.0), 0.9, 1.8, &"trim", 0.0, k == 1)
-		KitRoofs.dome(kit, wc + Vector3(0, 9.0, 0), 5.0, {"squash": 0.85, "role": NwtStyle.dome(0), "rib_role": &"wall_alt", "slot": &"ice",
+				KitX.window(kit, wc + Vector3((k - 1) * 4.0, 5.5, -9.0), 1.0, 2.2, NwtStyle.navy(), 0.0, k == 1)
+		KitRoofs.dome(kit, wc + Vector3(0, 11.0, 0), 5.6, {"squash": 0.85, "role": NwtStyle.dome(0), "rib_role": &"wall_alt", "slot": &"ice",
 			"finial": kit.lod < 2, "finial_role": &"trim"})
 	# banners, braziers, sculptures on the forecourt
 	if kit.lod < 2:
 		for sx: float in [-1.0, 1.0]:
-			kit.banner(Transform3D(Basis(), Vector3(sx * 8.0, h - 1.4, hz - d * 0.5 - 0.3)), 2.2, 9.0, {"role": &"cloth", "alt_role": &"cloth_alt"})
-			kit.banner(Transform3D(Basis(), Vector3(sx * 16.0, h - 1.4, hz - d * 0.5 - 0.3)), 2.2, 9.0, {"role": &"cloth", "alt_role": &"cloth_alt"})
+			KitX.banner(kit, Transform3D(Basis(), Vector3(sx * 9.0, h - 1.6, hz - d * 0.5 - 0.3)), 2.8, 12.0)
+			KitX.banner(kit, Transform3D(Basis(), Vector3(sx * 19.0, h - 1.6, hz - d * 0.5 - 0.3)), 2.8, 12.0)
 			kit.push(Transform3D(Basis(), Vector3(sx * 11.0, 0, -pr + 6.0)))
 			NwtProps.brazier(kit, 0)
 			kit.pop()
@@ -325,7 +335,7 @@ static func land_gate(kit: BuildingKit, spec: Dictionary) -> void:
 			"flare": 0.12, "trim_role": &"trim", "finial_role": &"trim", "sides": 16})
 		if kit.lod < 2:
 			kit.box(Vector3(cx, h + 5.0, 0), Vector3(10.3, 0.8, dep + 0.3), &"trim", false)
-			kit.banner(Transform3D(Basis(), Vector3(cx, h + 4.0, -dep * 0.5 - 0.2)), 1.8, 8.0, {"role": &"cloth", "alt_role": &"cloth_alt"})
+			KitX.banner(kit, Transform3D(Basis(), Vector3(cx, h + 4.0, -dep * 0.5 - 0.2)), 1.8, 8.0)
 			kit.push(Transform3D(Basis(), Vector3(cx - sx * 3.0, 0, -dep * 0.5 - 3.0)))
 			NwtProps.brazier(kit, 0)
 			kit.pop()

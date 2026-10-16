@@ -11,7 +11,7 @@ extends RefCounted
 ##   canal_fall     frame of a canal waterfall through a tier wall: pylons, lip sill, wet chute
 ##                  (the animated water sheets are added by NwtBuilder.piece_payload)
 
-const OASIS_GREEN := Color(0.30, 0.56, 0.24)
+const OASIS_GREEN := Color(0.27, 0.50, 0.22)
 
 
 static func build(kit: BuildingKit, kind: StringName, spec: Dictionary) -> void:
@@ -58,41 +58,62 @@ static func healer_hut(kit: BuildingKit, _spec: Dictionary) -> void:
 	kit.cylinder(Vector3(0, y + h - 0.35, 0), 0.35, r + 0.35, &"trim", 18, false)
 	KitRoofs.dome(kit, Vector3(0, y + h, 0), r + 0.3, {"squash": 0.78, "role": NwtStyle.dome(0), "rib_role": &"wall_alt", "slot": &"ice",
 		"block_lines": true, "finial": true, "finial_role": &"trim"})
-	# ceiling disc seen from inside (the dome is single-sided)
+	# the dome seen from inside (the roof is single-sided): an inner shell in the interior colour
 	if kit.lod < 2:
-		kit.cylinder(Vector3(0, y + h - 0.05, 0), 0.1, r - 0.2, &"interior", 18, false)
+		KitX.inner_dome(kit, Vector3(0, y + h - 0.3, 0), r - 0.25, 0.74, kit.col(&"interior").lerp(NwtStyle.dome(0), 0.35))
 	# entrance vestibule
 	for sx: float in [-1.0, 1.0]:
 		kit.box(Vector3(sx * 1.45, y + 1.4, -r - 0.9), Vector3(0.5, 2.8, 2.0), &"wall")
 	kit.box(Vector3(0, y + 3.0, -r - 0.9), Vector3(3.4, 0.5, 2.2), &"wall_alt")
 	if kit.lod < 2:
-		kit.box(Vector3(0, y + 2.7, -r - 1.95), Vector3(3.2, 0.25, 0.3), &"trim", false)
-		kit.banner(Transform3D(Basis(), Vector3(0, y + 3.4, -r - 2.05)), 1.2, 0.9, {"role": &"cloth_alt", "alt_role": &"cloth", "tail": false})
+		kit.box(Vector3(0, y + 2.7, -r - 1.95), Vector3(3.2, 0.25, 0.3), NwtStyle.navy(), false)
+		KitX.banner(kit, Transform3D(Basis(), Vector3(0, y + 3.25, -r - 2.08)), 1.1, 1.2, &"cloth_alt", &"cloth", &"moon")
 		kit.lantern(Vector3(1.9, y, -r - 2.4), {"style": &"ice", "height": 1.5, "range": 7.0})
 	if kit.lod == 0:
-		# healing pool: rim + softly glowing water
-		kit.cylinder(Vector3(0, y, 0), 0.4, 1.9, &"wall_alt", 16, true)
+		# healing pool: a ring of ice blocks around softly glowing water
+		for k in 16:
+			var a := TAU * k / 16.0
+			kit.box_t(Transform3D(Basis(Vector3.UP, -a), Vector3(cos(a) * 1.85, y + 0.22, sin(a) * 1.85)), Vector3(0.42, 0.44, 0.78), &"wall_alt", true)
 		var gw := kit.g(&"glow")
 		gw.uv = Vector2(0, 0.15)
-		gw.cylinder(Vector3(0, y + 0.3, 0), Vector3(0, y + 0.36, 0), 1.6, 1.6, 16, Color(0.45, 0.80, 1.0) * 0.6, 2)
+		gw.cylinder(Vector3(0, y + 0.18, 0), Vector3(0, y + 0.24, 0), 1.72, 1.72, 18, Color(0.40, 0.78, 1.0) * 0.7, 2)
+		# a hanging lamp over the pool
+		kit.g().cylinder(Vector3(0, y + h + 2.0, 0), Vector3(0, y + 2.9, 0), 0.015, 0.015, 3, kit.col(&"metal"), 0)
+		var lamp := kit.g(&"glow")
+		lamp.uv = Vector2(0, 0.6)
+		lamp.blob(Vector3(0, y + 2.65, 0), 0.28, 1, Color(1.0, 0.86, 0.62), null, 0.0, Vector3(1, 1.2, 1))
+		kit.g().cylinder(Vector3(0, y + 2.95, 0), Vector3(0, y + 3.05, 0), 0.3, 0.2, 8, kit.col(&"metal"), 2)
 		# cots with furs around the pool
 		for k in 4:
 			var a := TAU * (k + 0.5) / 4.0 + PI * 0.5
-			var c := Vector3(cos(a) * 3.8, y, sin(a) * 3.8)
+			var c := Vector3(cos(a) * 3.9, y, sin(a) * 3.9)
 			var yaw := atan2(c.x, c.z)
 			kit.box_t(Transform3D(Basis(Vector3.UP, yaw), c + Vector3(0, 0.25, 0)), Vector3(0.9, 0.5, 2.0), &"wood", false)
 			kit.box_t(Transform3D(Basis(Vector3.UP, yaw), c + Vector3(0, 0.55, 0)), Vector3(0.95, 0.12, 2.0), Color(0.86, 0.84, 0.78).srgb_to_linear(), false)
 			kit.box_t(Transform3D(Basis(Vector3.UP, yaw), c + Vector3(0, 0.66, 0.7)), Vector3(0.6, 0.15, 0.4), &"cloth", false)
-		# herb shelves and jars on the back wall, hanging herbs
+			kit.box_t(Transform3D(Basis(Vector3.UP, yaw), c + Vector3(0, 0.63, -0.3)), Vector3(1.05, 0.1, 0.9), Color(0.55, 0.43, 0.33).srgb_to_linear(), false)
+		# patterned rugs on the floor
+		for k in 3:
+			var a := TAU * k / 3.0 + 0.4
+			var c := Vector3(cos(a) * 2.6, y + 0.02, sin(a) * 2.6)
+			kit.box_t(Transform3D(Basis(Vector3.UP, a), c), Vector3(1.6, 0.03, 1.0), &"cloth", false)
+			kit.box_t(Transform3D(Basis(Vector3.UP, a), c + Vector3(0, 0.01, 0)), Vector3(1.2, 0.03, 0.6), &"cloth_alt", false)
+		# herb shelves with jars on the back wall, drying herbs on strings, tapestries
 		for sx: float in [-1.0, 1.0]:
-			var sc := Vector3(sx * 2.2, y, r - 0.9)
+			var sc := Vector3(sx * 2.2, y, r - 1.0)
 			kit.box(sc + Vector3(0, 1.0, 0), Vector3(1.8, 2.0, 0.4), &"wood_dark", true)
-			for j in 3:
-				var p := sc + Vector3(-0.6 + j * 0.6, 1.25, -0.05)
-				kit.g().cylinder(p, p + Vector3(0, 0.3, 0), 0.12, 0.09, 6, kit.col(&"accent" if j % 2 else &"stone"), 2)
-		for k in 6:
-			var hp := Vector3(-2.5 + k, y + h - 0.6, 1.0)
-			kit.g().blob(hp, 0.12, 0, Color(0.42, 0.55, 0.30).srgb_to_linear(), null, 0.0, Vector3(0.6, 1.8, 0.6))
+			for row in 2:
+				for j in 3:
+					var p := sc + Vector3(-0.6 + j * 0.6, 0.65 + row * 0.75, -0.05)
+					kit.g().cylinder(p, p + Vector3(0, 0.3, 0), 0.12, 0.09, 6, kit.col(&"accent" if (j + row) % 2 else &"stone"), 2)
+			KitX.banner(kit, Transform3D(Basis(Vector3.UP, sx * 0.9 + PI), Vector3(sx * (r - 0.75) * 0.78, y + h - 0.6, (r - 0.75) * 0.62 - 1.0)), 1.0, 2.2, &"cloth", &"cloth_alt", &"moon")
+		var rope := PackedVector3Array([Vector3(-3.2, y + h - 0.5, 1.6), Vector3(0, y + h - 0.85, 1.9), Vector3(3.2, y + h - 0.5, 1.6)])
+		var rr := PackedFloat32Array([0.015, 0.015, 0.015])
+		kit.g().tube(rope, rr, 3, kit.col(&"wood_dark"))
+		for k in 7:
+			var t := (k + 0.5) / 7.0
+			var hp := Vector3(lerpf(-3.0, 3.0, t), y + h - 0.65 - sin(t * PI) * 0.33 - 0.25, 1.6 + sin(t * PI) * 0.3)
+			kit.g().blob(hp, 0.11, 0, Color(0.40, 0.55, 0.28).srgb_to_linear(), null, 0.0, Vector3(0.6, 2.0, 0.6))
 		kit.lantern(Vector3(-3.4, y, -2.0), {"style": &"post", "height": 1.3, "light": false})
 	_interior_light(kit, Vector3(0, y + h - 0.8, 0), Color(0.80, 0.90, 1.0), 9.0, 1.1)
 	_interior_light(kit, Vector3(0, y + 1.0, 0), Color(0.55, 0.85, 1.0), 4.0, 0.8)
@@ -129,7 +150,7 @@ static func training_hall(kit: BuildingKit, _spec: Dictionary) -> void:
 		"finial": kit.lod < 2, "finial_role": &"trim"})
 	if kit.lod < 2:
 		for sx: float in [-1.0, 1.0]:
-			kit.banner(Transform3D(Basis(), Vector3(sx * 3.6, y + h - 0.4, -hz - 0.45)), 1.1, 3.6, {"role": &"cloth", "alt_role": &"cloth_alt"})
+			KitX.banner(kit, Transform3D(Basis(), Vector3(sx * 3.6, y + h - 0.4, -hz - 0.45)), 1.1, 3.6)
 			kit.push(Transform3D(Basis(), Vector3(sx * 4.2, 0.0, -hz - 3.0)))
 			NwtProps.brazier(kit, 0)
 			kit.pop()
@@ -163,7 +184,7 @@ static func training_hall(kit: BuildingKit, _spec: Dictionary) -> void:
 		kit.stairs(Vector3(0, y, hz - 4.6), Vector3(0, y + 0.5, hz - 3.7), 3.0, {"role": &"wall_alt"})
 		kit.box(Vector3(0, y + 0.62, hz - 2.0), Vector3(1.2, 0.25, 1.2), &"cloth", false)
 		for sx: float in [-1.0, 0.0, 1.0]:
-			kit.banner(Transform3D(Basis(Vector3.UP, PI), Vector3(sx * 2.6, y + h - 0.7, hz - 0.45)), 1.2, 4.0, {"role": &"cloth", "alt_role": &"cloth_alt"})
+			KitX.banner(kit, Transform3D(Basis(Vector3.UP, PI), Vector3(sx * 2.6, y + h - 0.7, hz - 0.45)), 1.2, 4.0)
 		# practice targets: ice pillars
 		for k in 3:
 			kit.cylinder(Vector3(-4.0 + k * 4.0, y, -hz + 3.2), 1.8, 0.35, &"ice", 6, true, 0.25, &"ice")
@@ -198,7 +219,7 @@ static func family_home(kit: BuildingKit, _spec: Dictionary) -> void:
 	KitRoofs.dome(kit, Vector3(1.6, y + h + 0.95, 1.0), 1.7, {"squash": 0.85, "role": NwtStyle.dome(0), "rib_role": &"wall_alt", "slot": &"ice",
 		"finial": false})
 	if kit.lod < 2:
-		kit.banner(Transform3D(Basis(), Vector3(-2.8, y + h - 0.3, -hz - 0.35)), 0.7, 2.0, {"role": &"cloth", "alt_role": &"cloth_alt"})
+		KitX.banner(kit, Transform3D(Basis(), Vector3(-2.8, y + h - 0.3, -hz - 0.35)), 0.7, 2.0)
 	if kit.lod == 0:
 		# fire pit with a stone ring + cooking pot
 		for k in 8:
@@ -248,7 +269,7 @@ static func oasis(kit: BuildingKit, spec: Dictionary) -> void:
 		KitRoofs.cone(kit, p + Vector3(0, 7.0, 0), 1.1, 4.0, {"role": NwtStyle.spire(0), "alt_role": NwtStyle.spire(1), "slot": &"ice", "flare": 0.1,
 			"trim_role": &"trim", "finial_role": &"trim", "sides": 10})
 		if kit.lod == 0:
-			kit.banner(Transform3D(Basis(), Vector3(p.x, 6.2, p.z - 1.15)), 1.0, 3.2, {"role": &"cloth", "alt_role": &"cloth_alt"})
+			KitX.banner(kit, Transform3D(Basis(), Vector3(p.x, 6.2, p.z - 1.15)), 1.0, 3.2)
 	# lawn (green ring), pond rim, path
 	var green := OASIS_GREEN.srgb_to_linear()
 	var nl := 32 if kit.lod == 0 else 16
@@ -322,5 +343,5 @@ static func canal_fall(kit: BuildingKit, spec: Dictionary) -> void:
 		KitRoofs.cone(kit, Vector3(x, H + 3.4, 0.8), 1.7, 6.5, {"role": NwtStyle.spire(0), "alt_role": NwtStyle.spire(1), "slot": &"ice", "flare": 0.1,
 			"trim_role": &"trim", "finial_role": &"trim", "sides": 12})
 		if kit.lod == 0:
-			kit.banner(Transform3D(Basis(), Vector3(x, H + 2.6, -2.05)), 1.4, minf(drop * 0.6, 8.0), {"role": &"cloth", "alt_role": &"cloth_alt"})
+			KitX.banner(kit, Transform3D(Basis(), Vector3(x, H + 2.6, -2.05)), 1.4, minf(drop * 0.6, 8.0))
 			KitX.icicles(kit, Vector3(x - 1.5, -0.3, -2.0), Vector3(x + 1.5, -0.3, -2.0), 1.5, 1.2)

@@ -14,6 +14,8 @@ extends RefCounted
 ##   canoe        Water Tribe canoe (hide + wood, blue trim)
 ##   ship         two-masted Water Tribe ship with blue sails (moored)
 ##   mooring      mooring posts with rope
+##   fire_pit     stone ring with burning logs and a cooking tripod (light)
+##   ice_hole     ice-fishing hole: dark water disc, chipped rim, line stand, bucket
 
 
 static func build(kit: BuildingKit, kind: StringName, v: int, spec: Dictionary = {}) -> void:
@@ -29,6 +31,8 @@ static func build(kit: BuildingKit, kind: StringName, v: int, spec: Dictionary =
 		&"canoe": canoe(kit, v)
 		&"ship": ship(kit, v)
 		&"mooring": mooring(kit, v)
+		&"fire_pit": fire_pit(kit, v)
+		&"ice_hole": ice_hole(kit, v)
 
 
 static func _rng(kind: StringName, v: int) -> RandomNumberGenerator:
@@ -158,7 +162,7 @@ static func banner_pole(kit: BuildingKit, v: int) -> void:
 	kit.cylinder(Vector3(0, 0.6, 0), h, 0.1, &"wood_dark", 6, true, 0.07)
 	if kit.lod < 2:
 		kit.beam(Vector3(-0.8, h - 0.1, 0), Vector3(0.8, h - 0.1, 0), 0.08, 0.08, &"wood_dark")
-		kit.banner(Transform3D(Basis(), Vector3(0, h - 0.15, -0.05)), 1.3, h * 0.55, {"role": &"cloth", "alt_role": &"cloth_alt", "rod": false})
+		KitX.banner(kit, Transform3D(Basis(), Vector3(0, h - 0.15, -0.05)), 1.3, h * 0.55)
 		# moon finial
 		var top := Vector3(0, h + 0.8, 0)
 		var moon := PackedVector3Array()
@@ -288,3 +292,42 @@ static func mooring(kit: BuildingKit, v: int) -> void:
 		kit.cylinder(p, 0.9, 0.16, &"wood_dark", 6, true, 0.13)
 		if kit.lod == 0:
 			kit.g().cylinder(p + Vector3(0, 0.55, 0), p + Vector3(0, 0.65, 0), 0.19, 0.19, 6, kit.col(&"wood"), 0)
+
+
+static func fire_pit(kit: BuildingKit, v: int) -> void:
+	var stone := kit.col(&"stone_dark")
+	for k in 10:
+		var a := TAU * k / 10.0
+		kit.g().blob(Vector3(cos(a) * 0.95, 0.12, sin(a) * 0.95), 0.24, 0, stone, null, 0.0, Vector3(1.1, 0.7, 1.0))
+	if kit.lod < 2:
+		for k in 3:
+			var a := TAU * k / 3.0 + 0.3
+			kit.beam(Vector3(cos(a) * 0.6, 0.12, sin(a) * 0.6), Vector3(-cos(a) * 0.2, 0.35, -sin(a) * 0.2), 0.14, 0.14, &"wood_dark")
+		var gb := kit.g(&"glow")
+		gb.uv = Vector2(0, 1)
+		var fire := Color(1.0, 0.55, 0.18)
+		gb.cone(Vector3(0, 0.2, 0), Vector3(0, 1.2, 0), 0.45, 6, fire)
+		gb.cone(Vector3(0.2, 0.2, 0.1), Vector3(0.25, 0.9, 0.1), 0.25, 5, fire * 1.1)
+		gb.cone(Vector3(-0.2, 0.2, -0.1), Vector3(-0.25, 0.85, -0.1), 0.25, 5, fire * 1.1)
+		if kit.lod == 0 and v % 2 == 0:
+			for k in 3:
+				var a := TAU * k / 3.0
+				kit.beam(Vector3(cos(a) * 0.9, 0.0, sin(a) * 0.9), Vector3(0, 1.9, 0), 0.05, 0.05, &"wood")
+			kit.g().cylinder(Vector3(0, 1.25, 0), Vector3(0, 1.55, 0), 0.22, 0.26, 8, kit.col(&"metal"), 1)
+	kit.add_light(Vector3(0, 1.3, 0), Color(1.0, 0.62, 0.3), 13.0, 2.6, 2)
+	kit.collide_box(Vector3(0, 0.25, 0), Vector3(2.0, 0.5, 2.0))
+
+
+static func ice_hole(kit: BuildingKit, v: int) -> void:
+	kit.g().cylinder(Vector3(0, 0.0, 0), Vector3(0, 0.03, 0), 0.65, 0.65, 12, kit.col(&"window", false) * 1.4, 2)
+	var ice := kit.col(&"ice")
+	for k in 8:
+		var a := TAU * k / 8.0
+		kit.g(&"ice").blob(Vector3(cos(a) * 0.8, 0.06, sin(a) * 0.8), 0.18, 0, ice, null, 0.0, Vector3(1.2, 0.5, 1.0))
+	if kit.lod == 0:
+		kit.beam(Vector3(1.1, 0, 0.2), Vector3(0.9, 0.9, 0.0), 0.05, 0.05, &"wood")
+		kit.beam(Vector3(0.9, 0.9, 0.0), Vector3(0.1, 1.1, 0.0), 0.03, 0.03, &"wood")
+		kit.g().cylinder(Vector3(0.1, 1.1, 0.0), Vector3(0.1, 0.0, 0.0), 0.006, 0.006, 3, kit.col(&"wood_dark"), 0)
+		kit.g().cylinder(Vector3(-1.1, 0, 0.6), Vector3(-1.1, 0.45, 0.6), 0.22, 0.25, 8, kit.col(&"wood"), 1)
+		if v % 2 == 0:
+			kit.g().blob(Vector3(-1.1, 0.5, 0.6), 0.12, 0, Color(0.66, 0.70, 0.74).srgb_to_linear(), null, 0.0, Vector3(2.0, 0.5, 0.7))

@@ -145,7 +145,7 @@ static func doorway(kit: BuildingKit, c: Vector3, w: float = 1.3, h: float = 2.2
 static func window(kit: BuildingKit, c: Vector3, w: float = 0.7, h: float = 0.9, frame_role: Variant = &"trim",
 		depth: float = 0.06, lit: bool = false) -> void:
 	if lit:
-		kit.g(&"glow").box(Transform3D(Basis(), c + Vector3(0, 0, -depth)), Vector3(w, h, 0.05), kit.col(&"glow") * 0.55)
+		kit.g(&"glow").box(Transform3D(Basis(), c + Vector3(0, 0, -depth)), Vector3(w, h, 0.05), kit.col(&"glow") * 0.85)
 	else:
 		kit.box(c + Vector3(0, 0, -depth), Vector3(w, h, 0.05), &"window", false)
 	if kit.lod == 0:
@@ -162,6 +162,75 @@ static func arc(L: RingLayout, r: float, b0: float, b1: float, y: float, step: f
 		var p := L.xz(r, b)
 		out.append(Vector3(p.x, y, p.y))
 	return out
+
+
+## Hanging nation banner (cloth slot, ripples in the wind): `t` origin = top centre, hangs
+## along -Y facing -Z. A field colour with thin edge stripes, a pointed tail and an emblem
+## sampled per vertex: &"moon" (Water Tribe crescent over waves), &"swirl" (Air Nomad ring),
+## &"none". field/trim: palette roles or Colors.
+static func banner(kit: BuildingKit, t: Transform3D, width: float, length: float, field: Variant = &"cloth",
+		trim: Variant = &"cloth_alt", emblem: StringName = &"moon") -> void:
+	kit.push(t)
+	var c0 := kit.col(field, false)
+	var c1 := kit.col(trim, false)
+	var nx: int = [8, 3, 1][clampi(kit.lod, 0, 2)]
+	var ny: int = [14, 5, 2][clampi(kit.lod, 0, 2)]
+	var cb := kit.g(&"cloth")
+	var base := cb.vertex_count()
+	var aspect := length / maxf(width, 0.01)
+	for j in ny + 1:
+		var v := float(j) / ny
+		for i in nx + 1:
+			var u := float(i) / nx
+			var px := (u - 0.5) * width
+			var py := -v * length
+			if j == ny:
+				py -= (0.5 - absf(u - 0.5)) * width * 0.7
+			var c := c0
+			if kit.lod < 2:
+				if absf(u - 0.5) > 0.42 or (v > 0.06 and v < 0.1) or (v > 0.84 and v < 0.88):
+					c = c1
+				var ex := (u - 0.5)
+				var ey := (v - 0.36) * aspect
+				match emblem:
+					&"moon":
+						var d := Vector2(ex, ey).length()
+						var d2 := Vector2(ex - 0.12, ey - 0.04).length()
+						if d < 0.3 and d2 > 0.24:
+							c = c1
+						if v > 0.6 and v < 0.66 and absf(u - 0.5) < 0.3:
+							c = c1
+					&"swirl":
+						var d := Vector2(ex, ey).length()
+						if d > 0.17 and d < 0.27:
+							c = c1
+			cb.vertex(Vector3(px, py, 0), Vector3(0, 0, -1), c, Vector2(v, u))
+	for j in ny:
+		for i in nx:
+			var k := base + j * (nx + 1) + i
+			cb.quad(k, k + nx + 1, k + nx + 2, k + 1)
+	if kit.lod < 2:
+		kit.g().cylinder(Vector3(-width * 0.56, 0.03, 0), Vector3(width * 0.56, 0.03, 0), 0.04, 0.04, 5, kit.col(&"wood_dark"), 3)
+	kit.pop()
+
+
+## Inward-facing hemisphere (a domed ceiling seen from inside), radius r squashed in y.
+static func inner_dome(kit: BuildingKit, c: Vector3, r: float, squash: float, col: Color) -> void:
+	var g := kit.g()
+	var sides := 18 if kit.lod == 0 else 10
+	var rings := 6 if kit.lod == 0 else 3
+	var base := g.vertex_count()
+	for j in rings + 1:
+		var phi := PI * 0.5 * float(j) / rings
+		for i in sides + 1:
+			var a := TAU * float(i % sides) / sides
+			var n := Vector3(cos(a) * cos(phi), sin(phi), sin(a) * cos(phi))
+			var shade := lerpf(0.8, 1.05, float(j) / rings)
+			g.vertex(c + Vector3(n.x * r, n.y * r * squash, n.z * r), -n, col * shade)
+	for j in rings:
+		for i in sides:
+			var k := base + j * (sides + 1) + i
+			g.quad(k, k + 1, k + sides + 2, k + sides + 1)
 
 
 ## A tuft of three crossing grass blades (double-sided solid triangles) at local `p`.

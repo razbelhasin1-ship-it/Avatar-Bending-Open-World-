@@ -223,7 +223,7 @@ static func block_house(kit: BuildingKit, v: int) -> void:
 		kit.stairs(Vector3(w * 0.5 + 0.6, 0.3, -d * 0.5 + 1.0), Vector3(w * 0.5 + 0.6, y - 0.1, d * 0.5 - 0.8), 1.0, {"role": wall2})
 	kit.mark(&"door", Transform3D(Basis(Vector3.UP, PI), Vector3(0, 0, -d * 0.5 - 1.0)))
 	if kit.lod == 0 and v % 3 == 2:
-		kit.banner(Transform3D(Basis(), Vector3(-w * 0.5 + 0.9, 3.0, -d * 0.5 - 0.1)), 0.7, 2.2, {"role": &"cloth", "alt_role": &"cloth_alt"})
+		KitX.banner(kit, Transform3D(Basis(), Vector3(-w * 0.5 + 0.9, 3.0, -d * 0.5 - 0.1)), 0.7, 2.2)
 
 
 ## Block house with a slender round tower at a back corner, crowned by a glossy ice spire.
@@ -337,7 +337,7 @@ static func noble_house(kit: BuildingKit, v: int) -> void:
 			kit.ornament(Vector3(sx * (gate_w * 0.5 + 0.3), y + 3.8, -hz), &"orb", 0.6, NwtStyle.dome(1))
 			if kit.lod == 0:
 				kit.lantern(Vector3(sx * (gate_w * 0.5 + 1.3), y, -hz - 0.9), {"style": &"ice", "height": 1.6, "light": sx > 0.0, "range": 8.0})
-				kit.banner(Transform3D(Basis(), Vector3(sx * (gate_w * 0.5 + 0.3), y + 3.4, -hz - 0.47)), 0.7, 2.4, {"role": &"cloth", "alt_role": &"cloth_alt"})
+				KitX.banner(kit, Transform3D(Basis(), Vector3(sx * (gate_w * 0.5 + 0.3), y + 3.4, -hz - 0.47)), 0.7, 2.4)
 	if kit.lod < 2:
 		kit.box(Vector3(0, y + 3.9, -hz), Vector3(gate_w + 1.8, 0.5, 1.0), NwtStyle.navy())
 	# main hall (back)

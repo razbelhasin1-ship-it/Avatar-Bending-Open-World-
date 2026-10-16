@@ -4,6 +4,7 @@ extends SettlementBuilder
 ## kinds map to the recipe libraries:
 ##   NwtHomes      dome_home block_house tower_house warehouse noble_house igloo hide_tent
 ##   NwtProps      stall fish_rack crates lamp_post brazier banner_pole sculpture bench canoe ship mooring
+##                 fire_pit ice_hole
 ##   NwtCivic      tier_wall grand_stair canal_bridge pier plaza gateway
 ##   NwtLandmarks  sea_wall sea_tower sea_gate palace land_gate city_tower
 ##   NwtPlaces     healer_hut training_hall family_home oasis canal_fall
@@ -13,7 +14,7 @@ extends SettlementBuilder
 
 const HOMES: Array[StringName] = [&"dome_home", &"block_house", &"tower_house", &"warehouse", &"noble_house", &"igloo", &"hide_tent"]
 const PROPS: Array[StringName] = [&"stall", &"fish_rack", &"crates", &"lamp_post", &"brazier", &"banner_pole", &"sculpture",
-	&"bench", &"canoe", &"ship", &"mooring"]
+	&"bench", &"canoe", &"ship", &"mooring", &"fire_pit", &"ice_hole"]
 const CIVIC: Array[StringName] = [&"tier_wall", &"grand_stair", &"canal_bridge", &"pier", &"plaza", &"gateway"]
 const LANDMARKS: Array[StringName] = [&"sea_wall", &"sea_tower", &"sea_gate", &"palace", &"land_gate", &"city_tower"]
 const PLACES: Array[StringName] = [&"healer_hut", &"training_hall", &"family_home", &"oasis", &"canal_fall"]

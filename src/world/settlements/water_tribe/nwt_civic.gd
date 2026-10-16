@@ -68,7 +68,7 @@ static func tier_wall(kit: BuildingKit, spec: Dictionary) -> void:
 			if style == &"tier" and H > 9.0:
 				if v % 2 == 0:
 					var bl := minf(H * 0.55, 10.0)
-					kit.banner(Transform3D(Basis(), Vector3(hl * 0.15, H - 1.0, -0.28)), 1.7, bl, {"role": &"cloth", "alt_role": &"cloth_alt"})
+					KitX.banner(kit, Transform3D(Basis(), Vector3(hl * 0.15, H - 1.0, -0.28)), 1.7, bl)
 				if v % 4 == 1:
 					# a dwelling in the wall: arched door + windows above
 					KitX.doorway(kit, Vector3(-hl * 0.3, 0.0, 0.0), 1.4, 2.4, &"trim", &"cloth", 0.0)
@@ -165,7 +165,7 @@ static func gateway(kit: BuildingKit, spec: Dictionary) -> void:
 			kit.box(Vector3(x, 0.4, 0), Vector3(pw + 0.4, 0.8, pw + 0.4), &"base", false)
 			kit.box(Vector3(x, h * 0.62, 0), Vector3(pw + 0.12, 0.4, pw + 0.12), &"trim", false)
 			if kit.lod == 0:
-				kit.banner(Transform3D(Basis(), Vector3(x, h * 0.58, -pw * 0.5 - 0.05)), 1.2, h * 0.45, {"role": &"cloth", "alt_role": &"cloth_alt"})
+				KitX.banner(kit, Transform3D(Basis(), Vector3(x, h * 0.58, -pw * 0.5 - 0.05)), 1.2, h * 0.45)
 		KitRoofs.cone(kit, Vector3(x, h + 1.6, 0), pw * 0.62, 4.5, {"role": NwtStyle.spire(0), "alt_role": NwtStyle.spire(1), "slot": &"ice", "flare": 0.1,
 			"trim_role": &"trim", "finial_role": &"trim", "sides": 10})
 	# lintel: a deep blue beam with a white cornice and the emblem
