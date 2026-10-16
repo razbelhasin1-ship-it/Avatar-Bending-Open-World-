@@ -6,9 +6,17 @@ extends DodgeAbility
 var _spray_t := 0.0
 
 
+var _snow := false
+
+
 func on_dodge_start() -> void:
+	WaterCommon.prepare()
 	var g := ctx.ground_point(ctx.origin())
-	IceFx.splash(ctx.caster, g + Vector3.UP * 0.1, 0.6, (-dir + Vector3.UP).normalized(), g.y)
+	_snow = ctx.surface_at(g) == &"snow"
+	if _snow:
+		WaterEnv.snow_spray(ctx.caster, g, (-dir + Vector3.UP).normalized(), 1.0)
+	else:
+		IceFx.splash(ctx.caster, g + Vector3.UP * 0.1, 0.6, (-dir + Vector3.UP).normalized(), g.y)
 
 
 func on_dodge_tick(delta: float) -> void:
@@ -16,8 +24,11 @@ func on_dodge_tick(delta: float) -> void:
 	if _spray_t <= 0.0 and time < duration:
 		_spray_t = 0.06
 		var g := ctx.ground_point(ctx.origin())
-		FxBurst.spawn(ctx.caster, &"spray", g + Vector3.UP * 0.1, {"count": 0.4, "dir": (-dir + Vector3.UP).normalized(), "size": 0.7})
-		FxDecal.spawn(ctx.caster, g, &"wet", 0.55)
+		if _snow:
+			FxBurst.spawn(ctx.caster, &"snow", g + Vector3.UP * 0.1, {"count": 0.5, "dir": (-dir + Vector3.UP).normalized(), "size": 0.8})
+		else:
+			FxBurst.spawn(ctx.caster, &"spray", g + Vector3.UP * 0.1, {"count": 0.4, "dir": (-dir + Vector3.UP).normalized(), "size": 0.7})
+			FxDecal.spawn(ctx.caster, g, &"wet", 0.55)
 
 
 func on_perfect_dodge(_hit: HitInfo) -> void:

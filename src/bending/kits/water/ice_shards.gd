@@ -14,6 +14,7 @@ func chi_cost() -> float:
 
 
 func begin() -> void:
+	WaterCommon.prepare()
 	ctx.move_mode = BendingContext.Move.FREE
 	ctx.move_speed_scale = 0.3
 	ctx.face_dir = ctx.aim_flat()

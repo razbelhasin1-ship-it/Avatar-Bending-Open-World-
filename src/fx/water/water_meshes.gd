@@ -9,13 +9,18 @@ extends RefCounted
 
 static var _cache: Dictionary = {}
 
-## Wave cross-section, normalized (forward offset, height, foam weight):
-## back foot -> back slope -> crest -> curling lip -> hollow front face -> front foot.
+## Wave cross-section, normalized (forward offset in units of `depth`, height
+## fraction, foam weight): a long thin tail of water flowing along the ground
+## behind the wave -> back slope -> crest -> curling lip -> hollow front face
+## -> front foot (spray).
 const PROFILE: Array[Vector3] = [
-	Vector3(-1.0, 0.0, 0.0), Vector3(-0.72, 0.26, 0.05), Vector3(-0.44, 0.58, 0.12), Vector3(-0.18, 0.86, 0.35),
-	Vector3(0.08, 1.0, 0.75), Vector3(0.3, 0.97, 1.0), Vector3(0.46, 0.84, 1.0), Vector3(0.52, 0.66, 0.85),
-	Vector3(0.44, 0.52, 0.45), Vector3(0.3, 0.44, 0.25), Vector3(0.2, 0.3, 0.2), Vector3(0.2, 0.12, 0.45), Vector3(0.3, 0.0, 0.9),
+	Vector3(-2.4, 0.0, 0.45), Vector3(-1.8, 0.04, 0.2), Vector3(-1.25, 0.12, 0.06), Vector3(-0.8, 0.3, 0.02),
+	Vector3(-0.45, 0.58, 0.04), Vector3(-0.15, 0.86, 0.4), Vector3(0.08, 1.0, 0.85), Vector3(0.28, 0.99, 0.9),
+	Vector3(0.45, 0.88, 1.0), Vector3(0.53, 0.72, 0.85), Vector3(0.47, 0.58, 0.4), Vector3(0.32, 0.5, 0.12),
+	Vector3(0.21, 0.36, 0.06), Vector3(0.18, 0.16, 0.25), Vector3(0.3, 0.0, 0.8),
 ]
+## Alpha per profile point (the tail fades into the ground water).
+const PROFILE_A: Array[float] = [0.0, 0.45, 0.8, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.6]
 
 
 ## Appends triangle (a, b, c) so its front face (Godot: clockwise) faces `outward`.
@@ -76,16 +81,16 @@ static func crest(span: float, radius: float, height: float, depth: float, segme
 		var a := (u - 0.5) * span
 		var fwd := Vector3(sin(a), 0.0, -cos(a))
 		# Taper: full height in the middle, sinking to nothing at the tips.
-		var env := 1.0 if ring else pow(sin(PI * clampf(u, 0.0, 1.0)), 0.55)
-		var edge_a := 1.0 if ring else clampf(sin(PI * u) * 3.0, 0.0, 1.0)
+		# Flat-topped crest with rounded ends (a rolling wall of water, not a dome).
+		var env := 1.0 if ring else pow(sin(PI * clampf(u, 0.0, 1.0)), 0.3)
+		var edge_a := 1.0 if ring else clampf(sin(PI * u) * 4.0, 0.0, 1.0)
 		for k in np:
 			var pr: Vector3 = PROFILE[k]
-			var off := pr.x * depth * (0.55 + 0.45 * env)
-			var p := fwd * (radius + off) + Vector3.UP * pr.y * height * env
+			var off := pr.x * depth * (0.65 + 0.35 * env)
+			var p := fwd * maxf(radius + off, radius * 0.25) + Vector3.UP * pr.y * height * env
 			verts.append(p)
 			uvs.append(Vector2(u, float(k) / (np - 1)))
-			var base_a := clampf(pr.y * 6.0 + 0.15, 0.0, 1.0) if k < 2 else 1.0
-			cols.append(Color(pr.z, 0.0, 0.0, edge_a * base_a))
+			cols.append(Color(pr.z, 0.0, 0.0, edge_a * PROFILE_A[k]))
 			norms.append(Vector3.UP)
 	# Smooth normals from the grid, consistently on the outer side of the sheet
 	# (the shader is double sided and flips them for back faces).

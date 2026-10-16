@@ -43,7 +43,7 @@ func begin() -> void:
 func _mass_point() -> Vector3:
 	if ctx == null or not ctx.is_valid():
 		return Vector3.ZERO
-	return ctx.hands_pos() + Vector3.UP * 0.25 + ctx.forward() * 0.25
+	return ctx.hands_pos() + Vector3.UP * 0.3 + ctx.forward() * 0.6
 
 
 func on_event(event: StringName) -> void:
@@ -82,7 +82,8 @@ func _release() -> void:
 			"width": float(param("width", 4.0)) * _size, "height": float(param("height", 1.8)) * _size, "hit": h,
 			"attack_id": attack_id, "ability_id": def.id, "carry": float(param("carry", 0.55))})
 	# The mass hits the ground: splash at the hands' landing point.
-	IceFx.splash(ctx.caster, start + Vector3.UP * 0.3, 1.1 * _size, (dir + Vector3.UP).normalized(), start.y)
+	IceFx.splash(ctx.caster, start + Vector3.UP * 0.3, 1.1 * _size, (dir + Vector3.UP).normalized())
+	WaterEnv.splash_ground(ctx.caster, start, 0.5)
 	sound(&"special", start, 1.0)
 	BendingFeedback.impulse(dir, 0.25)
 	if ctx.is_player():

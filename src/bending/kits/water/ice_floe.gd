@@ -139,9 +139,9 @@ static func material() -> Material:
 	if _mat == null:
 		var m := ShaderMaterial.new()
 		m.shader = preload("res://src/fx/shaders/fx_ice.gdshader")
-		m.set_shader_parameter(&"base_color", Color(0.62, 0.84, 0.96))
-		m.set_shader_parameter(&"core_color", Color(0.93, 0.98, 1.0))
-		m.set_shader_parameter(&"glow", 0.08)
+		m.set_shader_parameter(&"base_color", Color(0.42, 0.7, 0.9))
+		m.set_shader_parameter(&"core_color", Color(0.78, 0.92, 0.99))
+		m.set_shader_parameter(&"glow", 0.02)
 		m.next_pass = ToonMaterials.outline(0.8, Color(0.16, 0.3, 0.42))
 		_mat = m
 	return _mat

@@ -44,12 +44,15 @@ func begin() -> void:
 	clip_end = INF
 	max_time = float(param("max_ride", 2.6)) + 2.0
 	_ride_attack = HitInfo.new_attack_id()
-	crest = WaterWaveFx.spawn(ctx.caster, 1.5, 1.6 * _size, 1.0, 1.6, {"rise_time": 0.18})
+	crest = WaterWaveFx.spawn(ctx.caster, 1.3, 2.2 * _size, 1.1, 0.75, {"rise_time": 0.18})
 	_place_crest()
 	ctx.set_upkeep(float(param("upkeep", 9.0)))
 	var g := ctx.ground_point(ctx.origin())
 	WaterEnv.splash_ground(ctx.caster, g, 1.0)
-	WaterCommon.pull(ctx, _src, func() -> Vector3: return g + Vector3.UP * 0.2, 0.25, 0.16 * _size, 2)
+	# A near source rushes in under the feet (far ones would trail behind the rider).
+	if bool(_src.get("found", false)) and float(_src.get("distance", INF)) < 7.0:
+		var c := ctx
+		WaterCommon.pull(ctx, _src, func() -> Vector3: return c.origin() + Vector3.UP * 0.1 if c.is_valid() else Vector3.ZERO, 0.22, 0.16 * _size, 2)
 	sound(&"surge", ctx.origin(), -2.0)
 	_loop_start()
 

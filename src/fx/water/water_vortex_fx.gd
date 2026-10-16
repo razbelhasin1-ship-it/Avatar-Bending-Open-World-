@@ -51,6 +51,8 @@ func _build(p_center: Vector3, p_radius: float, p_height: float) -> void:
 	column_mat = WaterWaveFx.material()
 	column_mat.set_shader_parameter(&"flow", -2.2)
 	column_mat.set_shader_parameter(&"streak_scale", Vector2(5.0, 2.0))
+	column_mat.set_shader_parameter(&"vertex_foam", 0.0)
+	column_mat.set_shader_parameter(&"foam_floor", 0.2)
 	column.material_override = column_mat
 	column.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(column)
