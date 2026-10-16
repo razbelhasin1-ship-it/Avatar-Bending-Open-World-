@@ -4,6 +4,7 @@ extends BendingAbility
 ## wave is a growing cone: each target is hit once, when the wave reaches it.
 
 func begin() -> void:
+	FireCommon.begin()
 	ctx.move_mode = BendingContext.Move.BRAKE
 	ctx.brake_rate = 30.0
 	ctx.face_dir = ctx.aim_flat()
@@ -41,6 +42,7 @@ func on_event(event: StringName) -> void:
 	wave.attack_id = attack_id
 	wave.ability_id = def.id
 	FxLib.root(ctx.caster).add_child(wave)
+	FireCommon.practiced(ctx, def.id)
 
 
 ## Expanding cone of fire: hits targets as the front reaches them, scorches the ground.
@@ -70,6 +72,9 @@ class FlameWave extends Node:
 			for k in [-0.6, 0.0, 0.6]:
 				var p := origin + dir * _next_mark * cos(deg_to_rad(half_angle) * k) + side * _next_mark * sin(deg_to_rad(half_angle) * k)
 				FxDecal.spawn(ctx.caster, ctx.ground_point(p), &"scorch", 0.6)
-			_next_mark += 2.0
+				# The wave front reaches the world: grass catches, snow steams, braziers light.
+				var to := (p - origin)
+				FireEnv.heat(ctx, p, 1.2, 0.7, {"mark": 0.9 if k == 0.0 else 0.0, "stretch": 2.0, "dir": to})
+			_next_mark += 2.5
 		if u >= 1.0:
 			queue_free()

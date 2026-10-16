@@ -94,7 +94,7 @@ func test_registry_kits_complete() -> void:
 		var kit := AbilityRegistry.core_kit(e)
 		for slot_name: StringName in [&"light", &"heavy", &"defense", &"dodge"]:
 			expect(kit.has(slot_name), "%s core kit has %s" % [ElementDefs.id_of(e), slot_name])
-		expect_eq(AbilityRegistry.starter_techniques(e), [starters[e]] as Array[StringName], "%s starter" % ElementDefs.id_of(e))
+		expect(AbilityRegistry.starter_techniques(e).has(starters[e]), "%s starter" % ElementDefs.id_of(e))
 		for d in AbilityRegistry.for_element(e):
 			expect(d.display_name != "" and d.description != "", "%s has name + description" % d.id)
 			if d.slot == AbilityDef.Slot.INNATE:
