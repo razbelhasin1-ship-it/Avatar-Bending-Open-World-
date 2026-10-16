@@ -168,7 +168,7 @@ func duel(id: StringName) -> void:
 			downed[0] = true
 	e.state_changed.connect(down_cb)
 	# Keep it standing for the knockdown + get-up beats (the counter may have nearly killed it).
-	e.health.health = maxf(e.health.health, e.health.max_health * 0.6)
+	e.health.health = maxf(e.health.health, e.health.max_health * 0.8)
 	for attempt in 6:
 		if downed[0] or not e.is_alive():
 			break

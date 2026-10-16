@@ -18,7 +18,7 @@ the **same bending abilities** as the player through a non-player `BendingContex
 | Rewards | `enemy_rewards.gd` (`EnemyRewards`: XP + loot) |
 | Encounters | `encounter/encounter_director.gd` (`EncounterDirector`), `encounter_site.gd` (`EncounterSite`), `encounter_sites.gd` (`EncounterSites`: the world table), `encounter_provider.gd` (`EncounterProvider`: WorldContent provider), `outpost_builder.gd` (`OutpostBuilder`) |
 | World hook | `src/enemies/world_hook.gd` (installed by `WorldHooks` in the world scene; nothing in the tutorial) |
-| Dev / tests | `src/enemies/dev/enemy_arena.gd` + `scenes/dev/enemy_arena.tscn`, `dev/enemy_sim.gd` (`EnemySim`), `tests/unit/test_enemies.gd`, playtests `enemies_arena`, `enemies_camp`, `enemies_observe`, `enemies_posesheet` |
+| Dev / tests | `src/enemies/dev/enemy_arena.gd` + `scenes/dev/enemy_arena.tscn`, `dev/enemy_sim.gd` (`EnemySim`), `tests/unit/test_enemies.gd`, `tests/integration/test_enemies_world.gd`, playtests `enemies_arena`, `enemies_camp`, `enemies_lowhealth`, `enemies_observe`, `enemies_posesheet` |
 
 ## Quick start
 
@@ -244,6 +244,10 @@ cuts the animation share; the mobile budget is 7 enemies.
   state, dormancy, guard origin of area attacks, off-screen enemies circling into view before
   attacking, toppling heavies vs brutes (and no knockdown -> stagger downgrade), the cost of a
   full-budget fight, and a 3000-frame no-stuck fuzz over 10 archetypes (25 tests).
+* `tests/integration/test_enemies_world.gd` (headless world scene, streamed terrain collision):
+  the world hook installs the director, the Omashu road patrol activates and walks its road on
+  the real terrain (moves, stays within 6 m of the road, on the ground), and the Fire Nation
+  Scout Camp garrison engages a player who walks in (combat state on, attackers capped at 2).
 * `EnemySim` steps players, enemies, projectiles and constructs at 1/60 s with a sim clock.
 * `scenes/dev/enemy_arena.tscn` (`--scene=res://scenes/dev/enemy_arena.tscn --element=earth`):
   the combat arena with enemy groups (F5 respawn, F6 next group, F9 passive toggle).
