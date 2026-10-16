@@ -40,9 +40,13 @@ func run(pt: Playtest) -> void:
 	var beach := _find(home, [&"sand"], 30.0, 3000.0)
 	p.note("plains %s  rock %s  beach %s" % [str(plains), str(rock), str(beach)])
 	p.check(plains.is_finite(), "found open plains near the spawn")
-	if plains.is_finite():
+	# PART=beach: only the beach / shore part (quicker reruns).
+	var only_beach := OS.get_environment("PART") == "beach"
+	if plains.is_finite() and not only_beach:
 		await _plains(plains)
-	if rock.is_finite():
+	if only_beach:
+		pass
+	elif rock.is_finite():
 		await _rock(rock)
 	else:
 		p.note("no rocky ground found within 2.5 km")
@@ -191,23 +195,40 @@ func _beach(at: Vector3) -> void:
 	await p.wait_game(0.1)
 	await _obs("world_8_sand_stomp", pl.global_position, 35.0, 7.0, 2.6)
 	await _tick_until(func() -> bool: return not pl.controller.is_busy(), 2.0)
-	# Face the sea and try to raise a pillar in it: deep water refuses.
+	# Stand at the waterline, face the sea and try to raise a pillar in it (within
+	# the pillar's reach): deep water refuses.
 	var sea := Vector3.INF
-	for k in 24:
-		var a := TAU * float(k) / 24.0
-		for d in [6.0, 9.0, 12.0, 16.0, 20.0]:
-			var q: Vector3 = at + Vector3(cos(a), 0, sin(a)) * float(d)
-			if WorldData.get_water_height(q.x, q.z) > WorldData.get_height(q.x, q.z) + 1.0:
-				sea = q
+	var stand := Vector3.INF
+	var best := INF
+	for k in 72:
+		var a := TAU * float(k) / 72.0
+		var dir := Vector3(cos(a), 0, sin(a))
+		var land := Vector3.INF
+		for i in 160:
+			var q: Vector3 = at + dir * (float(i) * 0.5)
+			var h := WorldData.get_height(q.x, q.z)
+			var wh := WorldData.get_water_height(q.x, q.z)
+			if h > wh + 0.1:
+				land = Vector3(q.x, h, q.z)
+			elif land.is_finite() and wh - h > EarthEnv.DEEP_WATER + 0.3:
+				var d := Vector2(q.x - land.x, q.z - land.z).length()
+				best = minf(best, d)
+				if d <= 8.0:
+					sea = Vector3(q.x, h, q.z)
+					var s := land - dir * 0.6
+					stand = Vector3(s.x, WorldData.get_height(s.x, s.z), s.z)
 				break
-		if sea.is_finite():
+		if sea.is_finite() and stand.y > WorldData.get_water_height(stand.x, stand.z) + 0.05:
 			break
+		sea = Vector3.INF
 	if not sea.is_finite():
-		p.note("no deep water within 20 m of the beach point")
+		p.note("no deep water within 8 m of the waterline near the beach point (closest %.1f m)" % best)
 		return
-	var to := sea - pl.global_position
+	var to := sea - stand
 	to.y = 0.0
-	pl.teleport(Transform3D(Basis(Vector3.UP, atan2(-to.x, -to.z)), pl.global_position))
+	p.note("shore %s, deep water %s (%.1f m away, depth %.1f m)" % [str(stand), str(sea), to.length(), WorldData.get_water_height(sea.x, sea.z) - sea.y])
+	pl.teleport(Transform3D(Basis(Vector3.UP, atan2(-to.x, -to.z)), stand + Vector3.UP * 0.1))
+	await p.wait_game(0.6)
 	pl.camera_rig.snap_behind(pl)
 	await p.wait_game(0.4)
 	_equip(&"earth_pillar")
