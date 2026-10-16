@@ -150,9 +150,12 @@ func land() -> bool:
 	return true
 
 
+## Walkable (species slope limit), dry ground under the body.
 func can_land_below() -> bool:
 	var p := body.global_position
-	return CompanionNav.flat_area(p.x, p.z, prof.radius() * 0.9, 32.0, 1.6)
+	var slope := prof.f(prof.follow, "max_slope", 34.0)
+	var r := prof.radius() * 0.9
+	return CompanionNav.flat_area(p.x, p.z, r, slope, r * tan(deg_to_rad(slope)) + 0.4)
 
 
 ## Height of the body above the terrain / water surface below it.
@@ -225,6 +228,10 @@ func _fly(delta: float) -> void:
 		target += minf(-vy - 2.0, 10.0) * 0.6
 	elif vy > 2.0:
 		target -= (vy - 2.0) * 0.35
+	# Coming down to land: bleed off speed so the descent is steep enough to reach a spot
+	# instead of skimming on over the slope ahead.
+	if low_pass and climb < -0.05 and altitude() < 30.0:
+		target = minf(target, maxf(f("min"), f("glide") * 0.55))
 	target = clampf(target, f("min"), f("boost") + 8.0)
 	var rate := f("boost_accel") if boost and target > speed else (f("accel") if target > speed else f("decel"))
 	speed = move_toward(speed, target, rate * delta)
@@ -325,7 +332,8 @@ func _avoid_terrain(delta: float, want_vy: float) -> float:
 		var reach := maxf(speed * 1.6, 8.0)
 		var q2 := PhysicsRayQueryParameters3D.create(from, from + dir * reach, Layers.SOLID, [body.get_rid()])
 		var r := body.get_world_3d().direct_space_state.intersect_ray(q2)
-		if not r.is_empty():
+		# Landable ground ahead is not an obstacle while deliberately coming down.
+		if not r.is_empty() and not (low_pass and (r["normal"] as Vector3).y > 0.65):
 			_ray_block = 1.0 - clampf(from.distance_to(r["position"]) / reach, 0.0, 1.0)
 	avoiding = 0.0
 	if p.y < need:

@@ -92,7 +92,7 @@ static func spawn_transform(p: Node3D, id: StringName) -> Transform3D:
 	fwd = fwd.normalized() if fwd.length_squared() > 1e-4 else Vector3.FORWARD
 	var right := Vector3(-fwd.z, 0.0, fwd.x)
 	var space := p.get_world_3d().direct_space_state if p.is_inside_tree() else null
-	var want := p.global_position - right * prof_s.f(prof_s.follow, "side") * 0.8 - fwd * prof_s.f(prof_s.follow, "back") * 0.5
+	var want := p.global_position - right * prof_s.f(prof_s.follow, "side") - fwd * prof_s.f(prof_s.follow, "back") * 0.15
 	var spot := Vector3.INF
 	if CompanionNav.walkable(want.x, want.z, prof_s.f(prof_s.follow, "max_slope"), 0.2):
 		var gy := CompanionNav.ground_y(space, Vector3(want.x, maxf(p.global_position.y, WorldData.get_height(want.x, want.z)) + 2.0, want.z), 4.0, 20.0)

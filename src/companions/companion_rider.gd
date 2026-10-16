@@ -32,7 +32,6 @@ var catches := 0
 var _from := Transform3D.IDENTITY
 var _to_ground := Vector3.ZERO
 var _apex := 1.0
-var _cam_yaw := 0.0
 var _hidden := false
 var _releasing := false
 var _air_mount := false
@@ -117,7 +116,6 @@ func begin_mount(p: Node3D) -> bool:
 	c.rig.stop_action()
 	c.rig.idle_enabled = false
 	c.set_mode(Companion.Mode.MOUNTING)
-	_cam_yaw = player.camera_rig.get_yaw() if player.camera_rig else 0.0
 	player.mount_on(c, seat)
 	if not _air_mount:
 		player.visual.play(&"mount", {"blend_in": 0.08})
@@ -152,13 +150,14 @@ func release_in_air() -> void:
 	var side := s.basis.x.normalized()
 	var at := s.origin + side * (c.prof.radius() * 0.6 + 0.4) + Vector3.UP * 0.2
 	var p := player
+	var yaw := p.camera_rig.get_yaw() if p.camera_rig else 0.0
 	_end_riding()
 	_releasing = true
 	p.dismount(at)
 	_releasing = false
 	p.velocity = Vector3(v.x * 0.85, maxf(v.y, 0.0) * 0.5 + 2.5, v.z * 0.85) + side * 2.0
 	if p.camera_rig:
-		p.camera_rig.set_yaw(_cam_yaw)
+		p.camera_rig.set_yaw(yaw)   # dismount() snaps the camera behind: keep the view
 	c.brain.land_requested = false
 	c.set_mode(Companion.Mode.ESCORT)
 
@@ -215,13 +214,14 @@ func finish_dismount() -> void:
 		return
 	var p := player
 	var at := _to_ground
+	var yaw := p.camera_rig.get_yaw() if p != null and is_instance_valid(p) and p.camera_rig else 0.0
 	_end_riding()
 	if p != null and is_instance_valid(p) and p.get_state() == PlayerCharacter.State.MOUNTED:
 		_releasing = true
 		p.dismount(at)
 		_releasing = false
 		if p.camera_rig:
-			p.camera_rig.set_yaw(_cam_yaw)
+			p.camera_rig.set_yaw(yaw)
 	c.set_mode(Companion.Mode.FOLLOW)
 
 

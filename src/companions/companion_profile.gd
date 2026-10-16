@@ -48,14 +48,14 @@ static func for_species(id: StringName) -> CompanionProfile:
 			p.max_health = 420.0
 			p.armor = 0.35
 			p.can_fly = true
-			p.follow = {"side": 7.0, "back": 3.5, "space": 4.6, "walk": 1.6, "run": 4.8, "sprint": 6.8,
+			p.follow = {"side": 7.5, "back": 3.5, "space": 4.6, "walk": 1.6, "run": 4.8, "sprint": 6.8,
 					"max": 7.6, "turn": 110.0, "max_slope": 36.0, "radius": 1.8, "height": 3.6}
 			p.ride = {"walk": 2.4, "run": 5.6, "sprint": 7.6, "accel": 4.5, "decel": 6.0, "turn": 80.0, "max_slope": 36.0,
 					"snow": 0.15, "jump": 0.0,
 					"camera": {"height": 5.4, "distance": 13.0, "fov": 4.0, "auto_align": true}}
 			p.flight = {"escort_height": 16.0, "cruise": 18.0, "glide": 11.0, "boost": 30.0, "min": 0.0, "hover": 0.0,
 					"accel": 5.5, "decel": 4.5, "boost_accel": 8.0, "turn_slow": 80.0, "turn_fast": 46.0, "max_bank": 0.5,
-					"climb": 8.0, "descend": 11.0, "clearance": 7.0, "land_clearance": 1.2, "glide_sink": 1.1,
+					"climb": 8.0, "descend": 11.0, "clearance": 10.0, "land_clearance": 1.2, "glide_sink": 1.1,
 					"camera": {"height": 5.2, "distance": 15.5, "fov": 10.0, "auto_align": true}}
 			p.assist = {"kind": &"tail_gust", "range": 10.0, "min_range": 2.5, "cooldown": 10.0,
 					"hit": {"damage": 10.0, "reaction": HitInfo.Reaction.KNOCKBACK, "force": 15.0, "lift": 3.0, "stun": 0.6, "poise": 40.0, "heavy": true}}
@@ -76,7 +76,7 @@ static func for_species(id: StringName) -> CompanionProfile:
 					"camera": {"height": 6.2, "distance": 15.0, "fov": 6.0, "auto_align": true}}
 			p.flight = {"escort_height": 26.0, "cruise": 24.0, "glide": 16.0, "boost": 40.0, "min": 9.0, "hover": 9.0,
 					"accel": 7.0, "decel": 5.0, "boost_accel": 11.0, "turn_slow": 100.0, "turn_fast": 62.0, "max_bank": 0.75,
-					"climb": 10.0, "descend": 14.0, "clearance": 8.0, "land_clearance": 1.5, "glide_sink": 1.4,
+					"climb": 10.0, "descend": 14.0, "clearance": 12.0, "land_clearance": 1.5, "glide_sink": 1.4,
 					"camera": {"height": 6.5, "distance": 17.5, "fov": 12.0, "auto_align": true}}
 			p.assist = {"kind": &"fire_breath", "range": 13.0, "min_range": 3.0, "cooldown": 11.0, "cone": 24.0, "ticks": 7, "tick_time": 0.22,
 					"hit": {"damage": 5.0, "reaction": HitInfo.Reaction.FLINCH, "force": 2.0, "stun": 0.2, "poise": 8.0, "status": {"burn": 3.0}}}
@@ -87,7 +87,7 @@ static func for_species(id: StringName) -> CompanionProfile:
 			p.element = ElementDefs.Element.WATER
 			p.max_health = 260.0
 			p.armor = 0.2
-			p.follow = {"side": 3.0, "back": 2.2, "space": 1.9, "walk": 1.6, "run": 4.5, "sprint": 11.0,
+			p.follow = {"side": 3.4, "back": 2.2, "space": 1.9, "walk": 1.6, "run": 4.5, "sprint": 11.0,
 					"max": 13.0, "turn": 320.0, "max_slope": 42.0, "radius": 0.75, "height": 2.0}
 			p.ride = {"walk": 2.6, "run": 8.0, "sprint": 15.0, "accel": 11.0, "decel": 12.0, "turn": 220.0, "max_slope": 42.0,
 					"snow": 0.0, "jump": 7.5,
@@ -102,7 +102,7 @@ static func for_species(id: StringName) -> CompanionProfile:
 			p.max_health = 340.0
 			p.armor = 0.45
 			p.can_burrow = true
-			p.follow = {"side": 4.2, "back": 3.0, "space": 2.8, "walk": 1.4, "run": 6.5, "sprint": 8.5,
+			p.follow = {"side": 5.0, "back": 3.0, "space": 2.8, "walk": 1.4, "run": 6.5, "sprint": 8.5,
 					"max": 9.5, "turn": 160.0, "max_slope": 52.0, "radius": 1.1, "height": 1.8}
 			p.ride = {"walk": 2.2, "run": 6.5, "sprint": 9.0, "accel": 6.5, "decel": 9.0, "turn": 130.0, "max_slope": 55.0,
 					"snow": 0.25, "jump": 0.0, "rugged": true,

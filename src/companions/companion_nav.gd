@@ -72,7 +72,8 @@ static func open_space(space: PhysicsDirectSpaceState3D, ground: Vector3, radius
 	shape.radius = radius
 	var params := PhysicsShapeQueryParameters3D.new()
 	params.shape = shape
-	params.transform = Transform3D(Basis.IDENTITY, ground + UP * (radius + 0.35))
+	# Raised enough that a walkable slope under it does not count as an obstacle.
+	params.transform = Transform3D(Basis.IDENTITY, ground + UP * (radius * 1.6 + 0.4))
 	params.collision_mask = Layers.SOLID
 	params.exclude = exclude
 	return space.intersect_shape(params, 1).is_empty()
@@ -134,8 +135,9 @@ static func find_landing_spot(space: PhysicsDirectSpaceState3D, near: Vector3, r
 		for k in 8:
 			var a := TAU * float(k) / 8.0 + float(ring) * 0.4
 			tries.append(near + Vector3(sin(a), 0.0, cos(a)) * r)
+	var step := radius * tan(deg_to_rad(max_slope)) + 0.3
 	for p in tries:
-		if not flat_area(p.x, p.z, radius, max_slope):
+		if not flat_area(p.x, p.z, radius, max_slope, step):
 			continue
 		var top := WorldData.get_height(p.x, p.z) + 60.0
 		var gy := ground_y(space, Vector3(p.x, top, p.z), 0.0, 90.0, exclude)

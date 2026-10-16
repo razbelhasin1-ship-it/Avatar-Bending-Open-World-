@@ -239,6 +239,28 @@ func _do_step(id: StringName, el: String) -> void:
 			await p.wait_game(0.6)
 			await p.screenshot("%s_technique" % el)
 			await _tick_until(func() -> bool: return not pl.controller.is_busy(), 3.0)
+		&"companion_call":
+			# Companions module: the call lesson (companion_call -> Events.companion_command).
+			await _tap(&"companion_call")
+			await p.wait_game(2.5)
+			await p.screenshot("%s_companion_called" % el)
+		&"mount":
+			# Walk up to the companion (harness re-place beside its flank) and press mount.
+			var c := pl.get_companion() as Node3D
+			if c != null:
+				await _tick_until(func() -> bool: return not c.call("is_flying"), 20.0)
+				var fwd := -c.global_basis.z
+				fwd.y = 0.0
+				var side := Vector3(-fwd.z, 0.0, fwd.x).normalized()
+				var r: float = c.get("prof").call("radius")
+				var stand := c.global_position - side * (r + 1.2)
+				stand.y = WorldData.get_height(stand.x, stand.z) + 0.1
+				p.release_all()
+				pl.teleport(Transform3D(Basis(Vector3.UP, atan2(-side.x, -side.z)), stand))
+				await p.wait_game(0.4)
+				await _tap(&"mount")
+				await p.wait_game(1.4)
+				await p.screenshot("%s_companion_mounted" % el)
 
 
 func _incoming_dist() -> float:

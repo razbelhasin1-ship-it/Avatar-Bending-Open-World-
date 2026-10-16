@@ -260,8 +260,10 @@ func _slot(p: PlayerCharacter) -> Vector3:
 		fwd = Vector3.FORWARD
 	var right := Vector3(-fwd.z, 0.0, fwd.x)
 	var k := clampf(ps / 8.0, 0.0, 1.0)
-	var off_side := prof.f(prof.follow, "side") * lerpf(1.0, 0.8, k)
-	var off_back := prof.f(prof.follow, "back") + 2.0 * k
+	# Level with the player at rest (in view, not in the camera's face), trailing a little
+	# when moving.
+	var off_side := prof.f(prof.follow, "side") * lerpf(1.0, 0.85, k)
+	var off_back := prof.f(prof.follow, "back") * lerpf(-0.25, 0.7, k)
 	# Keep the side the companion is already on (hysteresis): it never crosses in front.
 	var lat := (c.global_position - pp).dot(right)
 	if side < 0.0 and lat > off_side * 0.55:
@@ -277,9 +279,15 @@ func _slot(p: PlayerCharacter) -> Vector3:
 				side = s
 			break
 	if best == Vector3.INF:
-		best = pp - fwd * (off_back + off_side * 0.6)
+		# No room beside the player (a corridor, a ledge): drop back behind the camera, where
+		# it can neither block the view nor the way.
+		var cam := c.get_viewport().get_camera_3d() if c.is_inside_tree() else null
+		var cam_d := _flat(cam.global_position - pp).length() if cam else 5.0
+		best = pp - fwd * (cam_d + prof.radius() + 1.5)
+		if not _slot_ok(p, best):
+			best = pp - fwd * (off_back + off_side * 0.6)
 	best.y = WorldData.get_height(best.x, best.z)
-	best = _clear_of_camera(p, best, right * side)
+	best = _clear_of_camera(p, best, right * side, fwd)
 	_slot_cache = best
 	return best
 
@@ -292,8 +300,10 @@ func _slot_ok(p: PlayerCharacter, s: Vector3) -> bool:
 	return CompanionNav.clear_line(space, p.global_position + Vector3.UP * 1.2, Vector3(s.x, gy + 1.0, s.z), [c.get_rid(), p.get_rid()])
 
 
-## Pushes the slot sideways until the companion's body is clear of the camera -> player line.
-func _clear_of_camera(p: PlayerCharacter, s: Vector3, outward: Vector3) -> Vector3:
+## Pushes the slot sideways until the companion's body is clear of the camera -> player
+## line, and forward when it would stand right in front of the lens (a creature filling
+## the screen).
+func _clear_of_camera(p: PlayerCharacter, s: Vector3, outward: Vector3, fwd: Vector3) -> Vector3:
 	var cam := c.get_viewport().get_camera_3d() if c.is_inside_tree() else null
 	if cam == null or outward.length_squared() < 1e-4:
 		return s
@@ -304,6 +314,10 @@ func _clear_of_camera(p: PlayerCharacter, s: Vector3, outward: Vector3) -> Vecto
 	var dist := CompanionNav.segment_distance(center, a, b)
 	if dist < need:
 		s += outward.normalized() * (need - dist + 0.3)
+	var keep := c.prof.radius() + 3.0
+	var flat := _flat(s - a).length()
+	if flat < keep:
+		s += fwd * (keep - flat)
 	return s
 
 
@@ -495,6 +509,19 @@ func _escort(delta: float, p: PlayerCharacter) -> void:
 		_land_spot = Vector3.INF
 	var esc_h := f.f("escort_height", 15.0)
 	var tgt: Vector3
+	var falling := not p.motor.on_floor and not p.motor.swimming and pp.y - CompanionNav.surface_y(pp.x, pp.z) > 5.0
+	if falling and p.get_state() == PlayerCharacter.State.AIRBORNE:
+		# The rider let go (or jumped off a cliff): dive in under them, saddle up, so a
+		# mount press catches them in the air.
+		var saddle_h := float(c.rig.get_dimensions().get("saddle_height", c.prof.body_height()))
+		tgt = pp + pv * 0.4
+		f.want_dir = _flat(tgt - c.global_position).normalized()
+		if f.want_dir == Vector3.ZERO:
+			f.want_dir = CompanionNav.dir_of(f.heading)
+		f.hold_altitude = pp.y - saddle_h - 0.8
+		f.hold_speed = clampf(ps + d * 0.6, f.f("min"), f.f("boost"))
+		f.step(delta)
+		return
 	if ps > 1.5:
 		var fwd := pv.normalized()
 		var right := Vector3(-fwd.z, 0.0, fwd.x)
@@ -521,7 +548,12 @@ func _find_landing(p: PlayerCharacter) -> Vector3:
 	var near := _beside_player(p)
 	var r := c.prof.radius() * (1.2 if c.prof.prefers_air else 1.0) + 0.6
 	var ex: Array[RID] = [c.get_rid(), p.get_rid()]
-	var spot := CompanionNav.find_landing_spot(space, near, r, 28.0, 16.0, ex)
+	# Close and flat first; on mountain flanks accept a bit more slope further out.
+	var spot := Vector3.INF
+	for tier: Array in [[12.0, 26.0], [28.0, 31.0], [45.0, 34.0]]:
+		spot = CompanionNav.find_landing_spot(space, near, r, tier[1], tier[0], ex)
+		if spot != Vector3.INF:
+			break
 	if spot != Vector3.INF and spot.distance_to(p.global_position) < c.prof.f(c.prof.follow, "space") + r:
 		return Vector3.INF
 	return spot
@@ -568,7 +600,13 @@ func _called(delta: float, p: PlayerCharacter) -> void:
 		return
 	var tgt := _beside_player(p)
 	c.motor.move(delta, _flat(tgt - c.global_position), c.prof.follow_speed("max"), {"avoid": true, "accel": 12.0})
-	if c.motor.is_stuck(2.5):
+	if c.motor.is_stuck(1.5) and (d < 22.0 or p.motor.swimming):
+		# As close as it gets (the player is swimming, on a ledge ...): that is arriving.
+		c.set_mode(Companion.Mode.FOLLOW)
+		if _greet_on_arrival:
+			_greet_on_arrival = false
+			_greet(p)
+	elif c.motor.is_stuck(2.5):
 		c.teleport_near_player()
 
 

@@ -226,7 +226,8 @@ func test_world_new_game_spawns_on_ground() -> void:
 	expect(w.hud.player == p and w.hud.visible, "HUD bound and shown")
 	expect(w.playing, "playing (no intro)")
 	expect_eq(w.region_director.current_region, &"fire_nation", "home region tracked")
-	expect(not w.hud.companion_panel.visible, "no companion panel without a companion")
+	# The companions module's hook (when installed) spawns the element's companion.
+	expect(w.hud.companion_panel.visible == (p.get_companion() != null), "companion panel shown exactly when a companion exists")
 	expect(w.travel.docks.size() >= 4, "ferry docks built (%d)" % w.travel.docks.size())
 	expect(SaveSystem.can_save(), "saving allowed in the world")
 	await _free(w)

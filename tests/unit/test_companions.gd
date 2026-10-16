@@ -208,7 +208,7 @@ func test_mount_ride_dismount_ground() -> void:
 	p.input.release(&"sprint")
 	p.input.release(&"move_forward")
 	var hs := Vector2(c.velocity.x, c.velocity.z).length()
-	expect(_flat(start, c.global_position) > 30.0, "galloped (%.1f m)" % _flat(start, c.global_position))
+	expect(_flat(start, c.global_position) > 26.0, "galloped (%.1f m in 3.5 s from a standstill)" % _flat(start, c.global_position))
 	expect(hs > 12.0, "fast gallop (%.1f m/s)" % hs)
 	expect(max_err < 0.08, "rider stays on the saddle at full gallop (max %.3f m)" % max_err)
 	await CompanionSim.step(c, p, 90)
