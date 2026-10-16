@@ -62,9 +62,10 @@ vec3 veg_wind_offset(vec3 origin, vec3 wpos, float sway, float leaf, float rnd, 
 }
 
 // Toon terminator shared by foliage and grass (matches assets/shaders/toon.gdshader).
-vec3 veg_toon_shade(vec3 n, vec3 l, float atten, vec3 shade_tint, float softness, float offset) {
+// `fill` = shadow-side fill of this light: 1 for the sun, distance-attenuated for point lights.
+vec3 veg_toon_shade(vec3 n, vec3 l, float atten, vec3 shade_tint, float softness, float offset, float fill) {
 	float ndl = dot(n, l);
 	float lit = smoothstep(-softness, softness, ndl + offset);
 	lit *= smoothstep(0.0, 0.3, atten);
-	return mix(shade_tint * 0.40, vec3(1.0), lit);
+	return mix(shade_tint * 0.40 * fill, vec3(1.0), lit);
 }

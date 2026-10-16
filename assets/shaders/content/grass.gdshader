@@ -57,7 +57,8 @@ void fragment() {
 }
 
 void light() {
-	vec3 shade = veg_toon_shade(NORMAL, LIGHT, ATTENUATION, shade_tint.rgb, 0.22, 0.18);
+	float fill = LIGHT_IS_DIRECTIONAL ? 1.0 : clamp(ATTENUATION * 4.0, 0.0, 1.0);
+	vec3 shade = veg_toon_shade(NORMAL, LIGHT, ATTENUATION, shade_tint.rgb, 0.22, 0.18, fill);
 	DIFFUSE_LIGHT += LIGHT_COLOR / PI * shade;
 	float back = pow(clamp(dot(VIEW, -LIGHT), 0.0, 1.0), 2.5) * translucency * v_h;
 	DIFFUSE_LIGHT += LIGHT_COLOR / PI * back * smoothstep(0.0, 0.3, ATTENUATION) * vec3(1.0, 0.95, 0.55);

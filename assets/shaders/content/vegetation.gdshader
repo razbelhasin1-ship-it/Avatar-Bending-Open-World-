@@ -71,14 +71,15 @@ void fragment() {
 }
 
 void light() {
-	vec3 shade = veg_toon_shade(NORMAL, LIGHT, ATTENUATION, shade_tint.rgb, band_softness, band_offset);
+	float fill = LIGHT_IS_DIRECTIONAL ? 1.0 : clamp(ATTENUATION * 4.0, 0.0, 1.0);
+	vec3 shade = veg_toon_shade(NORMAL, LIGHT, ATTENUATION, shade_tint.rgb, band_softness, band_offset, fill);
 	DIFFUSE_LIGHT += LIGHT_COLOR / PI * shade;
 	float att = smoothstep(0.0, 0.3, ATTENUATION);
 	// light through leaves when looking towards the sun
 	float back = pow(clamp(dot(VIEW, -LIGHT), 0.0, 1.0), 3.0) * translucency * v_leaf;
 	DIFFUSE_LIGHT += LIGHT_COLOR / PI * back * att * vec3(1.0, 0.96, 0.62);
 	float rim = smoothstep(0.5, 0.82, 1.0 - max(dot(NORMAL, VIEW), 0.0));
-	SPECULAR_LIGHT += LIGHT_COLOR / PI * rim * rim_strength * max(att, 0.3) * ALBEDO;
+	SPECULAR_LIGHT += LIGHT_COLOR / PI * rim * rim_strength * max(att, 0.3 * fill) * ALBEDO;
 	if (gloss > 0.0) {
 		vec3 h = normalize(LIGHT + VIEW);
 		float spec = smoothstep(0.96, 0.98, dot(NORMAL, h));
