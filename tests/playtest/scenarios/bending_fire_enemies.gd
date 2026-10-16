@@ -156,6 +156,8 @@ func _combo() -> void:
 	await p.wait_game(0.5)
 	var e: EnemyBase = arena.get("enemies")[0]
 	e.health.set_max_health(400.0, true)
+	var ticks0 := FireStatus.ticks_applied
+	var burning_seen := false
 	var frame := 0
 	await _lock_nearest()
 	for i in 4:
@@ -174,6 +176,7 @@ func _combo() -> void:
 		p.check(await _cast(step[0], step[1]), "%s cast in the string" % step[1])
 		for dt: float in step[2]:
 			await p.wait_game(dt)
+			burning_seen = burning_seen or FireStatus.is_burning(e)
 			await _obs("combo_%02d" % frame, e.global_position + Vector3.UP, 1.0, 7.0, 2.4)
 			frame += 1
 	await _tick_until(func() -> bool: return pl.states.is_free() and not pl.controller.is_busy(), 2.0)
@@ -192,7 +195,9 @@ func _combo() -> void:
 			kinds[h[0]] = true
 	p.note("combo kinds: %s" % str(kinds.keys()))
 	p.check(kinds.has(&"fire_combo") and kinds.has(&"fire_burst") and kinds.size() >= 3, "combo string landed (%d hits, %s)" % [hits.size(), str(kinds.keys())])
-	p.check(_count(&"burn") >= 1, "the bandit burned between hits (%d ticks)" % _count(&"burn"))
+	# Burn ticks are applied straight to the target (no hit-landed event): count them at the source.
+	var ticks := FireStatus.ticks_applied - ticks0
+	p.check(burning_seen and ticks >= 1, "the bandit burned between hits (%d ticks)" % ticks)
 	_unlock()
 	arena.call("clear_enemies")
 	await p.wait_game(0.3)
@@ -227,19 +232,38 @@ func _squad() -> void:
 	Input.action_release(&"move_forward")
 	await _tick_until(func() -> bool: return pl.motor.on_floor and pl.states.is_free(), 3.0)
 	_keep_player_up()
-	await _lock_nearest()
-	await _tick_until(func() -> bool: return pl.states.is_free() and not pl.controller.is_busy(), 2.0)
-	Input.action_press(&"ability_4")
-	var charging := await _tick_until(func() -> bool: return _cur_id() == &"lightning", 1.0)
-	await p.wait_game(1.65)
-	await _obs("squad_3_lightning_charge", pl.global_position + Vector3.UP, 1.0, 4.5, 0.8)
-	Input.action_release(&"ability_4")
-	await _tick_until(func() -> bool: return _count(&"lightning") > 0 or not pl.controller.is_busy(), 1.5)
-	await p.wait_game(0.03)
-	var t := pl.get_lock_target()
-	await _obs("squad_4_lightning", (t.global_position if t else _center()) + Vector3.UP, 1.0, 8.0, 2.4)
-	p.note("lightning: charging %s, hits %d, backfires %d" % [str(charging), _count(&"lightning"), FireLightning.backfires])
-	p.check(_count(&"lightning") >= 1 or FireLightning.backfires > 0, "lightning struck (or the bender was interrupted and paid for it)")
+	# Lightning needs 1.6 s of concentration and any hit breaks it: disengage first (as a
+	# player would after the Jet Step), then charge at range. A broken charge is retried.
+	var tries := 0
+	var interrupts0 := FireLightning.interrupts
+	while tries < 3 and _count(&"lightning") == 0 and not _alive().is_empty():
+		tries += 1
+		var c := _center()
+		var away := pl.global_position - c
+		away.y = 0.0
+		away = away.normalized() if away.length() > 0.5 else Vector3.BACK
+		var pos := c + away * 11.0
+		pl.teleport(Transform3D(Basis(Vector3.UP, atan2(away.x, away.z)), Vector3(pos.x, 0.0, pos.z)))
+		pl.camera_rig.snap_behind(pl)
+		pl.controller.reset_cooldowns()
+		await p.wait_game(0.15)
+		_unlock()
+		await _lock_nearest()
+		await _tick_until(func() -> bool: return pl.states.is_free() and not pl.controller.is_busy(), 2.0)
+		Input.action_press(&"ability_4")
+		await _tick_until(func() -> bool: return _cur_id() == &"lightning", 1.0)
+		await p.wait_game(1.65)
+		if tries == 1 or _cur_id() == &"lightning":
+			await _obs("squad_3_lightning_charge", pl.global_position + Vector3.UP, 1.0, 4.5, 0.8)
+		Input.action_release(&"ability_4")
+		await _tick_until(func() -> bool: return _count(&"lightning") > 0 or not pl.controller.is_busy(), 1.5)
+		await p.wait_game(0.03)
+		if _count(&"lightning") > 0:
+			var t := pl.get_lock_target()
+			await _obs("squad_4_lightning", (t.global_position if t else _center()) + Vector3.UP, 1.0, 8.0, 2.4)
+	p.note("lightning: tries %d, hits %d, charges broken by hits %d, backfires %d" % [tries, _count(&"lightning"),
+			FireLightning.interrupts - interrupts0, FireLightning.backfires])
+	p.check(_count(&"lightning") >= 1, "lightning struck the squad")
 	_unlock()
 	_keep_player_up()
 	# The Inferno on whoever is left.
@@ -287,14 +311,15 @@ func _adept() -> void:
 	var tm := 0.0
 	var snap := 0
 	while tm < 18.0 and cast_ids.size() < 3:
-		await p.wait_game(0.2)
-		tm += 0.2
+		await p.wait_game(0.1)
+		tm += 0.1
 		_keep_player_up()
 		# Stay close so every technique is in range.
 		if pl.global_position.distance_to(e.global_position) > 3.5:
 			await _close_in(2.6)
 		var cur := e.controller.current
-		if cur != null and cur.def.id in [&"fire_burst", &"fire_ring", &"fire_whip"] and snap < 6 and cur.time > 0.25:
+		var ring_up := cur == null or cur.def.id != &"fire_ring" or not FireRingWave.live.is_empty()
+		if cur != null and cur.def.id in [&"fire_burst", &"fire_ring", &"fire_whip"] and snap < 6 and cur.time > 0.25 and ring_up:
 			await _obs("adept_%d_%s" % [snap, cur.def.id], e.global_position + Vector3.UP, 1.0, 7.0, 2.4)
 			snap += 1
 	p.note("adept cast: %s" % str(cast_ids.keys()))

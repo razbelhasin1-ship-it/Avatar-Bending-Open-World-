@@ -126,8 +126,9 @@ func _process(delta: float) -> void:
 		if _released >= 0.5:
 			FxLib.release(self)
 			return
-	# The helix mesh spans radius 0.55..1.0 over its length (unit): scale to the column.
-	spiral.scale = Vector3(r, r, h)
+	# The helix mesh spans radius 0.55..1.0 over its length (unit): scale to the column
+	# (its top stays a little inside the hit radius: it must not swallow the camera).
+	spiral.scale = Vector3(r * 0.9, r * 0.9, h)
 	spiral.rotation.y = 0.0
 	rotation.y = -t * 7.5
 	base_ring.scale = Vector3(r * 0.62, 0.9 + 0.2 * grow, r * 0.62)

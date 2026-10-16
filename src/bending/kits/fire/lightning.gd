@@ -24,9 +24,10 @@ var _light: FxFlash = null
 var _spark_t := 0.0
 var _fizzled := false
 
-## Bolts fired / backfires (tests).
+## Bolts fired / backfires / charges broken by a hit (tests, playtests).
 static var bolts := 0
 static var backfires := 0
+static var interrupts := 0
 
 
 func can_use() -> StringName:
@@ -269,8 +270,15 @@ func _backfire(damage: float, reaction: HitInfo.Reaction) -> void:
 
 
 func on_cancel(reason: StringName) -> void:
-	if charging and reason == &"hit" and _k >= 0.5:
-		_backfire(float(param("backfire_hit_damage", 12.0)), HitInfo.Reaction.STAGGER)
+	if charging and reason == &"hit":
+		interrupts += 1
+		if _k >= 0.5:
+			_backfire(float(param("backfire_hit_damage", 12.0)), HitInfo.Reaction.STAGGER)
+		else:
+			# Broken early: the gathered energy scatters harmlessly (chi and cooldown spent).
+			var p := ctx.socket_pos(&"hand_r")
+			FxBurst.spawn(ctx.caster, &"sparkle", p, {"count": 0.8, "color": LightningFx.COLOR, "speed": 1.4})
+			Audio.play_sfx(&"lightning_crackle", p, -8.0)
 	_cleanup()
 
 

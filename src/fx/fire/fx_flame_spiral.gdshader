@@ -17,8 +17,8 @@ uniform float emission_boost = 1.15;
 uniform float opacity = 1.0;
 // Tail of the strip (UV.x below this) thins out: the spiral rises out of the base ring.
 uniform float tail = 0.18;
-uniform float near_start = 4.5;
-uniform float near_end = 1.8;
+uniform float near_start = 6.0;
+uniform float near_end = 2.4;
 
 varying float v_depth;
 
