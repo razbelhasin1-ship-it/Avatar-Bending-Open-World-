@@ -171,9 +171,9 @@ static func _quake() -> void:
 		[0.56, {"hips": Vector3(0.02, -0.6, 0.06), "hips_rot": Vector3(6, -10, 0), "spine": Vector3(38, 6, 0), "chest": Vector3(16, 10, 0), "head": Vector3(-26, -8, 0),
 			"foot_l": Vector3(0.16, 0.0, 0.42), "foot_r": Vector3(0.18, 0.0, -0.46), "foot_rot_l": Vector3(0, 12, 0), "foot_rot_r": Vector3(-35, 20, 0),
 			"knee_l": Vector3(0.3, 0.2, 1.0), "knee_r": Vector3(0.2, -0.6, 1.0), "toe_r": 40.0,
-			"hand_r": Vector3(0.02, -0.92, 0.6), "elbow_r": K.ELBOW_OUT, "wrist_r": Vector3(20, -80, 0), "fist_r": 1.0, "clav_r": Vector3(-6, 14, 0),
-			"hand_l": Vector3(0.5, -0.38, -0.6), "elbow_l": K.ELBOW_DOWN, "wrist_l": Vector3(-30, 60, 0), "fist_l": 0.3}, &"in"],
-		[0.72, {"hips": Vector3(0.02, -0.58, 0.05), "spine": Vector3(36, 6, 0), "hand_r": Vector3(0.02, -0.91, 0.61), "hand_l": Vector3(0.5, -0.4, -0.58)}],
+			"hand_r": Vector3(0.12, -0.84, 0.74), "elbow_r": K.ELBOW_OUT, "wrist_r": Vector3(20, -80, 0), "fist_r": 1.0, "clav_r": Vector3(-6, 16, 0),
+			"hand_l": Vector3(0.58, -0.62, -0.42), "elbow_l": K.ELBOW_DOWN, "wrist_l": Vector3(-30, 60, 0), "fist_l": 0.3}, &"in"],
+		[0.72, {"hips": Vector3(0.02, -0.58, 0.05), "spine": Vector3(36, 6, 0), "hand_r": Vector3(0.12, -0.83, 0.75), "hand_l": Vector3(0.58, -0.64, -0.4)}],
 		[0.84, {"hips": Vector3(0, -0.36, 0.04), "spine": Vector3(20, 0, 0), "chest": Vector3(8, 0, 0), "head": Vector3(-14, 0, 0),
 			"foot_l": Vector3(0.2, 0.0, 0.2), "foot_r": Vector3(0.22, 0.0, -0.2), "knee_r": K.KNEE_OUT, "toe_r": 0.0}],
 	]})
