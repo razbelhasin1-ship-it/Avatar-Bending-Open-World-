@@ -38,7 +38,7 @@ func run(pt: Playtest) -> void:
 	pl.teleport(Transform3D(Basis(Vector3.UP, atan2(-(post - quay).x, -(post - quay).z)), quay + (post - quay) * 0.2))
 	await p.wait_game(0.6)
 	ok = await p.wait_until(func() -> bool: return pl.interaction.current == dock.interactable, 5.0)
-	p.check(ok and prompt_seen["v"], "ferry prompt shown")
+	p.check(ok and w.hud.prompt_panel.visible, "ferry prompt shown")
 	await p.screenshot("2_prompt")
 	Input.action_press(&"interact")
 	await p.wait_game(0.08)

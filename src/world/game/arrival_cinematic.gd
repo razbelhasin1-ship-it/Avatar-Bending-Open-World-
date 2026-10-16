@@ -83,6 +83,8 @@ func prepare(p_scene: PlayableScene) -> void:
 		scene.player.enter_cinematic(duration + SETTLE_TIME + 20.0)
 	scene.set_hud_visible(false)
 	scene.overlay.show_bars(0.0)
+	# The first look at home is a clear one; regional weather resumes afterwards.
+	scene.renderer.set_weather(&"clear", 0.0)
 	_track = SoundCatalog.REGION_MUSIC.get(StringName(ElementDefs.get_data(element).get("home_region", &"")), &"")
 	if _track != &"":
 		Audio.play_music(_track, 1.0, -7.0)
@@ -265,6 +267,7 @@ func _finish(was_skipped: bool) -> void:
 	_done = true
 	running = false
 	set_process(false)
+	scene.renderer.set_auto_weather(true)
 	if scene.player and is_instance_valid(scene.player) and scene.player.camera_rig:
 		scene.player.camera_rig.make_current()
 	if camera and is_instance_valid(camera):

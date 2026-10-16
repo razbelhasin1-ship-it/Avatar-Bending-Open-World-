@@ -87,6 +87,13 @@ func load_scene(path: String, params: Dictionary = {}) -> Node:
 
 ## Uses the real Router flow (fade + threaded load).
 func goto_scene(path: String, params: Dictionary = {}) -> void:
+	# The runner starts as the current scene; a scene change would free it (and the scenario
+	# with it). Hand "current scene" to a placeholder first so only that one is replaced.
+	if get_tree().current_scene == self:
+		var holder := Node.new()
+		holder.name = "PlaytestHolder"
+		get_tree().root.add_child(holder)
+		get_tree().current_scene = holder
 	await Router.goto(path, params, 0.05)
 	_scene = get_tree().current_scene
 

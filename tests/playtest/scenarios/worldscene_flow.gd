@@ -4,7 +4,7 @@ extends RefCounted
 ## -> arrival cinematic (screenshots) -> first gameplay frame in the home region -> move and
 ## attack -> pause -> SAVE GAME -> RETURN TO MAIN MENU (no duplicated singletons / nodes, no
 ## held input) -> ENTER THE WORLD -> CONTINUE -> same place, element, abilities and hour.
-## ELEMENT=air|earth|fire|water (default: all four). Existing saves are backed up and restored.
+## ELEMENT=air|earth|fire|water or a comma list (default: all four). Existing saves are backed up and restored.
 
 const BACKUP := "user://saves_playtest_backup"
 
@@ -18,7 +18,8 @@ func run(pt: Playtest) -> void:
 	var only := OS.get_environment("ELEMENT")
 	var elements: Array[int] = []
 	if only != "":
-		elements.append(ElementDefs.from_id(StringName(only)))
+		for id in only.split(","):
+			elements.append(ElementDefs.from_id(StringName(id.strip_edges())))
 	else:
 		elements.assign(ElementDefs.ALL)
 	await p.goto_scene(Router.MAIN_MENU)

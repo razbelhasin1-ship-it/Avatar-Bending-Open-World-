@@ -41,6 +41,21 @@ func _tutorial(e: int) -> void:
 	Events.hit_landed.connect(_on_hit)
 	await p.wait_game(0.4)
 	await p.screenshot("%s_00_arena" % el)
+	if OS.get_environment("QUICK") != "":
+		# site overview only (visual iteration): a high three-quarter view of the arena
+		var cam := Camera3D.new()
+		t.add_child(cam)
+		var c: Vector3 = (t.site["xform"] as Transform3D).origin
+		var back := (t.site["xform"] as Transform3D).basis.z
+		cam.global_position = c + back * 30.0 + Vector3.UP * 16.0 + (t.site["xform"] as Transform3D).basis.x * 12.0
+		cam.look_at(c + Vector3.UP * 1.5 - back * 4.0, Vector3.UP)
+		cam.make_current()
+		t.set_hud_visible(false)
+		t.prompt.visible = false
+		await p.wait(0.6)
+		await p.screenshot("%s_00_overview" % el)
+		Events.hit_landed.disconnect(_on_hit)
+		return
 	var guard := 0
 	while t.director.running and guard < 30:
 		guard += 1

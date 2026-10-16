@@ -66,7 +66,11 @@ static func kit_for(nation: StringName) -> KitResult:
 	for sx in [-1.0, 1.0]:
 		kit.box(bell + Vector3(sx * 0.45, 0.9, 0), Vector3(0.12, 1.8, 0.12), &"wood_dark", false)
 	kit.beam(bell + Vector3(-0.6, 1.8, 0), bell + Vector3(0.6, 1.8, 0), 0.14, 0.14, &"wood_dark")
-	kit.g().cylinder(bell + Vector3(0, 1.0, 0), bell + Vector3(0, 1.7, 0), 0.28, 0.16, 10, kit.col(&"metal"), 3)
+	var bronze := Color(0.66, 0.44, 0.2).srgb_to_linear()
+	kit.g().cylinder(bell + Vector3(0, 0.98, 0), bell + Vector3(0, 1.05, 0), 0.34, 0.33, 12, bronze.darkened(0.2), 3)
+	kit.g().cylinder(bell + Vector3(0, 1.05, 0), bell + Vector3(0, 1.58, 0), 0.31, 0.21, 12, bronze, 0)
+	kit.g().blob(bell + Vector3(0, 1.6, 0), 0.21, 1, bronze, null, 0.0, Vector3(1, 0.7, 1))
+	kit.g().cylinder(bell + Vector3(0, 1.72, 0), bell + Vector3(0, 1.8, 0), 0.05, 0.05, 6, bronze.darkened(0.3), 0)
 	kit.collide_box(bell + Vector3(0, 0.9, 0), Vector3(1.0, 1.8, 0.3))
 	# cargo
 	kit.box(Vector3(-1.5, 0.5, 0.4), Vector3(0.7, 0.7, 0.7), &"wood", true)

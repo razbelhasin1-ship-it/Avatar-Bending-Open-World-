@@ -17,6 +17,8 @@ const SAIL_IN_TIME := 2.0
 const SAIL_OUT_DIST := 24.0
 const SAIL_IN_DIST := 18.0
 const CONTENT_TIMEOUT := 8.0
+## Lateral offset (m) of the arrival berth when the port's moored ferry occupies it.
+const ARRIVE_SIDE := 7.5
 
 var scene: PlayableScene
 var player: PlayerCharacter
@@ -39,6 +41,7 @@ var camera: Camera3D = null
 
 var _pts := PackedVector2Array()
 var _s := 0.0
+var _berth_side := 0.0
 var _cam_t := 0.0
 
 
@@ -208,6 +211,7 @@ func take_ferry(from_id: StringName, to_id: StringName) -> bool:
 	_pause_director(true)
 	var k := maxf(interlude_scale, 0.01)
 	var to_name := String(to_port.get("name", "?"))
+	_berth_side = 0.0
 	# --- cast off --------------------------------------------------------------------------
 	await scene.fader.fade_out(0.45 * k)
 	if not _valid():
@@ -216,6 +220,7 @@ func take_ferry(from_id: StringName, to_id: StringName) -> bool:
 		player.dismount()
 	player.enter_cinematic(120.0)
 	scene.set_hud_visible(false)
+	scene.title_card.skip()
 	var home_boat: FerryBoat = moored.get(from_id)
 	if home_boat and is_instance_valid(home_boat):
 		home_boat.visible = false
@@ -252,9 +257,12 @@ func take_ferry(from_id: StringName, to_id: StringName) -> bool:
 	var total := polyline_length(_pts)
 	var s_in := maxf(total - SAIL_IN_DIST, total * 0.5)
 	_s = s_in
+	# the destination's own ferry waits at the berth: come alongside it
+	_berth_side = ARRIVE_SIDE if moored.has(to_id) else 0.0
 	_place_boat()
 	_board()
 	_cam_t = 0.0
+	_settle_atmosphere()
 	await _wait_content(CONTENT_TIMEOUT * k)
 	for i in 3:
 		await get_tree().process_frame
@@ -305,6 +313,11 @@ func _place_boat() -> void:
 		return
 	var p := polyline_point(_pts, _s)
 	var d := polyline_dir(_pts, _s)
+	if _berth_side != 0.0:
+		# ease sideways over the last stretch so the ferries end up side by side
+		var total := polyline_length(_pts)
+		var k := smoothstep(SAIL_IN_DIST * 1.2, 0.0, total - _s)
+		p += Vector2(-d.y, d.x) * _berth_side * k
 	boat.place(Vector3(p.x, _water_y(Vector3(p.x, 0, p.y)), p.y), Vector3(d.x, 0.0, d.y))
 
 
@@ -350,6 +363,18 @@ func _update_camera(t: float) -> void:
 		from = bt * Vector3(sin(a) * r, 5.2, -cos(a) * r * 0.35 + 6.0)
 		look = bt * Vector3(0.0, 3.0, -2.0)
 	camera.global_transform = Transform3D(Basis.IDENTITY, from).looking_at(look, Vector3.UP)
+
+
+## Under black after a jump: the destination's atmosphere at once (region palette snapped
+## through set_focus) and a weather that region allows (no blizzard carried into the Fire Nation).
+func _settle_atmosphere() -> void:
+	var r := scene.renderer
+	r.set_focus(player)
+	var pos := player.global_position
+	var region := WorldData.get_region(pos.x, pos.z)
+	if not WeatherSystem.is_allowed(r.get_weather(), region):
+		r.set_weather(r.weather.roll(region), 0.0)
+	r.set_auto_weather(true)
 
 
 func _wait_content(timeout: float) -> void:
@@ -449,6 +474,7 @@ func travel_to(xform: Transform3D, opts: Dictionary = {}) -> bool:
 	scene.renderer.set_focus(player)
 	if scene.content:
 		scene.content.set_focus(player)
+	_settle_atmosphere()
 	for i in 2:
 		await get_tree().physics_frame
 	await get_tree().process_frame
