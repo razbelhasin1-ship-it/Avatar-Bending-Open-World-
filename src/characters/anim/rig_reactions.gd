@@ -63,9 +63,12 @@ static func play(rig: HumanoidRig, kind: Variant, world_dir: Vector3, strength: 
 			rig.animator.flinch(local, strength * 0.4)
 			rig.animator.paused = true
 			var dur := maxf(0.2, strength)
+			# Weak reference: the rig may be freed before the freeze ends.
+			var wr: WeakRef = weakref(rig)
 			rig.get_tree().create_timer(dur, false).timeout.connect(func() -> void:
-				if is_instance_valid(rig) and rig.animator:
-					rig.animator.paused = false)
+				var r := wr.get_ref() as HumanoidRig
+				if r != null and r.animator:
+					r.animator.paused = false)
 			return dur
 		&"death":
 			if rig.animator.pose_state != &"normal":
