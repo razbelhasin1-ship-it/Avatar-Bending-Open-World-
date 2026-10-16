@@ -5,19 +5,25 @@ extends Node
 ## group &"persist" gets `write_save_state()` called so live objects (player
 ## position, companion, world objects) push their state into GameState.
 ## Writes are atomic (temp file + rename) so a crash never corrupts a slot.
+## Test runs (`-- --test`) use a separate folder so they never touch real saves.
 
 const SAVE_DIR := "user://saves"
+const TEST_SAVE_DIR := "user://saves_test"
 const AUTOSAVE_SLOT := 0
 const MAX_SLOTS := 4
 const GROUP_PERSIST := &"persist"
 
 var autosave_interval := 180.0
+## Active save folder (SAVE_DIR, or TEST_SAVE_DIR during automated test runs).
+var save_dir: String = SAVE_DIR
 var _autosave_timer := 0.0
 
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
-	DirAccess.make_dir_recursive_absolute(SAVE_DIR)
+	if OS.get_cmdline_user_args().has("--test"):
+		save_dir = TEST_SAVE_DIR
+	DirAccess.make_dir_recursive_absolute(save_dir)
 
 
 func _process(delta: float) -> void:
@@ -30,7 +36,7 @@ func _process(delta: float) -> void:
 
 
 func slot_path(slot: int) -> String:
-	return "%s/slot_%d.json" % [SAVE_DIR, slot]
+	return "%s/slot_%d.json" % [save_dir, slot]
 
 
 ## Saving is allowed only in a live adventure (not tutorial / menus).
@@ -44,6 +50,7 @@ func save_game(slot: int = AUTOSAVE_SLOT) -> bool:
 	get_tree().call_group(GROUP_PERSIST, "write_save_state")
 	var data := GameState.to_dict()
 	data["saved_at"] = Time.get_datetime_string_from_system(false, true)
+	data["saved_unix"] = Time.get_unix_time_from_system()
 	data["engine"] = Engine.get_version_info().get("string", "")
 	var json := JSON.stringify(data, "\t")
 	var tmp := slot_path(slot) + ".tmp"
@@ -53,7 +60,7 @@ func save_game(slot: int = AUTOSAVE_SLOT) -> bool:
 		return false
 	f.store_string(json)
 	f.close()
-	var dir := DirAccess.open(SAVE_DIR)
+	var dir := DirAccess.open(save_dir)
 	if dir == null:
 		return false
 	if dir.file_exists(slot_path(slot).get_file()):
@@ -78,16 +85,21 @@ func has_any_save() -> bool:
 	return false
 
 
-## Most recently written slot, or -1.
+## Most recently written slot, or -1. Uses the sub-second "saved_unix" stamp
+## stored in the save (file mtimes only have 1 s resolution).
 func latest_slot() -> int:
 	var best := -1
-	var best_time := -1
+	var best_time := -1.0
 	for i in MAX_SLOTS:
-		if has_save(i):
-			var t := FileAccess.get_modified_time(slot_path(i))
-			if t > best_time:
-				best_time = t
-				best = i
+		if not has_save(i):
+			continue
+		var d := read_slot(i)
+		if d.is_empty():
+			continue
+		var t := float(d.get("saved_unix", float(FileAccess.get_modified_time(slot_path(i)))))
+		if t > best_time:
+			best_time = t
+			best = i
 	return best
 
 
