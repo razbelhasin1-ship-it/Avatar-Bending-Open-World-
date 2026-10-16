@@ -30,7 +30,7 @@ func on_dodge_start() -> void:
 	var xf := Transform3D(Basis.looking_at(back, Vector3.UP), ctx.origin() + Vector3.UP * 0.9 + dir * 0.4)
 	AirFx.gust(ctx.caster, xf, 3.5, 0.55, 0.3, {"opacity": 0.7, "tail": 0.8})
 	if not in_air:
-		AirFx.ground_puff(ctx.caster, ctx.ground_point(ctx.origin()), ctx.surface_at(ctx.origin()), 0.7, (back + Vector3.UP).normalized())
+		AirEnv.puff(ctx.caster, ctx.ground_point(ctx.origin()), ctx.surface_at(ctx.origin()), 0.7, (back + Vector3.UP).normalized())
 		_impulse = AirWindField.add(ctx.caster, ctx.origin(), 2.2, 16.0, AirWindField.DIRECTIONAL, dir, INF)
 	else:
 		AirFx.swirl(ctx.caster, ctx.origin() + Vector3.UP * 0.6, 0.6, 0.3, {"grow": 1.8, "spin": 16.0, "height": 0.1, "opacity": 0.6})

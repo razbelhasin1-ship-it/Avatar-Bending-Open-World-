@@ -148,7 +148,7 @@ func release_attack(c: float, was_tap: bool) -> void:
 	AirCommon.gust(self, from, dir, cfg, h)
 	sound(&"cast_heavy", from, 0.0 if was_tap else 2.0)
 	if not _air:
-		AirFx.ground_puff(ctx.caster, ctx.ground_point(ctx.origin() + dir * 0.6), ctx.surface_at(ctx.origin()), 0.6 + c, (dir + Vector3.UP * 0.6).normalized())
+		AirEnv.puff(ctx.caster, ctx.ground_point(ctx.origin() + dir * 0.6), ctx.surface_at(ctx.origin()), 0.6 + c, (dir + Vector3.UP * 0.6).normalized())
 	elif ctx.body:
 		# Recoil: the blast throws the bender back and up (aerial spacing).
 		var back := -Vector3(dir.x, 0.0, dir.z).normalized()

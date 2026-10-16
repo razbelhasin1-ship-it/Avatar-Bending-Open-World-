@@ -56,10 +56,11 @@ static func spawn(from: Node, pos: Vector3, p_height: float = 8.5, p_radius: flo
 static func _make() -> AirVortexFx:
 	var v := AirVortexFx.new()
 	v.name = "AirVortex"
-	v.outer = v._mi(AirSheets.funnel(1.0, 0.22, 1.0, 0.04, 30, 14), {"streaks": 5.0, "twist": 2.6, "scroll": 2.4, "body": 0.2, "rim": 0.55,
-		"fade_bottom": 0.05, "fade_top": 0.3, "near_fade": 3.0, "opacity": 0.82})
-	v.inner = v._mi(AirSheets.funnel(1.0, 0.12, 0.5, 0.0, 22, 10), {"streaks": 4.0, "twist": -3.2, "scroll": -3.4, "body": 0.14, "rim": 0.3,
-		"fade_bottom": 0.04, "fade_top": 0.4, "near_fade": 2.5, "opacity": 0.6})
+	v.outer = v._mi(AirSheets.funnel(1.0, 0.22, 1.0, 0.04, 30, 14), {"streaks": 6.0, "twist": 2.6, "scroll": 2.4, "body": 0.3, "rim": 0.6,
+		"fade_bottom": 0.04, "fade_top": 0.28, "near_fade": 3.0, "opacity": 0.9, "line_sharp": 0.45,
+		"edge_color": Color(0.46, 0.58, 0.72), "core_color": Color(0.98, 0.99, 1.0)})
+	v.inner = v._mi(AirSheets.funnel(1.0, 0.12, 0.5, 0.0, 22, 10), {"streaks": 4.0, "twist": -3.2, "scroll": -3.4, "body": 0.22, "rim": 0.35,
+		"fade_bottom": 0.04, "fade_top": 0.4, "near_fade": 2.5, "opacity": 0.7, "edge_color": Color(0.4, 0.5, 0.64)})
 	v.skirt = v._mi(AirSheets.funnel(1.0, 1.0, 1.7, 0.1, 26, 4), {"streaks": 8.0, "twist": 1.2, "scroll": 3.0, "body": 0.38, "rim": 0.2,
 		"fade_bottom": 0.02, "fade_top": 0.7, "near_fade": 2.0, "opacity": 0.75, "line_sharp": 0.45})
 	for i in DEBRIS:

@@ -43,7 +43,7 @@ func strike(_i: int, sd: Dictionary) -> void:
 		AirFx.swirl(ctx.caster, ctx.origin() + Vector3.UP * 0.25, 0.9, 0.35, {"grow": 1.8, "spin": 16.0, "height": 0.1, "opacity": 0.6})
 	if step == 2:
 		if not _air:
-			AirFx.ground_puff(ctx.caster, ctx.ground_point(ctx.origin() + dir * 0.8), ctx.surface_at(ctx.origin()), 0.8, (dir + Vector3.UP).normalized())
+			AirEnv.puff(ctx.caster, ctx.ground_point(ctx.origin() + dir * 0.8), ctx.surface_at(ctx.origin()), 0.8, (dir + Vector3.UP).normalized())
 		BendingFeedback.impulse(dir, 0.12)
 
 

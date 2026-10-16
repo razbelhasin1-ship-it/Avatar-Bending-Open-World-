@@ -34,8 +34,8 @@ static func spawn(from: Node, p_follow: Node3D, p_radius: float = 1.6) -> AirWar
 static func _make() -> AirWardFx:
 	var w := AirWardFx.new()
 	w.name = "AirWard"
-	w.shell = w._mi(AirSheets.sphere(26, 14), {"streaks": 5.0, "twist": 1.4, "scroll": 2.6, "body": 0.08, "rim": 0.75,
-		"fade_bottom": 0.12, "fade_top": 0.08, "near_fade": 0.4, "opacity": 0.7})
+	w.shell = w._mi(AirSheets.sphere(26, 14), {"streaks": 7.0, "twist": 2.2, "scroll": 3.0, "body": 0.03, "rim": 0.32,
+		"fade_bottom": 0.18, "fade_top": 0.12, "near_fade": 0.4, "opacity": 0.6, "line_sharp": 0.62})
 	for i in 2:
 		w.bands.append(w._mi(FxMeshes.ring(48, 0.16, 0.1), {"streaks": 7.0, "twist": 0.0, "scroll": 4.5, "body": 0.35, "line_sharp": 0.4,
 			"fade_bottom": 0.0, "fade_top": 0.0, "near_fade": 0.4, "opacity": 0.65}))

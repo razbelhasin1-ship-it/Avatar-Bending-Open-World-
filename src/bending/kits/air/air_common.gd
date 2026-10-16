@@ -134,7 +134,7 @@ class GustPuffer extends RefCounted:
 		puffs += 1
 		var gy := ctx.ground_y(gp, 1.0, 2.5) if ctx != null and ctx.is_valid() else gp.y - 1.0
 		if gp.y - gy < 1.8:
-			AirFx.ground_puff(proj, Vector3(gp.x, gy, gp.z), GroundSampler.surface(gp), 0.5, (dir + Vector3.UP).normalized())
+			AirEnv.puff(proj, Vector3(gp.x, gy, gp.z), GroundSampler.surface(gp), 0.55, (dir + Vector3.UP).normalized())
 
 	func done(_visual: Node3D) -> void:
 		if impulse != 0:

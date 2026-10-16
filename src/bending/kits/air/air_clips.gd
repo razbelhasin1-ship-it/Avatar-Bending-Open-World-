@@ -125,11 +125,11 @@ static func _blade() -> void:
 			"hand_l": Vector3(0.56, -0.28, -0.22), "hand_r": Vector3(-0.12, -0.3, 0.52), "elbow_l": K.ELBOW_OUT, "elbow_r": K.ELBOW_DOWN,
 			"fist_l": 0.0, "fist_r": 0.0, "wrist_l": PALM_DOWN, "wrist_r": PALM_DOWN}, &"out"],
 		# Spin on the left foot, the right knee chambers high.
-		[0.3, {"hips": Vector3(0, -0.04, 0.0), "hips_rot": Vector3(-8, -110, 0), "chest": Vector3(-4, 10, 0), "head": Vector3(-6, -20, 0),
-			"foot_r": Vector3(0.42, 0.52, 0.14), "knee_r": Vector3(0.6, 0.6, 0.4), "foot_l": Vector3(0.04, 0.0, 0.0), "knee_l": K.KNEE_FWD,
+		[0.3, {"hips": Vector3(0, 0.12, 0.0), "hips_rot": Vector3(-8, -110, 0), "chest": Vector3(-4, 10, 0), "head": Vector3(-6, -20, 0),
+			"foot_r": Vector3(0.42, 0.62, 0.14), "knee_r": Vector3(0.6, 0.6, 0.4), "foot_l": Vector3(0.04, 0.22, 0.05), "knee_l": K.KNEE_FWD,
 			"hand_l": Vector3(0.86, 0.0, 0.1), "hand_r": Vector3(0.82, 0.0, 0.1), "elbow_l": K.ELBOW_DOWN, "elbow_r": K.ELBOW_DOWN}],
 		# Release: the leg extended high whips through the front, the arms cut the other way.
-		[0.44, {"hips": Vector3(0, -0.02, 0.0), "hips_rot": Vector3(-16, -200, 22), "spine": Vector3(-8, 0, 12), "chest": Vector3(-8, 18, 0), "head": Vector3(0, -20, -10),
+		[0.44, {"hips": Vector3(0, 0.1, 0.0), "foot_l": Vector3(0.04, 0.18, 0.0), "hips_rot": Vector3(-16, -200, 22), "spine": Vector3(-8, 0, 12), "chest": Vector3(-8, 18, 0), "head": Vector3(0, -20, -10),
 			"foot_r": Vector3(0.95, 1.02, 0.05), "knee_r": Vector3(0.2, 1.0, 0.0), "foot_rot_r": Vector3(-10, -40, 60),
 			"hand_l": Vector3(0.95, 0.1, 0.05), "hand_r": Vector3(0.9, 0.06, 0.05), "wrist_l": PALM, "wrist_r": PALM}, &"snap"],
 		[0.62, {"hips": Vector3(0, -0.1, 0.0), "hips_rot": Vector3(-4, -300, 0), "foot_r": Vector3(0.5, 0.32, -0.2), "chest": Vector3(0, 10, 0), "head": Vector3(-4, 0, 0)}],

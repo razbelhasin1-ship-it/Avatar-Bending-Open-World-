@@ -10,6 +10,7 @@ extends ChargeAbility
 
 var _ball: AirFx.AirSwirl = null
 var _ring_t := 0.0
+var _inflow_t := 0.0
 var _front := -1.0
 var _front_time := 0.2
 var _radius := 4.4
@@ -44,6 +45,17 @@ func on_charging(c: float, delta: float) -> void:
 		_ball.radius = 0.2 + c * 0.3
 	if _loop_id != 0:
 		Audio.set_loop_pitch(_loop_id, 0.9 + c * 0.4)
+	# Air is drawn in from all around toward the palms.
+	_inflow_t -= delta
+	if _inflow_t <= 0.0:
+		_inflow_t = 0.16
+		var hp := ctx.hands_pos()
+		var a := randf() * TAU
+		var start := hp + Vector3(cos(a), randf_range(-0.35, 0.6), sin(a)) * (1.6 + c * 0.8)
+		var to := hp - start
+		if to.length() > 0.3:
+			AirFx.gust(ctx.caster, Transform3D(Basis.looking_at(to.normalized(), Vector3.UP), start), to.length(), 0.28 + c * 0.12, 0.32,
+					{"opacity": 0.45 + 0.3 * c, "tail": 0.7})
 	# The reach of the push grows on the ground (readable telegraph for both sides).
 	_ring_t -= delta
 	if _ring_t <= 0.0 and not AirCommon.airborne(ctx):

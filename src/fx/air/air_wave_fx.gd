@@ -47,7 +47,7 @@ static func _make() -> AirWaveFx:
 	w.name = "AirWave"
 	w.wall = _mi(w, AirSheets.band(1.0, 0.35), {"streaks": 14.0, "twist": 0.4, "scroll": 2.6, "body": 0.3, "fade_bottom": 0.04, "fade_top": 0.55, "near_fade": 0.8})
 	w.wall2 = _mi(w, AirSheets.band(1.0, 0.2), {"streaks": 9.0, "twist": -0.6, "scroll": -1.8, "body": 0.22, "fade_bottom": 0.05, "fade_top": 0.6, "near_fade": 0.8})
-	w.dome = _mi(w, AirSheets.sphere(20, 10), {"streaks": 6.0, "twist": 1.5, "scroll": 2.0, "body": 0.1, "rim": 0.9, "fade_bottom": 0.45, "fade_top": 0.05, "near_fade": 1.0})
+	w.dome = _mi(w, AirSheets.sphere(20, 10), {"streaks": 8.0, "twist": 2.0, "scroll": 2.4, "body": 0.04, "rim": 0.45, "fade_bottom": 0.45, "fade_top": 0.08, "near_fade": 1.0, "line_sharp": 0.6})
 	return w
 
 

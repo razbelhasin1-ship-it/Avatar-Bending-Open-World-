@@ -88,6 +88,6 @@ func on_event(event: StringName) -> void:
 	AirEnv.practiced(ctx, def.id)
 	BendingFeedback.impulse(dir, 0.12)
 	if not _air:
-		AirFx.ground_puff(ctx.caster, ctx.ground_point(ctx.origin()), ctx.surface_at(ctx.origin()), 0.6, (dir + Vector3.UP).normalized())
+		AirEnv.puff(ctx.caster, ctx.ground_point(ctx.origin()), ctx.surface_at(ctx.origin()), 0.6, (dir + Vector3.UP).normalized())
 	if ctx.is_player():
 		BendingFeedback.shake(0.14, 0.12)

@@ -112,11 +112,11 @@ static func defs() -> Array[AbilityDef]:
 			"icon": ICONS + "ability_air_tornado.svg", "focus_cost": 100.0, "clip": &"air_tornado_cast", "clip_speed": 1.0,
 			"startup": 0.52, "active": 1.7, "recovery": 0.4, "poise_armor": 60.0,
 			"unlock": {"level": 7, "prerequisite": &"wind_blade", "trainer": "at_tashi", "cost": 2, "tier": 4, "branch": &"gale", "column": 1},
-			"hit": {"damage": 3.0, "reaction": R.PULL, "force": 6.0, "stun": 0.4, "poise": 14.0},
+			"hit": {"damage": 0.0, "reaction": R.PULL, "force": 6.0, "stun": 0.4, "poise": 14.0},
 			"params": {"distance": 6.0, "max_distance": 14.0, "pull_radius": 7.5, "capture_radius": 2.4, "height": 9.0, "funnel_radius": 3.4,
 				"pulse": 0.22, "drift": 2.2, "orbit_radius": 1.7, "orbit_speed": 4.2, "lift_top": 4.2, "damage_reduction": 0.5,
-				"lift_hit": {"damage": 3.0, "reaction": R.LAUNCH, "force": 2.0, "lift": 6.0, "poise": 30.0},
-				"release_hit": {"damage": 26.0, "reaction": R.LAUNCH, "force": 15.0, "lift": 9.0, "poise": 80.0, "heavy": true, "unblockable": true}},
+				"lift_hit": {"damage": 4.0, "reaction": R.LAUNCH, "force": 2.0, "lift": 6.0, "poise": 30.0},
+				"release_hit": {"damage": 30.0, "reaction": R.LAUNCH, "force": 15.0, "lift": 9.0, "poise": 80.0, "heavy": true, "unblockable": true}},
 			"fx": {"vfx": &"air_vortex", "sfx": &"special_loop"}, "script_path": DIR + "air_tornado.gd"}),
 	]
 	return out

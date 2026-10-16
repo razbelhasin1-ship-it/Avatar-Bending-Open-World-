@@ -109,7 +109,7 @@ func _build(d: Dictionary) -> void:
 	var col: Color = d["color"]
 	var cs := CollisionShape3D.new()
 	var mi := MeshInstance3D.new()
-	var mat := ToonMaterials.make(col, {"vertex_color": true, "outline_width": 0.8})
+	var mat := ToonMaterials.make(Color.WHITE, {"vertex_color": true, "outline_width": 0.8})
 	mi.material_override = mat
 	match kind:
 		&"crate":
@@ -218,24 +218,25 @@ static func _lathe_mesh(k: StringName, r: float, h: float, col: Color) -> ArrayM
 		for j in seg:
 			var t0 := TAU * float(j) / seg
 			var t1 := TAU * float(j + 1) / seg
-			var c := _shade(k, col, float(a0[1]), j)
-			var c2 := _shade(k, col, float(a1[1]), j)
+			var c := _shade(k, col, float(a0[1]), j).srgb_to_linear()
+			var c2 := _shade(k, col, float(a1[1]), j).srgb_to_linear()
 			var p00 := Vector3(cos(t0) * r * float(a0[0]), h * float(a0[1]), sin(t0) * r * float(a0[0]))
 			var p01 := Vector3(cos(t1) * r * float(a0[0]), h * float(a0[1]), sin(t1) * r * float(a0[0]))
 			var p10 := Vector3(cos(t0) * r * float(a1[0]), h * float(a1[1]), sin(t0) * r * float(a1[0]))
 			var p11 := Vector3(cos(t1) * r * float(a1[0]), h * float(a1[1]), sin(t1) * r * float(a1[0]))
+			# Clockwise front faces (Godot convention), seen from outside.
 			st.set_color(c)
 			st.add_vertex(p00)
-			st.set_color(c2)
-			st.add_vertex(p10)
-			st.set_color(c)
-			st.add_vertex(p01)
 			st.set_color(c)
 			st.add_vertex(p01)
 			st.set_color(c2)
 			st.add_vertex(p10)
+			st.set_color(c)
+			st.add_vertex(p01)
 			st.set_color(c2)
 			st.add_vertex(p11)
+			st.set_color(c2)
+			st.add_vertex(p10)
 	st.generate_normals()
 	return st.commit()
 
@@ -268,7 +269,7 @@ static func _crate_mesh(s: Vector3, col: Color) -> ArrayMesh:
 		var edge_x := absf(v.x) > s.x * 0.42
 		var edge_z := absf(v.z) > s.z * 0.42
 		var edge_y := v.y < s.y * 0.08 or v.y > s.y * 0.92
-		st.set_color(col.darkened(0.3) if (int(edge_x) + int(edge_z) + int(edge_y)) >= 2 else col)
+		st.set_color((col.darkened(0.3) if (int(edge_x) + int(edge_z) + int(edge_y)) >= 2 else col).srgb_to_linear())
 		st.add_vertex(v)
 	st.generate_normals()
 	return st.commit()

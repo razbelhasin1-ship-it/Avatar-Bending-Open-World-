@@ -261,7 +261,7 @@ func _trail(delta: float) -> void:
 		return
 	var surf := ctx.surface_at(g)
 	if spd > 3.0:
-		AirFx.ground_puff(ctx.caster, g, surf, clampf(spd / _speed, 0.3, 0.8), back.normalized())
+		AirEnv.puff(ctx.caster, g, surf, clampf(spd / _speed, 0.3, 0.8), back.normalized())
 
 
 func _cleanup() -> void:

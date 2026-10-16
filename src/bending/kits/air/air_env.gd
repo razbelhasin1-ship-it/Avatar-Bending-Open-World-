@@ -166,10 +166,28 @@ static func ground(from: Node, center: Vector3, radius: float, power: float, mod
 					if surf == &"grass":
 						FxBurst.spawn(from, &"leaves", g, {"count": 1.2 * strength, "radius": radius * 0.45})
 		_:
-			AirFx.ground_puff(from, g, surf, clampf(power, 0.3, 1.2), push.normalized())
+			puff(from, g, surf, clampf(power, 0.3, 1.2), push.normalized())
 			if surf == &"snow" and power >= 0.8:
 				_scour_snow(from, g, power * 0.6, radius)
 	return surf
+
+
+## A light puff of whatever the ground is made of (no ring): gust paths, rides, wakes.
+static func puff(from: Node, pos: Vector3, surface: StringName, strength: float = 0.5, dir: Vector3 = Vector3.UP) -> void:
+	var col := FxLib.surface_color(surface)
+	var s := clampf(strength, 0.2, 1.5)
+	match surface:
+		&"snow", &"ice":
+			FxBurst.spawn(from, &"snow", pos, {"count": s, "size": 0.7 + s * 0.3, "dir": dir})
+		&"water":
+			FxBurst.spawn(from, &"spray", pos, {"count": s, "dir": dir})
+		&"grass":
+			FxBurst.spawn(from, &"leaves", pos, {"count": s, "dir": dir})
+			FxBurst.spawn(from, &"dust", pos, {"color": col.lightened(0.2), "count": 0.4 * s, "dir": dir})
+		&"stone", &"wood":
+			FxBurst.spawn(from, &"dust", pos, {"color": col.lightened(0.1), "count": 0.5 * s, "dir": dir})
+		_:
+			FxBurst.spawn(from, &"dust", pos, {"color": col, "count": s, "dir": dir})
 
 
 static func _scour_snow(from: Node, g: Vector3, power: float, radius: float) -> void:

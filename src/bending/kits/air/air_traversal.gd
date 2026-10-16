@@ -96,7 +96,7 @@ func _physics_process(delta: float) -> void:
 	_puff_t -= TICK
 	if _puff_t <= 0.0 and h < 3.0:
 		_puff_t = 0.45
-		AirFx.ground_puff(player, below, GroundSampler.surface(below), 0.35, (Vector3(v.x, 0.0, v.z).normalized() + Vector3.UP).normalized())
+		AirEnv.puff(player, below, GroundSampler.surface(below), 0.45, (Vector3(v.x, 0.0, v.z).normalized() + Vector3.UP).normalized())
 
 
 func _end_wake() -> void:
