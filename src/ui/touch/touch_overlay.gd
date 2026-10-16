@@ -72,6 +72,8 @@ var _opacity := 0.7
 var _element := -1
 var _last_size := Vector2.ZERO
 var _prompt_visible := false
+var _safe_t := 0.0
+var _last_safe := Vector4(-1, -1, -1, -1)
 
 
 func _ready() -> void:
@@ -184,7 +186,7 @@ func _relayout() -> void:
 
 # --- Per-frame state ---------------------------------------------------------------------------
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	if player == null or not is_instance_valid(player):
 		player = hud.get("player") if hud != null and is_instance_valid(hud) else null
 	var want := wants_active() and not _dialogue and _hud_visible()
@@ -192,12 +194,28 @@ func _process(_delta: float) -> void:
 		_set_active(want)
 	if not active:
 		return
+	_safe_t -= delta
+	if _safe_t <= 0.0:
+		_safe_t = 1.0
+		_refresh_safe_area()
 	if size != _last_size:
 		_relayout()
 	_update_mode()
 	_update_top_bar()
 	_poll_player()
 	_update_visibility()
+
+
+## Phones turned 180° (sensor landscape) move the notch to the other side: re-inset the HUD
+## root (our parent) whenever the display safe area changes.
+func _refresh_safe_area() -> void:
+	var m := UiTheme.safe_area_margins(get_viewport())
+	if m == _last_safe:
+		return
+	_last_safe = m
+	var root := get_parent() as Control
+	if root and m != Vector4.ZERO:
+		UiTheme.apply_safe_area(root)
 
 
 ## The HUD hides during loading and cinematics (PlayableScene.set_hud_visible): so do we.

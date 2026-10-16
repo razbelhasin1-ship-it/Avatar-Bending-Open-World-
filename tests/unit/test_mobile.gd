@@ -510,6 +510,10 @@ func test_export_presets() -> void:
 			by_platform[String(cfg.get_value(s, "platform", ""))] = s
 	for plat: String in ["Android", "iOS", "Web", "Linux", "Windows Desktop"]:
 		expect(by_platform.has(plat), "preset for %s" % plat)
+		# The heightmap (.r16.zlib) is not a resource type Godot knows: without the include
+		# filter every exported build silently falls back to the flat world.
+		if by_platform.has(plat):
+			expect(String(cfg.get_value(by_platform[plat], "include_filter", "")).contains("assets/world/*"), "%s exports the raw world data" % plat)
 	if by_platform.has("Android"):
 		var o := String(by_platform["Android"]) + ".options"
 		expect(bool(cfg.get_value(o, "architectures/arm64-v8a", false)), "Android arm64-v8a")

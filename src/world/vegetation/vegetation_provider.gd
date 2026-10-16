@@ -149,7 +149,7 @@ func _subset_mmi(cell: ContentCell, mmi: Variant, e: Dictionary, local_cam: Vect
 		var mm := node.multimesh
 		if mm.instance_count != capacity:
 			mm.instance_count = capacity
-		mm.buffer = sub
+		mm.buffer = RenderCompat.buffer_for(mm, sub)
 		node.visible = true
 	node.multimesh.visible_instance_count = n
 	return node

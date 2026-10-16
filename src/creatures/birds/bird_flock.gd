@@ -69,9 +69,10 @@ func _ready() -> void:
 	_dir = 1.0 if _rng.randf() < 0.5 else -1.0
 	_mm = MultiMesh.new()
 	_mm.transform_format = MultiMesh.TRANSFORM_3D
-	_mm.use_custom_data = true
+	RenderCompat.configure(_mm, true)
 	_mm.mesh = _bird_mesh(float(_spec["span"]))
 	_mm.instance_count = count
+	RenderCompat.whiten(_mm)
 	_mmi = MultiMeshInstance3D.new()
 	_mmi.multimesh = _mm
 	var mat := ShaderMaterial.new()

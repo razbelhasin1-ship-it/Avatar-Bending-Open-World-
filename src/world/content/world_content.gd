@@ -654,14 +654,14 @@ func spawn_multimesh(cell: ContentCell, d: Dictionary) -> MultiMeshInstance3D:
 		mmi.multimesh = mm
 	mm.instance_count = 0
 	mm.transform_format = MultiMesh.TRANSFORM_3D
-	mm.use_colors = false
-	mm.use_custom_data = bool(d.get("custom", true))
+	# Custom data (+ white colours on the Compatibility renderer: src/platform/render_compat.gd).
+	RenderCompat.configure(mm, bool(d.get("custom", true)))
 	mm.mesh = d["mesh"]
 	mm.instance_count = int(d["count"])
 	mm.visible_instance_count = -1
 	var aabb: AABB = d["aabb"]
 	mm.custom_aabb = aabb
-	mm.buffer = d["buffer"]
+	mm.buffer = RenderCompat.buffer_for(mm, d["buffer"])
 	mmi.material_override = d.get("material")
 	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if d.get("shadow", false) else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	mmi.set_meta(&"casts", bool(d.get("shadow", false)))

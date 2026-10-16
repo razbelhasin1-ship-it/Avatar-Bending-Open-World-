@@ -71,7 +71,10 @@ async function main() {
 		args: ["--enable-unsafe-swiftshader", "--use-angle=swiftshader", "--ignore-gpu-blocklist", "--autoplay-policy=no-user-gesture-required"],
 	});
 	browserRef = browser;
-	const context = await browser.newContext({ ...base, viewport: vp, screen: vp, isMobile: true, hasTouch: true });
+	// --dpr overrides the device pixel ratio (SwiftShader renders every physical pixel on the CPU,
+	// so world runs use a lower ratio to keep the test fast; the layout is identical).
+	const dpr = parseFloat(opt("dpr", String(base.deviceScaleFactor)));
+	const context = await browser.newContext({ ...base, viewport: vp, screen: vp, deviceScaleFactor: dpr, isMobile: true, hasTouch: true });
 	const page = await context.newPage();
 	page.on("console", (m) => {
 		const line = `[${m.type()}] ${m.text()}`;
@@ -115,7 +118,7 @@ async function main() {
 	};
 
 	const t0 = Date.now();
-	console.log(`device ${deviceName} landscape ${vp.width}x${vp.height} css, dpr ${base.deviceScaleFactor}, design ${designW.toFixed(0)}x1080`);
+	console.log(`device ${deviceName} landscape ${vp.width}x${vp.height} css, dpr ${dpr}, design ${designW.toFixed(0)}x1080`);
 	await page.goto(`http://127.0.0.1:${port}/index.html`, { waitUntil: "load" });
 	// Boot: the loader's status overlay is removed once the engine started.
 	await page.waitForFunction(() => !document.getElementById("status"), null, { timeout: bootTimeout });
@@ -204,7 +207,9 @@ async function main() {
 	fs.writeFileSync(path.join(outDir, "console.log"), log.join("\n"));
 	console.log(`console lines: ${log.length}, errors: ${errors.length}`);
 	for (const e of errors.slice(0, 40)) console.log("  " + e);
-	const scriptErrors = errors.filter((e) => /SCRIPT ERROR|Parse Error|pageerror/.test(e));
+	const flat = log.filter((l) => /flat fallback world/.test(l));
+	if (flat.length) errors.push("[world] " + flat[0]);
+	const scriptErrors = errors.filter((e) => /SCRIPT ERROR|Parse Error|pageerror|\[world\]/.test(e));
 	console.log(scriptErrors.length ? "WEB SMOKE FAILED" : "WEB SMOKE PASSED");
 	process.exit(scriptErrors.length ? 1 : 0);
 }

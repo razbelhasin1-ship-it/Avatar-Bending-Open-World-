@@ -72,11 +72,11 @@ static func vegetation_node(items: Array, origin: Vector3) -> Node3D:
 				continue
 			var mm := MultiMesh.new()
 			mm.transform_format = MultiMesh.TRANSFORM_3D
-			mm.use_custom_data = true
+			RenderCompat.configure(mm, true)
 			mm.mesh = mesh
 			mm.instance_count = int(g[3])
 			mm.custom_aabb = aabb
-			mm.buffer = g[2]
+			mm.buffer = RenderCompat.buffer_for(mm, g[2])
 			var mmi := MultiMeshInstance3D.new()
 			mmi.name = "%s_lod%d" % [sp, lod]
 			mmi.multimesh = mm
