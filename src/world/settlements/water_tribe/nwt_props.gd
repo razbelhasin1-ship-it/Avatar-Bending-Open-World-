@@ -96,7 +96,7 @@ static func stall(kit: BuildingKit, v: int) -> void:
 			var p := Vector3(-w * 0.3 + i * w * 0.3, 1.6, -d * 0.5 + 0.1)
 			kit.g().cylinder(p + Vector3(0, 0.6, 0), p, 0.01, 0.01, 3, kit.col(&"wood_dark"), 0)
 			kit.g().blob(p - Vector3(0, 0.15, 0), 0.12, 0, fish, null, 0.0, Vector3(0.6, 2.2, 0.5))
-		kit.lantern(Vector3(w * 0.5 - 0.3, 2.1, -d * 0.5 - 0.3), {"style": &"paper", "light": false})
+		KitX.lantern(kit, Vector3(w * 0.5 - 0.3, 2.1, -d * 0.5 - 0.3), {"style": &"paper", "light": false})
 
 
 static func fish_rack(kit: BuildingKit, v: int) -> void:
@@ -107,10 +107,14 @@ static func fish_rack(kit: BuildingKit, v: int) -> void:
 	kit.beam(Vector3(-w * 0.5 - 0.2, 1.95, 0), Vector3(w * 0.5 + 0.2, 1.95, 0), 0.08, 0.08, &"wood_dark")
 	if kit.lod == 0:
 		var fish := Color(0.66, 0.70, 0.74).srgb_to_linear()
-		var n := int(w / 0.35)
+		var n := int(w / 0.32)
 		for i in n:
-			var p := Vector3(-w * 0.5 + 0.2 + i * (w - 0.4) / maxf(n - 1, 1), 1.55, 0.0)
-			kit.g().blob(p, 0.12, 0, fish if i % 3 else Color(0.82, 0.55, 0.45).srgb_to_linear(), null, 0.0, Vector3(0.5, 2.6, 0.35))
+			var p := Vector3(-w * 0.5 + 0.2 + i * (w - 0.4) / maxf(n - 1, 1), 1.45, 0.0)
+			kit.g().cylinder(p + Vector3(0, 0.5, 0), p + Vector3(0, 0.2, 0), 0.01, 0.01, 3, kit.col(&"wood_dark"), 0)
+			kit.g().blob(p, 0.2, 0, fish if i % 3 else Color(0.82, 0.55, 0.45).srgb_to_linear(), null, 0.0, Vector3(0.55, 2.2, 0.3))
+			kit.g().cone(p - Vector3(0, 0.38, 0), p - Vector3(0, 0.6, 0), 0.09, 4, fish * 0.9)
+		# a hide stretched on the rack end
+		kit.box(Vector3(w * 0.5 + 0.05, 1.2, 0.1), Vector3(0.05, 1.3, 0.9), Color(0.70, 0.58, 0.44).srgb_to_linear(), false)
 
 
 static func crates(kit: BuildingKit, v: int) -> void:
@@ -279,7 +283,7 @@ static func ship(kit: BuildingKit, v: int) -> void:
 	if kit.lod == 0:
 		kit.railing(PackedVector3Array([Vector3(-beam * 0.4, dy, -l * 0.38), Vector3(-beam * 0.44, dy, l * 0.42)]), 0.9, {"spacing": 1.4, "collide": true})
 		kit.railing(PackedVector3Array([Vector3(beam * 0.4, dy, -l * 0.38), Vector3(beam * 0.44, dy, l * 0.42)]), 0.9, {"spacing": 1.4, "collide": true})
-		kit.lantern(Vector3(0, dy + 3.0, l * 0.4), {"style": &"paper", "range": 8.0, "light": false})
+		KitX.lantern(kit, Vector3(0, dy + 3.0, l * 0.4), {"style": &"paper", "range": 8.0, "light": false})
 		# bowsprit + figurehead curl
 		kit.beam(Vector3(0, dy + 0.9, -l * 0.5), Vector3(0, dy + 2.2, -l * 0.5 - 3.0), 0.16, 0.16, &"wood_dark")
 		KitX.emblem_water(kit, Vector3(0, dy + 0.4, -l * 0.5 + 0.3), 1.4, &"trim", 0.0)

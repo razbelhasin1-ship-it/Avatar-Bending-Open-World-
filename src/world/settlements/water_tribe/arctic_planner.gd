@@ -169,21 +169,32 @@ func _fishing_camp(c: Vector3, district: StringName) -> void:
 	var side := Vector2(-sea.y, sea.x)
 	_fire(c, district)
 	var face := NwtPlanner.yaw_dir(sea)
-	for k in 5:
-		var off := side * (k - 2) * 7.5 - sea * rng.randf_range(4.0, 9.0)
+	# a crescent of hide tents and igloos opening towards the sea
+	for k in 7:
+		var u := (k - 3) / 3.0
+		var off := side * u * 21.0 - sea * (6.0 + 9.0 * u * u + rng.randf_range(-1.0, 1.0))
 		var p := c + Vector3(off.x, 0, off.y)
 		var kind: StringName = &"hide_tent" if k % 2 == 0 else &"igloo"
-		var pc := _place(kind, p, face, k % 3, 3.6)
+		var yaw := NwtPlanner.yaw_dir(Vector2(c.x - p.x, c.z - p.z) + sea * 6.0)
+		var pc := _place(kind, p, yaw, k % 3, 3.6)
 		if not pc.is_empty():
-			plan.anchor(&"home", NwtDistricts.world(pc["pos"], face, Vector3(0, 0, -3.5)), face + PI, {"tags": [String(district), String(kind)]})
-			if k == 2:
-				plan.anchor(&"quest_giver", NwtDistricts.world(pc["pos"], face, Vector3(1.2, 0, -3.5)), face + PI, {"tags": [String(district), "fisher_chief"]})
-	for k in 3:
-		var off := side * (k - 1) * 8.0 + sea * 9.0
+			plan.anchor(&"home", NwtDistricts.world(pc["pos"], yaw, Vector3(0, 0, -3.5)), yaw + PI, {"tags": [String(district), String(kind)]})
+			if k == 3:
+				plan.anchor(&"quest_giver", NwtDistricts.world(pc["pos"], yaw, Vector3(1.2, 0, -3.5)), yaw + PI, {"tags": [String(district), "fisher_chief"]})
+	for k in 4:
+		var off := side * (k - 1.5) * 7.0 + sea * 9.0
 		var pc := _place(&"fish_rack", c + Vector3(off.x, 0, off.y), face + PI * 0.5, k % 2, 2.6)
 		if not pc.is_empty():
 			plan.anchor(&"fisher", pc["pos"] + Vector3(sea.x, 0, sea.y) * 1.5, face + PI, {"tags": [String(district), "rack"]})
 	_place(&"banner_pole", c + Vector3(side.x, 0, side.y) * 4.0, face, 0, 1.0, 2)
+	_place(&"crates", c - Vector3(side.x, 0, side.y) * 5.0 - Vector3(sea.x, 0, sea.y) * 3.0, face, 1, 1.6, 0)
+	_place(&"lamp_post", c + Vector3(sea.x, 0, sea.y) * 5.0, 0.0, 0, 0.8)
+	# canoes pulled up beside the racks (the shore ones follow when the sea is close)
+	for k in 2:
+		var q := c + Vector3(sea.x, 0, sea.y) * 14.0 + Vector3(side.x, 0, side.y) * (k * 4.0 - 2.0)
+		var pc := _place(&"canoe", q, face, k, 1.4, 1)
+		if not pc.is_empty():
+			pc["pos"] = (pc["pos"] as Vector3) + Vector3(0, 0.25, 0)
 	# the shore: canoes pulled up on the beach, a short pier where the water deepens
 	var shore := Vector2.INF
 	var deep := Vector2.INF

@@ -69,7 +69,7 @@ static func healer_hut(kit: BuildingKit, _spec: Dictionary) -> void:
 	if kit.lod < 2:
 		kit.box(Vector3(0, y + 2.7, -r - 1.95), Vector3(3.2, 0.25, 0.3), NwtStyle.navy(), false)
 		KitX.banner(kit, Transform3D(Basis(), Vector3(0, y + 3.25, -r - 2.08)), 1.1, 1.2, &"cloth_alt", &"cloth", &"moon")
-		kit.lantern(Vector3(1.9, y, -r - 2.4), {"style": &"ice", "height": 1.5, "range": 7.0})
+		KitX.lantern(kit, Vector3(1.9, y, -r - 2.4), {"style": &"ice", "height": 1.5, "range": 7.0})
 	if kit.lod == 0:
 		# healing pool: a ring of ice blocks around softly glowing water
 		for k in 16:
@@ -115,7 +115,7 @@ static func healer_hut(kit: BuildingKit, _spec: Dictionary) -> void:
 			var t := (k + 0.5) / 7.0
 			var hp := Vector3(lerpf(-3.0, 3.0, t), y + h - 0.65 - sin(t * PI) * 0.33 - 0.25, 1.6 + sin(t * PI) * 0.3)
 			kit.g().blob(hp, 0.11, 0, Color(0.40, 0.55, 0.28).srgb_to_linear(), null, 0.0, Vector3(0.6, 2.0, 0.6))
-		kit.lantern(Vector3(-3.4, y, -2.0), {"style": &"post", "height": 1.3, "light": false})
+		KitX.lantern(kit, Vector3(-3.4, y, -2.0), {"style": &"post", "height": 1.3, "light": false})
 	_interior_light(kit, Vector3(0, y + h - 0.8, 0), Color(0.80, 0.90, 1.0), 9.0, 1.1)
 	_interior_light(kit, Vector3(0, y + 1.0, 0), Color(0.55, 0.85, 1.0), 4.0, 0.8)
 	kit.mark(&"door", Transform3D(Basis(Vector3.UP, PI), Vector3(0, 0, -r - 3.2)))
@@ -170,9 +170,7 @@ static func training_hall(kit: BuildingKit, _spec: Dictionary) -> void:
 			inner.append(Vector2(cos(a), sin(a)) * 4.2)
 		kit.slab(ring, y, y + 0.03, &"trim", false)
 		kit.slab(inner, y, y + 0.045, &"wall_alt", false)
-		kit.push(Transform3D(Basis(Vector3.RIGHT, -PI * 0.5), Vector3(0, y + 0.06, -0.5)))
-		KitX.emblem_water(kit, Vector3.ZERO, 3.0, &"trim", 0.0)
-		kit.pop()
+		KitX.water_inlay(kit, Vector3(0, y + 0.05, -0.5), 3.0, &"trim")
 		# water basins along the side walls
 		for sx: float in [-1.0, 1.0]:
 			var bc := Vector3(sx * (hx - 1.2), y, 0)
@@ -313,7 +311,7 @@ static func oasis(kit: BuildingKit, spec: Dictionary) -> void:
 		# stone lanterns around the pond
 		for k in 4:
 			var a := TAU * k / 4.0 + PI * 0.25
-			kit.lantern(Vector3(cos(a) * (pond + 3.0), 0.0, sin(a) * (pond + 3.0)), {"style": &"stone", "height": 1.4,
+			KitX.lantern(kit, Vector3(cos(a) * (pond + 3.0), 0.0, sin(a) * (pond + 3.0)), {"style": &"stone", "height": 1.4,
 				"light": false, "color": Color(1.0, 0.8, 0.5)})
 		# a low wooden bench and an ice shrine facing the pond
 		kit.box(Vector3(-pond - 5.0, 0.4, 3.0), Vector3(0.6, 0.12, 2.4), &"wood", false)

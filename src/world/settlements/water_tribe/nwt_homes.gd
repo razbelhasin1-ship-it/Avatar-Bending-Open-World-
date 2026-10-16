@@ -55,7 +55,7 @@ static func build(kit: BuildingKit, kind: StringName, v: int) -> void:
 static func _win(kit: BuildingKit, c: Vector3, w: float, h: float, lit: bool) -> void:
 	if kit.lod >= 2:
 		if lit:
-			kit.g(&"glow").box(Transform3D(Basis(), c + Vector3(0, 0, -0.05)), Vector3(w * 1.3, h * 1.2, 0.05), KitX.lit_window_color(kit) * 1.1)
+			kit.g(&"glow").box(Transform3D(Basis(), c + Vector3(0, 0, -0.05)), Vector3(w * 1.9, h * 1.6, 0.05), KitX.lit_window_color(kit) * 1.2)
 		return
 	KitX.window(kit, c, w, h, NwtStyle.navy(), 0.0, lit)
 
@@ -114,7 +114,7 @@ static func dome_home(kit: BuildingKit, v: int) -> void:
 	kit.collide_box(Vector3(0, y + vh + 0.1, (z0 + z1) * 0.5), Vector3(vw, 0.5, vd))
 	if kit.lod == 0:
 		if v % 2 == 1:
-			kit.lantern(Vector3(vw * 0.5 + 0.5, y, z1 + 0.3), {"style": &"ice", "height": 1.3, "light": v % 4 == 1, "range": 7.0})
+			KitX.lantern(kit, Vector3(vw * 0.5 + 0.5, y, z1 + 0.3), {"style": &"ice", "height": 1.3, "light": v % 4 == 1, "range": 7.0})
 		else:
 			# drying fish line / furs on a rack beside the door
 			kit.beam(Vector3(-vw * 0.5 - 0.6, y, z1 + 0.4), Vector3(-vw * 0.5 - 0.6, y + 1.6, z1 + 0.4), 0.06, 0.06, &"wood")
@@ -158,12 +158,12 @@ static func block_house(kit: BuildingKit, v: int) -> void:
 			var wx := lerpf(-cw * 0.5 + 1.2, cw * 0.5 - 1.2, (i + 0.5) / nwin) if nwin > 1 else (cw * 0.28 if f == 0 else 0.0)
 			if f == 0 and absf(wx) < 1.4:
 				continue
-			var lit := ContentHash.unit(ContentHash.hash4(v, f, i)) < 0.35
+			var lit := ContentHash.unit(ContentHash.hash4(v, f, i)) < 0.5
 			if kit.lod < 2 or lit:
 				_win(kit, Vector3(wx, y + fh * 0.52, cz - cd * 0.5), 0.6, 0.95, lit)
 		if kit.lod == 0:
 			for sx: float in [-1.0, 1.0]:
-				_side_win(kit, sx, cw * 0.5, y + fh * 0.52, cz, 0.55, 0.85, rng.randf() < 0.25)
+				_side_win(kit, sx, cw * 0.5, y + fh * 0.52, cz, 0.55, 0.85, rng.randf() < 0.35)
 		if f == 0 and kit.lod < 2:
 			var curtain: StringName = &"cloth" if v % 2 == 0 else &"cloth_alt"
 			KitX.doorway(kit, Vector3(0, y, cz - cd * 0.5), 1.25, 2.2, NwtStyle.navy(), curtain, 0.0)
@@ -253,7 +253,7 @@ static func tower_house(kit: BuildingKit, v: int) -> void:
 	for row in 2:
 		var wy := y + (1.6 if row == 0 else h * 0.5 + 1.4)
 		for sx: float in [-1.0, 1.0]:
-			var lit := ContentHash.unit(ContentHash.hash4(v, row, int(sx))) < 0.35
+			var lit := ContentHash.unit(ContentHash.hash4(v, row, int(sx))) < 0.5
 			if kit.lod < 2 or lit:
 				_win(kit, Vector3(sx * w * 0.3, wy, -d * 0.5), 0.6, 0.9, lit)
 	# tower
@@ -337,7 +337,7 @@ static func noble_house(kit: BuildingKit, v: int) -> void:
 		if kit.lod < 2:
 			kit.ornament(Vector3(sx * (gate_w * 0.5 + 0.3), y + 3.8, -hz), &"orb", 0.6, NwtStyle.dome(1))
 			if kit.lod == 0:
-				kit.lantern(Vector3(sx * (gate_w * 0.5 + 1.3), y, -hz - 0.9), {"style": &"ice", "height": 1.6, "light": sx > 0.0, "range": 8.0})
+				KitX.lantern(kit, Vector3(sx * (gate_w * 0.5 + 1.3), y, -hz - 0.9), {"style": &"ice", "height": 1.6, "light": sx > 0.0, "range": 8.0})
 				KitX.banner(kit, Transform3D(Basis(), Vector3(sx * (gate_w * 0.5 + 0.3), y + 3.4, -hz - 0.47)), 0.7, 2.4)
 	if kit.lod < 2:
 		kit.box(Vector3(0, y + 3.9, -hz), Vector3(gate_w + 1.8, 0.5, 1.0), NwtStyle.navy())
@@ -360,11 +360,11 @@ static func noble_house(kit: BuildingKit, v: int) -> void:
 		KitX.merlons(kit, Vector3(-mw * 0.5 + 0.25, y + h1 + 0.1, mz - md * 0.5 + 0.2), Vector3(mw * 0.5 - 0.25, y + h1 + 0.1, mz - md * 0.5 + 0.2), 0.36, 0.6, 0.8, 0.5, wall)
 	for i in 4:
 		var wx := lerpf(-mw * 0.38, mw * 0.38, i / 3.0)
-		var lit := ContentHash.unit(ContentHash.hash4(v, i, 9)) < 0.45
+		var lit := ContentHash.unit(ContentHash.hash4(v, i, 9)) < 0.55
 		if absf(wx) > 1.5 and (kit.lod < 2 or lit):
 			_win(kit, Vector3(wx, y + 2.0, mz - md * 0.5), 0.7, 1.1, lit)
 		if kit.lod < 2:
-			_win(kit, Vector3(wx * 0.7, y + h1 + 1.6, mz + md * 0.12 - md * 0.38), 0.6, 0.9, ContentHash.unit(ContentHash.hash4(v, i, 11)) < 0.4)
+			_win(kit, Vector3(wx * 0.7, y + h1 + 1.6, mz + md * 0.12 - md * 0.38), 0.6, 0.9, ContentHash.unit(ContentHash.hash4(v, i, 11)) < 0.5)
 	var dr := minf(mw * 0.7, md * 0.76) * 0.36
 	KitRoofs.dome(kit, Vector3(0, y + h1 + h2, mz + md * 0.12), dr, {"squash": 0.9, "role": NwtStyle.dome(v + 2), "rib_role": &"wall_alt",
 		"slot": &"ice", "finial": kit.lod < 2, "finial_role": &"trim"})
@@ -440,7 +440,8 @@ static func hide_tent(kit: BuildingKit, v: int) -> void:
 	var hide := Color(0.74, 0.62, 0.48).srgb_to_linear()
 	var hide2 := Color(0.56, 0.44, 0.33).srgb_to_linear()
 	if v % 2 == 0:
-		BuildingPresets.tent(kit, Transform3D(), {"style": &"yurt", "w": 4.4, "h": 3.2, "role": hide, "alt_role": &"cloth"})
+		# roles as Colors on both sides (KitRoofs compares role and alt_role)
+		BuildingPresets.tent(kit, Transform3D(), {"style": &"yurt", "w": 4.4, "h": 3.2, "role": hide, "alt_role": kit.col(&"cloth", false)})
 	else:
 		BuildingPresets.tent(kit, Transform3D(), {"style": &"tipi", "w": 3.8, "h": 4.2, "role": hide, "alt_role": hide2})
 	kit.mark(&"door", Transform3D(Basis(Vector3.UP, PI), Vector3(0, 0, -3.0)))

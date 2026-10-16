@@ -41,6 +41,15 @@ func build_cell(cell: ContentCell) -> void:
 	var p := CellPayload.new()
 	var origin := cell.origin()
 	for sub in plan.sub_cells(cell.coord, FACTOR):
+		# night glows of every piece (also the small ones without a far silhouette)
+		var glows: Array = []
+		for i in plan.cell_pieces(sub):
+			var pc: Dictionary = plan.pieces[i]
+			var tag: Variant = (pc["spec"] as Dictionary).get("tag")
+			if tag == null or not skip_tags.has(tag):
+				glows.append_array(builder.piece_glows(pc))
+		SettlementFx.add_glows(p, glows, origin, plan.cell_aabb(sub, origin), float(cfg["lod1_end"]), float(cfg["far_end"]),
+				StringName("%s_glow_%d_%d" % [id, sub.x, sub.y]))
 		var r := build_sub(sub, origin, cell.seed)
 		if r.surfaces.is_empty():
 			continue

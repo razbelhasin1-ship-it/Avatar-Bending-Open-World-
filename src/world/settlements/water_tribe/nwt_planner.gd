@@ -13,6 +13,9 @@ const WALL_DEPTH := 5.6       # ... and its body reaches FACE_IN + 3 behind it
 const RAMP_HALF := 7.9        # tier walls stop this far from a ramp axis (stair cheek faces)
 const FALL_HALF := 7.6        # ... and from a canal fall axis
 const MOUTH_HALF := 7.0       # quay wall gap at a harbour canal mouth
+## Canal walls stand this far inside the canal edge: the carved bank meets the water ~0.8 m
+## outside it and coarse terrain LODs would show the slope above the waterline at the wall foot.
+const CANAL_INSET := 0.5
 
 var L: RingLayout
 var plan: SettlementPlan
@@ -365,8 +368,8 @@ func _canals() -> void:
 			var n := maxi(int(ceil(seg / 10.0)), 1)
 			for side: float in [-1.0, 1.0]:
 				for k in n:
-					var q0 := a.lerp(b, float(k) / n) + perp * side * (w * 0.5)
-					var q1 := a.lerp(b, float(k + 1) / n) + perp * side * (w * 0.5)
+					var q0 := a.lerp(b, float(k) / n) + perp * side * (w * 0.5 - CANAL_INSET)
+					var q1 := a.lerp(b, float(k + 1) / n) + perp * side * (w * 0.5 - CANAL_INSET)
 					var m := (q0 + q1) * 0.5
 					if _in_other_canal(m, c["id"], 0.8) or _near_fall(m, 7.5) or L.polar(m.x, m.y).x < float(L.tier(&"harbor")["r_inner"]) + 0.5:
 						continue
@@ -478,7 +481,7 @@ func _canal_boats(c: Dictionary) -> void:
 		var t := crng.randf_range(4.0, 12.0)
 		while t < seg - 4.0:
 			var side := 1.0 if crng.randf() < 0.5 else -1.0
-			var q := a + d * t + perp * side * (w * 0.5 - 0.75)
+			var q := a + d * t + perp * side * (w * 0.5 - CANAL_INSET - 0.75)
 			if not _near_fall(q, 14.0) and not _in_other_canal(q, c["id"], 3.0) and not _near_bridge(q, 8.0):
 				plan.add(&"canoe", Vector3(q.x, level, q.y), yaw_dir(d if crng.randf() < 0.5 else -d), {"v": crng.randi() % 3}, 1,
 						"canoe:%d" % (crng.randi() % 3), 2.5)

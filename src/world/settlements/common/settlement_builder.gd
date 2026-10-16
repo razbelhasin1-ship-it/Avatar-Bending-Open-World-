@@ -33,6 +33,20 @@ func piece_extras(_piece: Dictionary) -> Array:
 	return []
 
 
+## Night glows of a piece (lit lanterns, braziers, lit windows) in world space:
+## [[Vector3 position, Color, float size multiplier], ...]. Thread-safe, deterministic. The far
+## provider draws them as SettlementFx night glow sprites beyond lod1_end, so a lit city
+## sparkles from kilometres away (approximate spots are fine there). Up to lod1_end the near
+## provider draws glows exactly on the LOD0 kit's light records instead (lights + KitX.glow).
+func piece_glows(_piece: Dictionary) -> Array:
+	return []
+
+
+## World position of a piece-local point.
+static func at(piece: Dictionary, local: Vector3) -> Vector3:
+	return (piece["pos"] as Vector3) + Basis(Vector3.UP, float(piece["yaw"])) * local
+
+
 ## Extra payload entries of a piece (special meshes with their own materials, e.g. animated
 ## water sheets), relative to the cell `origin`. WORKER THREAD. Materials must exist already
 ## (SettlementFx.prepare runs on the main thread before any cell builds).

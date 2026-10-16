@@ -150,6 +150,8 @@ static func _flat_arch_window(kit: BuildingKit, c: Vector3, w: float, h: float, 
 	var slot: StringName = &"glow" if lit else &"solid"
 	var col: Color = KitX.lit_window_color(kit) if lit else kit.col(&"window", false)
 	kit.g(slot).box(Transform3D(Basis(), Vector3(0, -h * 0.15, -0.05)), Vector3(w, h * 0.7, 0.06), col)
+	if lit:
+		KitX.glow(kit, Vector3(0, 0, -0.25), SettlementFx.GLOW_WINDOW, clampf(w * 1.1, 0.7, 1.6))
 	var segs := 6 if kit.lod == 0 else 3
 	var top := h * 0.2
 	for i in segs:
@@ -202,7 +204,7 @@ static func edge_rail(kit: BuildingKit, spec: Dictionary) -> void:
 		if kit.lod == 0:
 			kit.ornament(Vector3(-L * 0.5, 1.3, 0.0), &"orb", 0.36, SatStyle.saffron())
 		if spec.get("lamp", false):
-			kit.lantern(Vector3(-L * 0.5, 1.3, 0.0), {"style": &"stone", "height": 0.9, "range": 9.0, "energy": 1.4})
+			KitX.lantern(kit, Vector3(-L * 0.5, 1.3, 0.0), {"style": &"stone", "height": 0.9, "range": 9.0, "energy": 1.4})
 
 
 ## Grand stair over a ramp: rise H over run R (local -Z), strip width W. spec: H, R, W, half
@@ -239,7 +241,7 @@ static func stair(kit: BuildingKit, spec: Dictionary) -> void:
 			var p := Vector3(sx * (sw * 0.5 + 0.75), 0.0, 1.0)
 			kit.box(p + Vector3(0, 0.9, 0), Vector3(1.5, 1.8, 1.5), SatStyle.wall(2), true)
 			kit.box(p + Vector3(0, 1.85, 0), Vector3(1.7, 0.18, 1.7), SatStyle.orange(), false)
-			kit.lantern(p + Vector3(0, 1.95, 0), {"style": &"stone", "height": 1.3, "range": 10.0, "energy": 1.5})
+			KitX.lantern(kit, p + Vector3(0, 1.95, 0), {"style": &"stone", "height": 1.3, "range": 10.0, "energy": 1.5})
 			var q := Vector3(sx * (sw * 0.5 + 0.75), H, -R - 0.6)
 			kit.box(q + Vector3(0, 0.6, 0), Vector3(1.5, 1.2, 1.5), SatStyle.wall(2), true)
 			if kit.lod == 0:
@@ -410,6 +412,4 @@ static func court(kit: BuildingKit, spec: Dictionary) -> void:
 			kit.beam(Vector3(cos(a), 0, sin(a)) * (r * 0.62) + Vector3(0, 0.095, 0), Vector3(cos(a), 0, sin(a)) * (r - 1.1) + Vector3(0, 0.095, 0),
 					0.08, 0.02, SatStyle.masonry(2))
 	if spec.get("swirl", true):
-		kit.push(Transform3D(Basis(Vector3.RIGHT, -PI * 0.5), Vector3(0, 0.1, 0)))
-		KitX.emblem_air(kit, Vector3.ZERO, r * 1.1, SatStyle.orange(), 0.0)
-		kit.pop()
+		KitX.swirl_inlay(kit, Vector3(0, 0.1, 0), r * 1.1, SatStyle.orange())

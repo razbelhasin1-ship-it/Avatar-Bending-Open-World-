@@ -68,8 +68,11 @@ func build_cell(cell: ContentCell) -> void:
 	r1.add_to_payload(p, Transform3D.IDENTITY, {"vis_begin": float(cfg["lod0_end"]), "vis_end": float(cfg["lod1_end"]),
 		"margin": 12.0, "shadow": shadows, "collision": false, "lights": false, "tag": StringName(tag + "_lod1")})
 	p.data["collision"] = {"boxes": r0.boxes, "faces": r0.faces}
+	# night glow sprites sit exactly on the LOD0 lamps and lit windows (light records)
+	SettlementFx.add_glows(p, SettlementFx.glows_from_lights(r0.lights, origin), origin, plan.cell_aabb(cell.coord, origin),
+			0.0, float(cfg["lod1_end"]), StringName(tag + "_glow"))
 	# budgeted lights: highest priority first, then a stable shuffle
-	var lights: Array = r0.lights.duplicate()
+	var lights: Array = r0.lights.filter(func(l: Dictionary) -> bool: return not l.get("glow_only", false))
 	lights.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
 		var pa := int(a.get("priority", 0))
 		var pb := int(b.get("priority", 0))

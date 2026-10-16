@@ -8,11 +8,25 @@ extends RefCounted
 ## Species the gardens use (materials are created up front).
 const PLANTS: Array[StringName] = [&"maple", &"blossom", &"bamboo", &"shrub", &"fern", &"grass", &"grass_tall",
 	&"flowers_white", &"flowers_cool", &"flowers_warm", &"reeds", &"hedge", &"cypress", &"rock_moss"]
+const NIGHT_GLOW_SHADER := preload("res://src/world/settlements/common/night_glow.gdshader")
+## Glow colours of the builders' piece_glows().
+const GLOW_LAMP := Color(1.0, 0.80, 0.52)
+const GLOW_FIRE := Color(1.0, 0.55, 0.22)
+const GLOW_WINDOW := Color(1.0, 0.70, 0.38)
+
+static var _glow_mat: ShaderMaterial
+static var _glow_mesh: QuadMesh
 
 
 ## Creates every shared material (call on the main thread before cells build).
 static func prepare() -> void:
 	NationPalette.prepare_materials()
+	if _glow_mat == null:
+		WorldShaderGlobals.ensure()
+		_glow_mat = ShaderMaterial.new()
+		_glow_mat.shader = NIGHT_GLOW_SHADER
+		_glow_mesh = QuadMesh.new()
+		_glow_mesh.size = Vector2.ONE
 	for layer in 2:
 		WaterfallBuilder.sheet_material(layer, 14.2)
 		WaterfallBuilder.sheet_material(layer, 3.0)
@@ -71,6 +85,36 @@ static func vegetation_node(items: Array, origin: Vector3) -> Node3D:
 					else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			root.add_child(mmi)
 	return root
+
+
+## WORKER THREAD: night glows ([[Vector3 world, Color, size], ...]) of kit light records
+## (positions relative to `origin`): every glow-only record (KitX.glow) and every light that is
+## not an interior light, coloured by the light (normalised to its brightest channel).
+static func glows_from_lights(lights: Array, origin: Vector3) -> Array:
+	var out: Array = []
+	for l: Dictionary in lights:
+		if l.get("interior", false):
+			continue
+		var c: Color = l["color"]
+		var m := maxf(maxf(c.r, c.g), maxf(c.b, 0.001))
+		var size := float(l.get("glow", clampf(float(l.get("range", 9.0)) / 9.0, 0.7, 1.6)))
+		out.append([(l["position"] as Vector3) + origin, Color(c.r / m, c.g / m, c.b / m), size])
+	return out
+
+
+## WORKER THREAD: appends the night glows `glows` ([[Vector3 world, Color, float size], ...]) as
+## one MultiMesh of camera-facing additive sprites (night_glow.gdshader) to a payload, with a
+## fixed AABB (relative to `origin`) so near and far providers hand over at the same distance.
+## Needs prepare() to have run on the main thread.
+static func add_glows(p: CellPayload, glows: Array, origin: Vector3, aabb: AABB, vis_begin: float, vis_end: float, tag: StringName) -> void:
+	if glows.is_empty() or _glow_mat == null:
+		return
+	var buf := PackedFloat32Array()
+	for gl: Array in glows:
+		var c: Color = gl[1]
+		CellPayload.write_instance(buf, Transform3D(Basis(), (gl[0] as Vector3) - origin), Color(c.r, c.g, c.b, float(gl[2])))
+	p.add_multimesh(_glow_mesh, _glow_mat, buf, glows.size(), aabb.grow(8.0), {"vis_begin": vis_begin, "vis_end": vis_end,
+		"margin": 12.0, "shadow": false, "tag": tag})
 
 
 ## A soft light that also shines by day (registered with LightBudget as an interior light).

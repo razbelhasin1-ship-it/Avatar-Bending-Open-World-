@@ -53,6 +53,61 @@ func piece_extras(piece: Dictionary) -> Array:
 	return out
 
 
+## Night glows (SettlementBuilder.piece_glows): stone lanterns, the spires' and houses' lit
+## windows, the sanctuary's lanterns and incense, stable lamps, stair lanterns.
+func piece_glows(piece: Dictionary) -> Array:
+	var out: Array = []
+	var spec: Dictionary = piece["spec"]
+	var v := int(spec.get("v", 0))
+	var pos: Vector3 = piece["pos"]
+	var h := ContentHash.hash4(int(pos.x * 10.0), int(pos.z * 10.0), 91)
+	var lamp := SettlementFx.GLOW_LAMP
+	var win := SettlementFx.GLOW_WINDOW
+	match piece["kind"]:
+		&"lantern":
+			out.append([pos + Vector3(0, (1.6 + (v % 2) * 0.4) * 0.82, 0), lamp, 0.9])
+		&"edge_rail":
+			if spec.get("lamp", false):
+				out.append([at(piece, Vector3(-float(spec.get("L", 8.0)) * 0.5, 2.05, 0)), lamp, 0.8])
+		&"stair":
+			var sw := float(spec.get("W", 12.0)) - 3.0
+			for sx: float in [-1.0, 1.0]:
+				out.append([at(piece, Vector3(sx * (sw * 0.5 + 0.75), 3.0, 1.0)), lamp, 1.0])
+		&"spire":
+			var r := float(spec.get("r", 4.0))
+			var hh := float(spec.get("h", 22.0))
+			var n := 1 + posmod(h, 3)
+			for k in n:
+				var a := TAU * ContentHash.unit(h + k * 13)
+				var y := hh * (0.28 + 0.26 * posmod(h >> (k + 1), 3))
+				out.append([pos + Vector3(cos(a) * (r + 0.2), y, sin(a) * (r + 0.2)), win, 1.1])
+		&"great_spire":
+			for k in 8:
+				var a := TAU * k / 8.0 + 0.3
+				out.append([pos + Vector3(cos(a) * 9.6, 1.2 + 14.0 + (k % 4) * 11.0, sin(a) * 9.6), win, 1.5])
+			out.append([pos + Vector3(0, 1.2 + 64.0 + 1.1 + 38.0 * 0.4 + 2.5, 0), win, 2.0])
+		&"dormitory", &"hall":
+			var fp := SatPlaces.footprint(piece["kind"], v)
+			if ContentHash.unit(h) < 0.7:
+				out.append([at(piece, Vector3((ContentHash.unit(h + 5) - 0.5) * fp.x * 0.6, 2.2 + posmod(h >> 3, 2) * 3.4, -fp.y * 0.5 - 0.2)), win, 0.9])
+		&"sanctuary":
+			for sx: float in [-1.0, 1.0]:
+				out.append([at(piece, Vector3(sx * 8.5, 1.65, -9.2)), lamp, 1.2])
+				out.append([at(piece, Vector3(sx * 4.0, 2.4, -6.2)), SettlementFx.GLOW_FIRE, 0.7])
+				out.append([at(piece, Vector3(sx * 7.5, 6.4, -0.3)), win, 1.0])
+		&"stable":
+			var L := float(spec.get("L", 30.0))
+			for k in 2:
+				out.append([at(piece, Vector3(lerpf(-L * 0.3, L * 0.3, k), 6.0, 0.5)), win, 1.3])
+		&"tier_wall":
+			if float(spec.get("H", 0.0)) > 12.0 and (v % 4 == 0 or v % 4 == 3) and ContentHash.unit(h) < 0.6:
+				var hl := float(spec["L"]) * 0.5
+				out.append([at(piece, Vector3((ContentHash.unit(h + 1) - 0.5) * hl, 4.0 + 5.5 * posmod(h >> 2, 2), -0.3)), win, 1.0])
+		&"pavilion":
+			out.append([at(piece, Vector3(0, 3.2, -float(spec.get("r", 3.6)) * (0.6 if spec.get("cantilever", false) else 0.0))), lamp, 0.8])
+	return out
+
+
 ## Plants of a garden bed (world transforms): spec.plants = "blossom" (a blossom tree with
 ## shrubs and flowers around it) or "mixed" (shrubs, ferns and flowers, a small maple).
 func garden_plants(piece: Dictionary) -> Array:

@@ -58,6 +58,80 @@ static func emblem_air(kit: BuildingKit, c: Vector3, size: float, role: Variant 
 	g.cylinder(c + Vector3(0, 0, -depth - 0.04), c + Vector3(0, 0, -depth + 0.06), size * 0.1, size * 0.1, 8, col, 2)
 
 
+## Flat ribbon lying on the plane y = pts.y (an inlay): quads facing up along the polyline,
+## `widths` per point (full width). No collision (it sits on a collided floor).
+static func ribbon(kit: BuildingKit, pts: PackedVector3Array, widths: PackedFloat32Array, col: Color) -> void:
+	var g := kit.g()
+	var n := pts.size()
+	if n < 2:
+		return
+	var base := g.vertex_count()
+	for i in n:
+		var d := pts[mini(i + 1, n - 1)] - pts[maxi(i - 1, 0)]
+		d.y = 0.0
+		var side := Vector3(-d.z, 0.0, d.x).normalized() * widths[i] * 0.5
+		g.vertex(pts[i] - side, Vector3.UP, col)
+		g.vertex(pts[i] + side, Vector3.UP, col)
+	for i in n - 1:
+		var k := base + i * 2
+		# counter-clockwise seen from above: (left_i, left_i+1, right_i+1, right_i) depends on the side
+		var a := g.verts[k]
+		var b := g.verts[k + 2]
+		var c := g.verts[k + 3]
+		if (b - a).cross(c - a).y >= 0.0:
+			g.quad(k, k + 2, k + 3, k + 1)
+		else:
+			g.quad(k, k + 1, k + 3, k + 2)
+
+
+## The Air Nomad swirl as a flat inlay on the ground at local `c` (three tapering spiral arms
+## around a hub), `size` across.
+static func swirl_inlay(kit: BuildingKit, c: Vector3, size: float, col: Variant) -> void:
+	var cc := kit.col(col, false)
+	var segs := 14 if kit.lod == 0 else 7
+	for arm in 3:
+		var a0 := TAU * arm / 3.0
+		var pts := PackedVector3Array()
+		var ws := PackedFloat32Array()
+		for i in segs + 1:
+			var t := float(i) / segs
+			var rad := size * (0.05 + 0.42 * t)
+			var a := a0 + t * PI * 1.25
+			pts.append(c + Vector3(cos(a) * rad, 0.0, sin(a) * rad))
+			ws.append(size * (0.05 + 0.11 * t * (1.0 - t * 0.6)))
+		ribbon(kit, pts, ws, cc)
+	var hub := PackedVector2Array()
+	for i in 10:
+		var a := TAU * i / 10.0
+		hub.append(Vector2(c.x + cos(a) * size * 0.09, c.z + sin(a) * size * 0.09))
+	kit.g().extrude(hub, c.y, c.y + 0.005, cc, 2)
+
+
+## The Water Tribe moon over three waves as a flat inlay on the ground at local `c` (the moon
+## towards local -Z), `size` across.
+static func water_inlay(kit: BuildingKit, c: Vector3, size: float, col: Variant) -> void:
+	var cc := kit.col(col, false)
+	var segs := 12 if kit.lod == 0 else 6
+	var moon := PackedVector3Array()
+	var mw := PackedFloat32Array()
+	for i in segs + 1:
+		var t := float(i) / segs
+		var a := lerpf(PI * 0.15, PI * 1.85, t) + PI * 0.5
+		moon.append(c + Vector3(cos(a) * size * 0.22, 0.0, -size * 0.28 - sin(a) * size * 0.22))
+		mw.append(size * 0.11 * sin(t * PI) + 0.02)
+	ribbon(kit, moon, mw, cc)
+	for k in 3:
+		var z := size * 0.08 + k * size * 0.13
+		var w := size * (0.62 - k * 0.12)
+		var line := PackedVector3Array()
+		var lw := PackedFloat32Array()
+		for i in segs + 1:
+			var t := float(i) / segs
+			line.append(c + Vector3((t - 0.5) * w, 0.0, z + sin(t * TAU * 1.5) * size * 0.035))
+			lw.append(size * 0.06)
+		ribbon(kit, line, lw, cc)
+
+
 ## Icicles hanging under an edge from a to b (local), count per metre. LOD0 only.
 static func icicles(kit: BuildingKit, a: Vector3, b: Vector3, per_m: float = 1.6, max_len: float = 0.9) -> void:
 	if kit.lod > 0:
@@ -141,6 +215,33 @@ static func doorway(kit: BuildingKit, c: Vector3, w: float = 1.3, h: float = 2.2
 					{"role": curtain, "alt_role": &"cloth_alt", "rod": true, "tail": false})
 
 
+## Records a night glow point at local `pos` (no light): the settlement providers draw every
+## glow and every non-interior light record of a cell as a night glow sprite (SettlementFx).
+## Recipes call it where they draw a lit window or an unlit lamp, so glows sit exactly on them.
+static func glow(kit: BuildingKit, pos: Vector3, color: Color = Color(1.0, 0.70, 0.38), size: float = 1.0) -> void:
+	kit.lights.append({"position": kit.xform * pos, "color": color, "range": 0.0, "energy": 0.0, "glow_only": true, "glow": size})
+
+
+## BuildingKit.lantern that also records a night glow when the lantern has no light
+## (opts.light = false), at the spot where its light would sit.
+static func lantern(kit: BuildingKit, pos: Vector3, opts: Dictionary = {}) -> void:
+	kit.lantern(pos, opts)
+	if opts.get("light", true):
+		return
+	var style: StringName = opts.get("style", &"paper")
+	var lc := pos
+	var col: Color = opts.get("color", Color(1.0, 0.80, 0.52))
+	match style:
+		&"post", &"stone":
+			lc = pos + Vector3(0, float(opts.get("height", 1.7)) * 0.82, 0)
+		&"ice":
+			lc = pos + Vector3(0, float(opts.get("height", 1.6)) * 0.82, 0)
+			col = opts.get("color", Color(0.7, 0.85, 1.0))
+		&"wall":
+			lc = pos + Vector3(0, 0.05, -0.2)
+	glow(kit, lc, col, 0.8)
+
+
 ## Colour of a lit window pane (glow slot): a warm amber that reads as a curtained window by day
 ## and glows at night.
 static func lit_window_color(kit: BuildingKit) -> Color:
@@ -154,11 +255,18 @@ static func window(kit: BuildingKit, c: Vector3, w: float = 0.7, h: float = 0.9,
 	if lit:
 		# amber by day, glowing at night (kit_glow multiplies by 0.6 by day, 2.6 at night)
 		kit.g(&"glow").box(Transform3D(Basis(), c + Vector3(0, 0, -depth)), Vector3(w, h, 0.05), lit_window_color(kit))
+		glow(kit, c + Vector3(0, 0, -depth - 0.15), Color(1.0, 0.70, 0.38), clampf(w * 1.2, 0.6, 1.4))
 	else:
 		kit.box(c + Vector3(0, 0, -depth), Vector3(w, h, 0.05), &"window", false)
 	if kit.lod == 0:
 		kit.box(c + Vector3(0, h * 0.5 + 0.06, -depth - 0.04), Vector3(w + 0.24, 0.12, 0.1), frame_role, false)
 		kit.box(c + Vector3(0, -h * 0.5 - 0.05, -depth - 0.05), Vector3(w + 0.3, 0.1, 0.14), frame_role, false)
+		if lit:
+			# mullions + side jambs: a lit pane reads as a window, not a coloured patch
+			kit.box(c + Vector3(0, 0, -depth - 0.04), Vector3(0.06, h, 0.04), frame_role, false)
+			kit.box(c + Vector3(0, h * 0.1, -depth - 0.04), Vector3(w, 0.06, 0.04), frame_role, false)
+			for sx: float in [-1.0, 1.0]:
+				kit.box(c + Vector3(sx * (w * 0.5 + 0.04), 0, -depth - 0.04), Vector3(0.08, h + 0.1, 0.06), frame_role, false)
 
 
 ## Points along an arc of the ring layout (world space), every ~step metres, inclusive.

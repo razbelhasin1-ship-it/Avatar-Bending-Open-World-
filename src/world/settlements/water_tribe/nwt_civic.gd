@@ -75,7 +75,7 @@ static func tier_wall(kit: BuildingKit, spec: Dictionary) -> void:
 					KitX.window(kit, Vector3(-hl * 0.3, 4.2, 0.0), 0.7, 0.9, &"trim", 0.0, true)
 					if kit.lod == 0:
 						kit.box(Vector3(-hl * 0.3, 2.85, -0.45), Vector3(2.4, 0.15, 0.9), &"trim", false)
-						kit.lantern(Vector3(-hl * 0.3 + 1.3, 2.1, -0.15), {"style": &"wall", "light": true, "range": 8.0})
+						KitX.lantern(kit, Vector3(-hl * 0.3 + 1.3, 2.1, -0.15), {"style": &"wall", "light": true, "range": 8.0})
 				elif v % 4 == 3:
 					for k in 2:
 						KitX.window(kit, Vector3(lerpf(-hl * 0.5, hl * 0.4, k), H * 0.42, 0.0), 0.6, 0.85, &"trim", 0.0, k == 0)
@@ -286,7 +286,5 @@ static func plaza(kit: BuildingKit, spec: Dictionary) -> void:
 				var p0 := Vector3(cos(a), 0, sin(a)) * (r * 0.56)
 				var p1 := Vector3(cos(a), 0, sin(a)) * (r - 0.75)
 				kit.beam(p0 + Vector3(0, 0.085, 0), p1 + Vector3(0, 0.085, 0), 0.08, 0.02, &"trim")
-			# moon + waves mosaic lying on the ground (rotated emblem)
-			kit.push(Transform3D(Basis(Vector3.RIGHT, -PI * 0.5), Vector3(0, 0.11, 0)))
-			KitX.emblem_water(kit, Vector3(0, 0, 0), r * 0.75, &"trim", 0.0)
-			kit.pop()
+			# moon + waves mosaic inlaid in the paving
+			KitX.water_inlay(kit, Vector3(0, 0.105, 0), r * 0.75, &"trim")

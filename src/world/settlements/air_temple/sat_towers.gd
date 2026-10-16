@@ -25,6 +25,8 @@ static func build(kit: BuildingKit, kind: StringName, spec: Dictionary) -> void:
 static func _shaft_window(kit: BuildingKit, r: float, a: float, y: float, w: float, h: float, lit: bool) -> void:
 	var dir := Vector3(cos(a), 0, sin(a))
 	kit.push(Transform3D(Basis(Vector3.UP, atan2(dir.x, dir.z) + PI), dir * (r - 0.03) + Vector3(0, y, 0)))
+	if lit:
+		KitX.glow(kit, Vector3(0, 0, -0.25), SettlementFx.GLOW_WINDOW, clampf(w * 1.1, 0.7, 1.6))
 	if kit.lod >= 2:
 		if lit:
 			kit.g(&"glow").box(Transform3D(Basis(), Vector3(0, 0, -0.06)), Vector3(w * 1.2, h * 1.1, 0.05), KitX.lit_window_color(kit) * 1.1)

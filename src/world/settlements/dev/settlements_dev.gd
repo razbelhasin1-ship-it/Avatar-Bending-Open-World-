@@ -16,7 +16,9 @@ const VIEWS := {
 	"nwt_interior": {"pos": Vector3(-448.9, 33.9, -3139.5), "look": Vector3(-446.0, 33.0, -3129.4), "hour": 12.0, "fov": 72.0},
 	"nwt_hall": {"pos": Vector3(-21.9, 34.2, -3072.1), "look": Vector3(-28.1, 33.0, -3082.8), "hour": 12.0, "fov": 72.0},
 	"nwt_night": {"pos": Vector3(-300, 9, -2860), "look": Vector3(-300, 45, -3240), "hour": 22.5, "fov": 62.0},
-	"nwt_aurora": {"pos": Vector3(-300, 41, -2418), "look": Vector3(-300, 95, -3160), "hour": 23.0, "fov": 64.0},
+	"nwt_aurora": {"pos": Vector3(-300, 48, -2452), "look": Vector3(-300, 168, -3150), "hour": 23.0, "fov": 72.0},
+	"nwt_night_street": {"pos": Vector3(-397.8, 17.9, -2985.1), "look": Vector3(-267.1, 19.0, -2996.6), "hour": 22.0, "fov": 68.0},
+	"nwt_plaza": {"pos": Vector3(-286, 19.0, -3036), "look": Vector3(-302, 15.5, -3058), "hour": 13.5, "fov": 66.0},
 	"nwt_harbor": {"pos": Vector3(-250, 12, -2860), "look": Vector3(-150, 6, -2880), "hour": 9.0, "fov": 66.0},
 	"nwt_canal_ring": {"pos": Vector3(-492.9, 18.6, -2998.7), "look": Vector3(-359.1, 15.0, -3040.9), "hour": 10.5, "fov": 66.0},
 	"arctic_village": {"pos": Vector3(-2046, 7.0, -2992), "look": Vector3(-2080, 1.5, -3020), "hour": 11.0, "fov": 64.0, "agl": true},
@@ -29,6 +31,8 @@ const VIEWS := {
 	"sat_landing": {"pos": Vector3(2536, 765.5, 3146), "look": Vector3(2500, 800, 3330), "hour": 8.5, "fov": 66.0},
 	"sat_pinnacle": {"pos": Vector3(2800, 785.5, 3436), "look": Vector3(2500, 835, 3350), "hour": 16.0, "fov": 62.0},
 	"sat_sunset": {"pos": Vector3(2820, 880, 3120), "look": Vector3(2500, 830, 3350), "hour": 18.6, "fov": 56.0},
+	"sat_night": {"pos": Vector3(2521, 805.5, 3246), "look": Vector3(2500, 845, 3350), "hour": 21.5, "fov": 66.0},
+	"sat_night_far": {"pos": Vector3(2120, 960, 2560), "look": Vector3(2500, 840, 3350), "hour": 22.0, "fov": 50.0},
 }
 
 var world: WorldRenderer

@@ -17,7 +17,7 @@ static func build(kit: BuildingKit, kind: StringName, spec: Dictionary) -> void:
 	match kind:
 		&"flag_line": flag_line(kit, spec)
 		&"chime_post": chime_post(kit, v)
-		&"lantern": kit.lantern(Vector3.ZERO, {"style": &"stone", "height": 1.6 + (v % 2) * 0.4, "light": spec.get("light", false),
+		&"lantern": KitX.lantern(kit, Vector3.ZERO, {"style": &"stone", "height": 1.6 + (v % 2) * 0.4, "light": spec.get("light", false),
 			"range": 10.0, "energy": 1.5})
 		&"bench": bench(kit, v)
 		&"gong": gong(kit, v)

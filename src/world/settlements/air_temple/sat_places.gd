@@ -154,7 +154,7 @@ static func sanctuary(kit: BuildingKit, _spec: Dictionary) -> void:
 			for k in 2:
 				_tall_window(kit, Vector3(sx * (W * 0.25 + k * 5.0), y + 5.0, -0.02), 1.4, 4.4, k == 0)
 			KitX.banner(kit, Transform3D(Basis(), Vector3(sx * 7.6, y + H - 2.2, -0.15)), 1.8, 7.5, SatStyle.orange(), SatStyle.saffron(), &"swirl")
-			kit.lantern(Vector3(sx * 8.5, 0.0, -9.2), {"style": &"stone", "height": 2.0, "range": 11.0, "energy": 1.8})
+			KitX.lantern(kit, Vector3(sx * 8.5, 0.0, -9.2), {"style": &"stone", "height": 2.0, "range": 11.0, "energy": 1.8})
 			if kit.lod == 0:
 				_incense(kit, Vector3(sx * 4.0, y, -6.2))
 	kit.mark(&"door", Transform3D(Basis(Vector3.UP, PI), Vector3(0, y, -2.0)))
@@ -176,6 +176,7 @@ static func _incense(kit: BuildingKit, p: Vector3) -> void:
 	var gb := kit.g(&"glow")
 	gb.uv = Vector2(0, 0.6)
 	gb.blob(p + Vector3(0, 0.98, 0), 0.12, 0, Color(1.0, 0.55, 0.2))
+	KitX.glow(kit, p + Vector3(0, 1.05, 0), SettlementFx.GLOW_FIRE, 0.6)
 
 
 # --- bison stables -----------------------------------------------------------------------------------

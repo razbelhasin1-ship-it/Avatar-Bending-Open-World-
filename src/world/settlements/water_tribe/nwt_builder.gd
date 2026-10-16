@@ -64,10 +64,84 @@ func piece_extras(piece: Dictionary) -> Array:
 			out.append({"type": &"node", "make": func(cell: ContentCell) -> Node3D:
 				return SettlementFx.warm_light(light_at - cell.origin(), Color(1.0, 0.86, 0.62), 26.0, 1.4)})
 			out.append({"type": &"particles", "kind": &"motes", "position": pos + Vector3(0, 2.0, 0)})
+		&"fire_pit":
+			out.append({"type": &"particles", "kind": &"smoke", "position": pos + Vector3(0, 1.3, 0)})
+			out.append({"type": &"particles", "kind": &"embers", "position": pos + Vector3(0, 0.8, 0)})
+			out.append({"type": &"sound", "name": &"fire_loop", "position": pos + Vector3(0, 0.5, 0), "db": -14.0})
 		&"canal_fall":
 			var dir := basis * Vector3.FORWARD
 			out.append({"type": &"particles", "kind": &"steam", "position": pos + dir * 4.0 - Vector3(0, float(piece["spec"].get("drop", 14.2)) - 0.5, 0)})
 			out.append({"type": &"sound", "name": &"amb_rain", "position": pos + dir * 3.0 - Vector3(0, 10.0, 0), "db": -10.0})
+	return out
+
+
+## Night glows (SettlementBuilder.piece_glows): lanterns, braziers, fires, lit windows.
+func piece_glows(piece: Dictionary) -> Array:
+	var out: Array = []
+	var spec: Dictionary = piece["spec"]
+	var v := int(spec.get("v", 0))
+	var pos: Vector3 = piece["pos"]
+	var h := ContentHash.hash4(int(pos.x * 10.0), int(pos.z * 10.0), 77)
+	var lamp := SettlementFx.GLOW_LAMP
+	var fire := SettlementFx.GLOW_FIRE
+	var win := SettlementFx.GLOW_WINDOW
+	match piece["kind"]:
+		&"lamp_post":
+			out.append([pos + Vector3(0, 2.1 + (v % 2) * 0.37, 0), lamp, 1.0])
+		&"brazier":
+			out.append([pos + Vector3(0, 1.5, 0), fire, 1.3])
+		&"fire_pit":
+			out.append([pos + Vector3(0, 0.9, 0), fire, 1.8])
+		&"dome_home", &"block_house", &"tower_house", &"warehouse", &"noble_house", &"wt_hall", &"igloo":
+			var fp := NwtHomes.footprint(piece["kind"], v) if piece["kind"] != &"wt_hall" else Vector2(float(spec.get("w", 14.0)), float(spec.get("d", 11.0)))
+			var n := 0 if ContentHash.unit(h) < 0.3 else (1 if ContentHash.unit(h + 1) < 0.6 else 2)
+			for k in n:
+				var x := (ContentHash.unit(h + 7 * k + 3) - 0.5) * fp.x * 0.7
+				var y := 1.6 + float(posmod(h >> (k + 2), 3)) * 1.6
+				out.append([at(piece, Vector3(x, minf(y, 4.0 if piece["kind"] == &"igloo" else 9.0), -fp.y * 0.5 - 0.2)), win, 0.8])
+		&"city_tower":
+			out.append([at(piece, Vector3(0, float(spec.get("h", 18.0)) * 0.75, -float(spec.get("r", 3.5)) - 0.2)), win, 1.0])
+		&"sea_tower":
+			out.append([pos + Vector3(0, float(spec.get("h", 52.0)) - 8.0, -float(spec.get("r", 7.0)) - 0.2), win, 1.4])
+			out.append([pos + Vector3(0, float(spec.get("h", 52.0)) + 1.0, 0), fire, 1.6])
+		&"sea_gate":
+			var top := float(spec.get("top", 35.0))
+			for sx: float in [-1.0, 1.0]:
+				var cx: float = sx * (float(spec.get("W", 46.0)) * 0.5 + 9.0)
+				for k in 3:
+					out.append([at(piece, Vector3(cx + (k - 1) * 4.5, top + 3.0 + k % 2 * 2.0, -15.1)), win, 1.4])
+				out.append([at(piece, Vector3(sx * 10.0, top + 1.2, 0)), fire, 1.8])
+		&"palace":
+			for k in 8:
+				var x := lerpf(-52.0 * 0.42, 52.0 * 0.42, k / 7.0)
+				if absf(x) > 5.0:
+					out.append([at(piece, Vector3(x, 8.0, -17.2)), win, 1.4])
+			for sx: float in [-1.0, 1.0]:
+				out.append([at(piece, Vector3(sx * 11.0, 1.4, -float(spec.get("r", 48.0)) + 6.0)), fire, 1.8])
+				out.append([at(piece, Vector3(sx * 28.5, 33.0, -15.5)), win, 1.4])
+			out.append([at(piece, Vector3(0, 50.0, 26.0)), win, 1.6])
+		&"ship":
+			out.append([at(piece, Vector3(0, 3.3, (20.0 + (v % 2) * 4.0) * 0.26)), win, 1.0])
+		&"grand_stair":
+			var sw := float(spec.get("W", 16.0)) - 4.0
+			for sx: float in [-1.0, 1.0]:
+				out.append([at(piece, Vector3(sx * (sw * 0.5 + 1.0), 5.6, 1.2)), lamp, 1.3])
+		&"canal_bridge":
+			if v % 2 == 0:
+				var total := float(spec.get("span", 9.0)) + 4.4
+				out.append([at(piece, Vector3(float(spec.get("width", 5.0)) * 0.5 - 0.22, 1.9, total * 0.5 - 0.3)), lamp, 0.9])
+		&"pier":
+			out.append([at(piece, Vector3(float(spec.get("W", 4.5)) * 0.5 - 0.4, 2.4, -float(spec.get("L", 24.0)) + 0.6)), lamp, 1.0])
+		&"tier_wall":
+			if spec.get("style", &"tier") == &"tier" and float(spec.get("H", 0.0)) > 9.0 and v % 4 == 1:
+				var hl := float(spec["L"]) * 0.5
+				out.append([at(piece, Vector3(-hl * 0.3, 4.2, -0.1)), win, 0.9])
+				out.append([at(piece, Vector3(-hl * 0.3 + 1.3, 2.1, -0.3)), lamp, 0.8])
+		&"healer_hut", &"training_hall", &"family_home":
+			var r := 6.5 if piece["kind"] == &"healer_hut" else (8.0 if piece["kind"] == &"training_hall" else 4.0)
+			out.append([at(piece, Vector3(0, 1.4, -r - 0.4)), win, 1.1])
+		&"oasis":
+			out.append([pos + Vector3(0, 3.0, 0), Color(1.0, 0.86, 0.62), 2.2])
 	return out
 
 
