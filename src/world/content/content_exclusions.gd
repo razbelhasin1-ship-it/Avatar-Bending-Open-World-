@@ -15,8 +15,9 @@ const TAG_ALL := 0xff
 
 const BUCKET := 256.0
 
-## Each entry: {"id", "a": Vector2, "b": Vector2, "radius", "mask", "soft"} (soft = metres of
-## falloff where density thins out instead of stopping hard).
+## Each entry: {"id", "a": Vector2, "b": Vector2, "radius", "mask", "soft", "inner"} (soft = metres
+## of falloff where density thins out instead of stopping hard; inner > 0 makes it a ring: only
+## distances between inner and radius are blocked, e.g. a city wall with farmland inside).
 var areas: Array[Dictionary] = []
 var _buckets: Dictionary = {}       # Vector2i -> Array[int] indices
 
@@ -49,7 +50,11 @@ func factor(x: float, z: float, tag: int) -> float:
 		var e := areas[i]
 		if int(e["mask"]) & tag == 0:
 			continue
-		var d := _seg_dist(p, e["a"], e["b"]) - float(e["radius"])
+		var dc := _seg_dist(p, e["a"], e["b"])
+		var d := dc - float(e["radius"])
+		var inner := float(e.get("inner", 0.0))
+		if inner > 0.0:
+			d = maxf(d, inner - dc)
 		if d <= 0.0:
 			return 0.0
 		var soft := float(e.get("soft", 0.0))

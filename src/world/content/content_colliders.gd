@@ -8,6 +8,10 @@ extends Node3D
 ## shared per quantised size, and `body_attach_object_instance_id` points at this node, so a ray or
 ## shape query that hits a tree reports `collider == <ContentColliders>` (group &"world_content").
 ## Thousands of trees therefore cost a few hundred bodies at most.
+##
+## Groups are bucketed (16 m) by `bucketize()` — WorldContent does that on the worker thread that
+## built the cell — so registering a cell with thousands of trees costs only a few hundred
+## dictionary operations on the main thread.
 
 const BUCKET := 16.0
 
@@ -20,16 +24,15 @@ var collision_layer: int = Layers.WORLD
 ## Seconds between activation scans (also rescans when the focus moved > 3 m).
 var interval: float = 0.2
 
-var _entries: Dictionary = {}        # int id -> {"type", "transform", "size", "group"}
-var _groups: Dictionary = {}         # group id -> PackedInt32Array of entry ids
-var _buckets: Dictionary = {}        # Vector2i -> Array[int] entry ids
-var _active: Dictionary = {}         # entry id -> RID body
+var _groups: Dictionary = {}         # gid -> {"list": Array[Dictionary], "buckets": {Vector2i: PackedInt32Array}}
+var _bucket_groups: Dictionary = {}  # Vector2i -> Array[int] gids
+var _active: Dictionary = {}         # key (gid << 24 | index) -> RID body
 var _free: Array[RID] = []
 var _shapes: Dictionary = {}         # key -> RID
 var _requests: Dictionary = {}       # id -> Vector3
-var _next_entry := 1
 var _next_group := 1
 var _next_request := 1
+var _entry_count := 0
 var _timer := 0.0
 var _last_scan := Vector3.INF
 
@@ -39,8 +42,8 @@ func _ready() -> void:
 
 
 func _exit_tree() -> void:
-	for id: int in _active:
-		PhysicsServer3D.free_rid(_active[id])
+	for k: int in _active:
+		PhysicsServer3D.free_rid(_active[k])
 	_active.clear()
 	for b in _free:
 		PhysicsServer3D.free_rid(b)
@@ -50,22 +53,33 @@ func _exit_tree() -> void:
 	_shapes.clear()
 
 
+## Thread-safe: bucket index of a descriptor list ({Vector2i: PackedInt32Array of indices}).
+static func bucketize(list: Array[Dictionary]) -> Dictionary:
+	var out := {}
+	for i in list.size():
+		var o: Vector3 = (list[i]["transform"] as Transform3D).origin
+		var key := Vector2i(int(floor(o.x / BUCKET)), int(floor(o.z / BUCKET)))
+		if not out.has(key):
+			out[key] = PackedInt32Array()
+		var arr: PackedInt32Array = out[key]
+		arr.append(i)
+		out[key] = arr
+	return out
+
+
 ## Registers descriptors ({"type", "transform", "size"}) as one group; returns the group id.
-func add_group(list: Array[Dictionary]) -> int:
+## Pass `buckets` from bucketize() when it was computed off the main thread.
+func add_group(list: Array[Dictionary], buckets: Dictionary = {}) -> int:
 	var gid := _next_group
 	_next_group += 1
-	var ids := PackedInt32Array()
-	for d in list:
-		var eid := _next_entry
-		_next_entry += 1
-		_entries[eid] = {"type": d["type"], "transform": d["transform"], "size": d["size"], "group": gid}
-		var o: Vector3 = (d["transform"] as Transform3D).origin
-		var key := Vector2i(int(floor(o.x / BUCKET)), int(floor(o.z / BUCKET)))
-		if not _buckets.has(key):
-			_buckets[key] = []
-		(_buckets[key] as Array).append(eid)
-		ids.append(eid)
-	_groups[gid] = ids
+	if buckets.is_empty() and not list.is_empty():
+		buckets = bucketize(list)
+	_groups[gid] = {"list": list, "buckets": buckets}
+	for key: Vector2i in buckets:
+		if not _bucket_groups.has(key):
+			_bucket_groups[key] = []
+		(_bucket_groups[key] as Array).append(gid)
+	_entry_count += list.size()
 	_last_scan = Vector3.INF
 	return gid
 
@@ -73,16 +87,16 @@ func add_group(list: Array[Dictionary]) -> int:
 func remove_group(gid: int) -> void:
 	if not _groups.has(gid):
 		return
-	for eid in _groups[gid]:
-		_deactivate(eid)
-		var e: Dictionary = _entries[eid]
-		var o: Vector3 = (e["transform"] as Transform3D).origin
-		var key := Vector2i(int(floor(o.x / BUCKET)), int(floor(o.z / BUCKET)))
-		if _buckets.has(key):
-			(_buckets[key] as Array).erase(eid)
-			if (_buckets[key] as Array).is_empty():
-				_buckets.erase(key)
-		_entries.erase(eid)
+	var g: Dictionary = _groups[gid]
+	var list: Array = g["list"]
+	for i in list.size():
+		_deactivate((gid << 24) | i)
+	for key: Vector2i in g["buckets"]:
+		if _bucket_groups.has(key):
+			(_bucket_groups[key] as Array).erase(gid)
+			if (_bucket_groups[key] as Array).is_empty():
+				_bucket_groups.erase(key)
+	_entry_count -= list.size()
 	_groups.erase(gid)
 
 
@@ -109,7 +123,7 @@ func active_count() -> int:
 
 
 func entry_count() -> int:
-	return _entries.size()
+	return _entry_count
 
 
 ## Activates/deactivates bodies around `focus_pos` (called by WorldContent every frame).
@@ -125,22 +139,15 @@ func update(focus_pos: Vector3, delta: float) -> void:
 	for id: int in _requests:
 		points.append(_requests[id])
 	var want: Dictionary = {}
-	var r_in := radius
-	var r_out := radius + hysteresis
 	for p in points:
-		_collect(p, r_out, want)
-	# deactivate what nobody needs
-	for eid: int in _active.keys():
-		if not want.has(eid):
-			_deactivate(eid)
-	# activate within the inner radius, nearest first, up to the cap
+		_collect(p, radius + hysteresis, want)
+	for k: int in _active.keys():
+		if not want.has(k):
+			_deactivate(k)
 	var cand: Array = []
-	for eid: int in want:
-		if _active.has(eid):
-			continue
-		var d: float = want[eid]
-		if d <= r_in:
-			cand.append([d, eid])
+	for k: int in want:
+		if not _active.has(k) and float(want[k]) <= radius:
+			cand.append([want[k], k])
 	if _active.size() + cand.size() > max_bodies:
 		cand.sort_custom(func(a: Array, b: Array) -> bool: return a[0] < b[0])
 	for c: Array in cand:
@@ -156,19 +163,23 @@ func _collect(p: Vector3, r: float, into: Dictionary) -> void:
 	for j in range(k0.y, k1.y + 1):
 		for i in range(k0.x, k1.x + 1):
 			var key := Vector2i(i, j)
-			if not _buckets.has(key):
+			if not _bucket_groups.has(key):
 				continue
-			for eid: int in _buckets[key]:
-				var o: Vector3 = (_entries[eid]["transform"] as Transform3D).origin
-				var d2 := Vector2(o.x - p.x, o.z - p.z).length_squared()
-				if d2 <= r2:
-					var d := sqrt(d2)
-					if not into.has(eid) or into[eid] > d:
-						into[eid] = d
+			for gid: int in _bucket_groups[key]:
+				var g: Dictionary = _groups[gid]
+				var list: Array = g["list"]
+				for idx in (g["buckets"][key] as PackedInt32Array):
+					var o: Vector3 = (list[idx]["transform"] as Transform3D).origin
+					var d2 := Vector2(o.x - p.x, o.z - p.z).length_squared()
+					if d2 <= r2:
+						var k := (gid << 24) | idx
+						var d := sqrt(d2)
+						if not into.has(k) or into[k] > d:
+							into[k] = d
 
 
-func _activate(eid: int) -> void:
-	var e: Dictionary = _entries[eid]
+func _activate(k: int) -> void:
+	var e: Dictionary = (_groups[k >> 24]["list"] as Array)[k & 0xffffff]
 	var shape := _shape_for(e["type"], e["size"])
 	if not shape.is_valid():
 		return
@@ -185,14 +196,14 @@ func _activate(eid: int) -> void:
 	PhysicsServer3D.body_add_shape(body, shape)
 	PhysicsServer3D.body_set_state(body, PhysicsServer3D.BODY_STATE_TRANSFORM, e["transform"])
 	PhysicsServer3D.body_set_space(body, get_world_3d().space)
-	_active[eid] = body
+	_active[k] = body
 
 
-func _deactivate(eid: int) -> void:
-	if not _active.has(eid):
+func _deactivate(k: int) -> void:
+	if not _active.has(k):
 		return
-	var body: RID = _active[eid]
-	_active.erase(eid)
+	var body: RID = _active[k]
+	_active.erase(k)
 	PhysicsServer3D.body_set_space(body, RID())
 	PhysicsServer3D.body_clear_shapes(body)
 	_free.append(body)

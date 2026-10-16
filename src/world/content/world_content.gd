@@ -191,6 +191,15 @@ func focus_position() -> Vector3:
 	return _focus_pos
 
 
+## Position of the LOD reference camera (the camera given to setup(), else the viewport's),
+## falling back to the focus.
+func camera_position() -> Vector3:
+	var c: Camera3D = camera if camera and is_instance_valid(camera) else (get_viewport().get_camera_3d() if is_inside_tree() else null)
+	if c and c.is_inside_tree():
+		return c.global_position
+	return _focus_pos
+
+
 ## True when no cell in range is queued, building or instantiating.
 func is_settled() -> bool:
 	return _queue.is_empty() and _jobs.is_empty() and _built.is_empty() and _current == null and _release.is_empty()
@@ -252,6 +261,16 @@ func add_exclusion_capsule(a: Vector2, b: Vector2, radius: float, mask: int = Co
 	return id
 
 
+## Keep-out ring (between inner and outer radius around center) — city walls around farmland.
+func add_exclusion_ring(center: Vector3, inner: float, outer: float, mask: int = ContentExclusions.TAG_ALL, soft: float = 0.0) -> int:
+	var id := _next_exclusion
+	_next_exclusion += 1
+	var c := Vector2(center.x, center.z)
+	_exclusion_list.append({"id": id, "a": c, "b": c, "radius": outer, "inner": inner, "mask": mask, "soft": soft})
+	_exclusions = ContentExclusions.new(_exclusion_list.duplicate())
+	return id
+
+
 func remove_exclusion(id: int) -> void:
 	for i in _exclusion_list.size():
 		if int(_exclusion_list[i]["id"]) == id:
@@ -269,7 +288,8 @@ func get_exclusions() -> ContentExclusions:
 
 func reset_stats() -> void:
 	_stats = {"main_usec_last": 0, "main_usec_max": 0, "main_usec_sum": 0, "frames": 0, "cells_built": 0,
-		"build_usec_sum": 0, "build_usec_max": 0, "cells_released": 0, "steps": 0}
+		"build_usec_sum": 0, "build_usec_max": 0, "cells_released": 0, "steps": 0, "step_usec_max": 0, "step_max_info": "",
+		"scan_usec_max": 0, "update_usec_max": 0, "update_max_info": ""}
 
 
 ## {"providers": {id: {cells, active, queued, building, instances}}, "queue", "jobs",
@@ -306,7 +326,9 @@ func get_stats() -> Dictionary:
 		"main_usec_avg": float(_stats["main_usec_sum"]) / frames, "build_ms_avg": float(_stats["build_usec_sum"]) / built / 1000.0,
 		"build_ms_max": float(_stats["build_usec_max"]) / 1000.0, "cells_built": _stats["cells_built"],
 		"cells_released": _stats["cells_released"], "colliders_active": colliders.active_count() if colliders else 0,
-		"instances": total_inst, "multimesh_nodes": mm_nodes, "mesh_nodes": mesh_nodes, "settled": is_settled()}
+		"instances": total_inst, "multimesh_nodes": mm_nodes, "mesh_nodes": mesh_nodes, "settled": is_settled(),
+		"step_usec_max": _stats["step_usec_max"], "step_max_info": _stats["step_max_info"], "scan_usec_max": _stats["scan_usec_max"],
+		"update_usec_max": _stats["update_usec_max"], "update_max_info": _stats["update_max_info"]}
 
 
 # --- Main loop -----------------------------------------------------------------------------------
@@ -319,7 +341,9 @@ func _process(delta: float) -> void:
 	_timer -= delta
 	if _timer <= 0.0 or not _scan_pos.is_finite() or _scan_pos.distance_to(_focus_pos) > 8.0:
 		_timer = update_interval
+		var ts := Time.get_ticks_usec()
 		_scan(_focus_pos)
+		_stats["scan_usec_max"] = maxi(int(_stats["scan_usec_max"]), Time.get_ticks_usec() - ts)
 	_poll_jobs()
 	_start_jobs(max_jobs)
 	_main_work(t0, frame_budget_usec)
@@ -358,6 +382,7 @@ func _scan(fp: Vector3) -> void:
 	var bounds := WorldData.get_bounds()
 	var excl := _exclusions
 	for p in _providers:
+		p.tick()
 		var dict: Dictionary = _cells[p.id]
 		if not p.enabled:
 			if not dict.is_empty():
@@ -372,7 +397,12 @@ func _scan(fp: Vector3) -> void:
 			if minf(cell.distance, d_ahead) > r + p.unload_margin or cell.generation != p.generation:
 				_drop_cell(cell)
 			elif cell.state == ContentCell.State.ACTIVE:
+				var tu := Time.get_ticks_usec()
 				p.update_cell(cell, cell.distance)
+				var du := Time.get_ticks_usec() - tu
+				if du > int(_stats["update_usec_max"]):
+					_stats["update_usec_max"] = du
+					_stats["update_max_info"] = String(p.id)
 		# new cells around the focus and the predicted point
 		for centre in ([fp, ahead] if ahead.distance_to(fp) > p.cell_size * 0.25 else [fp]):
 			var c0 := p.coord_of(centre.x - r, centre.z - r)
@@ -439,6 +469,9 @@ func _start_jobs(limit: int) -> void:
 func _run_build(cell: ContentCell) -> void:
 	var t0 := Time.get_ticks_usec()
 	cell.provider.build_cell(cell)
+	var p := cell.payload as CellPayload
+	if p and not p.colliders.is_empty() and p.collider_buckets.is_empty():
+		p.collider_buckets = ContentColliders.bucketize(p.colliders)
 	cell.build_usec = Time.get_ticks_usec() - t0
 
 
@@ -494,7 +527,12 @@ func _main_work(t0: int, budget: int) -> void:
 				break
 			_current = _built.pop_front()
 			_begin_instantiate(_current)
+		var ts := Time.get_ticks_usec()
 		var done := _current.provider.instantiate_step(_current)
+		var dt := Time.get_ticks_usec() - ts
+		if dt > int(_stats["step_usec_max"]):
+			_stats["step_usec_max"] = dt
+			_stats["step_max_info"] = "%s step %d" % [_current.provider.id, _current.step]
 		_current.step += 1
 		steps += 1
 		if done:
@@ -601,7 +639,7 @@ func instantiate_payload_step(cell: ContentCell) -> bool:
 			c.call(cell)
 	else:
 		if not p.colliders.is_empty():
-			cell.user["collider_group"] = colliders.add_group(p.colliders)
+			cell.user["collider_group"] = colliders.add_group(p.colliders, p.collider_buckets)
 		cell.instance_count = p.instance_count
 		return true
 	return false
@@ -626,6 +664,8 @@ func spawn_multimesh(cell: ContentCell, d: Dictionary) -> MultiMeshInstance3D:
 	mm.buffer = d["buffer"]
 	mmi.material_override = d.get("material")
 	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if d.get("shadow", false) else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mmi.set_meta(&"casts", bool(d.get("shadow", false)))
+	mmi.visible = true
 	_apply_vis(mmi, d)
 	mmi.layers = int(d.get("layers", 1))
 	mmi.transform = Transform3D.IDENTITY

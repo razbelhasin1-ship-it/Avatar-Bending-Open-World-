@@ -62,6 +62,12 @@ func configure() -> bool:
 	return false
 
 
+## Main thread: called at every scan (~7 times a second) before cells are chosen — advance
+## lazy setup (mesh uploads, data indexes) here.
+func tick() -> void:
+	pass
+
+
 ## Main thread, cheap: return false to skip a cell entirely (empty ocean, no features).
 func wants_cell(_coord: Vector2i) -> bool:
 	return true

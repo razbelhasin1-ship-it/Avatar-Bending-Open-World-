@@ -20,12 +20,15 @@ var verts := PackedVector3Array()
 var normals := PackedVector3Array()
 var colors := PackedColorArray()
 var uvs := PackedVector2Array()
+## Second UV channel (vegetation: x = cap weight, y = ember weight; free elsewhere).
+var uv2s := PackedVector2Array()
 var indices := PackedInt32Array()
 ## Transform applied to everything added (positions and normals).
 var xform := Transform3D.IDENTITY
 ## Default vertex colour / UV for the next primitives.
 var color := Color.WHITE
 var uv := Vector2.ZERO
+var uv2 := Vector2.ZERO
 
 
 func clear() -> void:
@@ -33,6 +36,7 @@ func clear() -> void:
 	normals.clear()
 	colors.clear()
 	uvs.clear()
+	uv2s.clear()
 	indices.clear()
 
 
@@ -54,6 +58,7 @@ func vertex(p: Vector3, n: Vector3, c: Color = color, t: Vector2 = uv) -> int:
 	normals.append((xform.basis * n).normalized())
 	colors.append(c)
 	uvs.append(t)
+	uv2s.append(uv2)
 	return verts.size() - 1
 
 
@@ -63,6 +68,7 @@ func raw_vertex(p: Vector3, n: Vector3, c: Color, t: Vector2) -> int:
 	normals.append(n)
 	colors.append(c)
 	uvs.append(t)
+	uv2s.append(uv2)
 	return verts.size() - 1
 
 
@@ -434,6 +440,7 @@ func append(other: GeoBuilder, t: Transform3D = Transform3D.IDENTITY) -> void:
 		normals.append((nb * other.normals[i]).normalized())
 		colors.append(other.colors[i])
 		uvs.append(other.uvs[i])
+		uv2s.append(other.uv2s[i] if i < other.uv2s.size() else Vector2.ZERO)
 	for i in other.indices.size():
 		indices.append(base + other.indices[i])
 
@@ -468,6 +475,7 @@ func arrays() -> Array:
 	a[Mesh.ARRAY_NORMAL] = normals
 	a[Mesh.ARRAY_COLOR] = colors
 	a[Mesh.ARRAY_TEX_UV] = uvs
+	a[Mesh.ARRAY_TEX_UV2] = uv2s
 	a[Mesh.ARRAY_INDEX] = indices
 	return a
 

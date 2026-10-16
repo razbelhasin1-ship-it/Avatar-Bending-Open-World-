@@ -26,6 +26,8 @@ var meshes: Array[Dictionary] = []
 ## Pooled near-focus colliders: {"type": &"cylinder"|&"box"|&"sphere"|&"capsule", "transform": Transform3D
 ## (world), "size": Vector3 (cylinder/capsule: radius, height; box: full size; sphere: radius)}.
 var colliders: Array[Dictionary] = []
+## 16 m bucket index of `colliders` (computed on the worker by WorldContent).
+var collider_buckets: Dictionary = {}
 ## Always-on static collision of the cell: {"faces": PackedVector3Array (relative to root), "layer": int}
 ## or {"boxes": [[Transform3D, Vector3 size], ...], "layer": int}.
 var static_bodies: Array[Dictionary] = []
@@ -34,6 +36,8 @@ var static_bodies: Array[Dictionary] = []
 var calls: Array[Callable] = []
 ## Instances (multimesh) + meshes, for statistics.
 var instance_count: int = 0
+## Free-form provider data kept with the cell while it is loaded (read in update_cell etc.).
+var data: Dictionary = {}
 
 
 ## Appends one instance to a MultiMesh buffer (transform relative to the cell root).
