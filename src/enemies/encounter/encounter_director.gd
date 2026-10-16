@@ -203,9 +203,6 @@ func _update_activity() -> void:
 		var want := calm and d > sim_radius
 		if want != e.dormant:
 			e.dormant = want
-			e.set_physics_process(not want)
-			if e.visual and e.visual.rig:
-				e.visual.rig.set_process(not want)
 
 
 func _update_sites() -> void:

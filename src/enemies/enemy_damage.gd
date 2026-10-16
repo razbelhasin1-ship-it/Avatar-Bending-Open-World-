@@ -101,7 +101,7 @@ static func _guard(e: EnemyBase, hit: HitInfo) -> int:
 		e.actions.cancel(&"hit")
 		e.stun_t = 1.0
 		e.visual.reaction(R.STAGGER, hit.direction, 1.3)
-		e.set_state(EnemyBase.State.STAGGER)
+		e.restart_state(EnemyBase.State.STAGGER)
 		Audio.play_sfx(&"block_impact", e.global_position + Vector3.UP * 1.2, 2.0)
 		e.bark("Agh! My guard!" if e.rng.randf() < 0.5 else "")
 		return Combat.Result.HIT
@@ -167,7 +167,7 @@ static func apply_reaction(e: EnemyBase, hit: HitInfo, reaction: int) -> void:
 			e.velocity.x = v.x
 			e.velocity.z = v.z
 			e.stun_t = maxf(hit.stun_time, clampf(d * 0.7, 0.35, 0.8)) + (0.12 if light else 0.0)
-			e.set_state(EnemyBase.State.STAGGER)
+			e.restart_state(EnemyBase.State.STAGGER)
 		R.KNOCKBACK:
 			e.visual.reaction(R.KNOCKBACK, dir, 1.0)
 			var v2 := dir * maxf(hit.force, 4.0) * mass
@@ -175,7 +175,7 @@ static func apply_reaction(e: EnemyBase, hit: HitInfo, reaction: int) -> void:
 			e.velocity.z = v2.z
 			e.velocity.y = maxf(e.velocity.y, hit.lift * mass * 0.6)
 			e.stun_t = clampf(0.4 + hit.force * 0.04 * mass, 0.45, 1.1)
-			e.set_state(EnemyBase.State.STAGGER)
+			e.restart_state(EnemyBase.State.STAGGER)
 		R.KNOCKDOWN:
 			e.visual.reaction(R.KNOCKDOWN, dir, 1.0)
 			var v3 := dir * hit.force * 0.7 * mass
@@ -183,21 +183,21 @@ static func apply_reaction(e: EnemyBase, hit: HitInfo, reaction: int) -> void:
 			e.velocity.z = v3.z
 			e.velocity.y = maxf(e.velocity.y, hit.lift * 0.5 * mass)
 			e.down_t = clampf(maxf(hit.stun_time, 1.1), 0.9, 2.2)
-			e.set_state(EnemyBase.State.KNOCKDOWN)
+			e.restart_state(EnemyBase.State.KNOCKDOWN)
 		R.LAUNCH:
 			e.visual.reaction(R.LAUNCH, dir, 1.0)
 			var v4 := dir * hit.force * mass
 			e.velocity = Vector3(v4.x, maxf(hit.lift, 5.0) * clampf(mass, 0.5, 1.3), v4.z)
 			e.airborne_reaction = true
 			e.down_t = 1.0
-			e.set_state(EnemyBase.State.KNOCKDOWN)
+			e.restart_state(EnemyBase.State.KNOCKDOWN)
 		R.FREEZE:
 			var t := clampf(maxf(hit.stun_time, 0.6), 0.5, 2.5)
 			e.velocity = Vector3(0, minf(e.velocity.y, 0.0), 0)
 			e.visual.reaction(R.FREEZE, dir, t)
 			e.visual.tint(Color(0.7, 0.9, 1.0), 0.9)
 			e.stun_t = t
-			e.set_state(EnemyBase.State.STAGGER)
+			e.restart_state(EnemyBase.State.STAGGER)
 	# Element touches: water douses firebenders (longer recovery), fire vs beasts burns.
 	if hit.element == ElementDefs.Element.WATER and e.element == ElementDefs.Element.FIRE and reaction >= R.STAGGER:
 		e.stun_t *= 1.35

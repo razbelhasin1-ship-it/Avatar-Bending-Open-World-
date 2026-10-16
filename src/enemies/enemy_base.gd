@@ -475,6 +475,14 @@ func _check_state_timeout() -> void:
 		brain.on_state_timeout(state)
 
 
+## Enters `s` again even if already in it (a new stagger restarts the stagger clock).
+func restart_state(s: State) -> void:
+	if s == state:
+		state_time = 0.0
+		return
+	set_state(s)
+
+
 func set_state(s: State) -> void:
 	if s == state:
 		return

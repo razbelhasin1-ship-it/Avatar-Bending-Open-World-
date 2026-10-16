@@ -84,8 +84,7 @@ static func camp_site(poi: Dictionary, cfg: Dictionary) -> EncounterSite:
 	s.kind = &"camp"
 	s.faction = cfg.get("faction", &"bandits")
 	s.region = StringName(poi.get("region", ""))
-	var p: Array = poi["position"]
-	s.center = Vector3(float(p[0]), float(p[1]), float(p[2]))
+	s.center = to_vec3(poi["position"])
 	s.yaw = float(poi.get("yaw", 0.0))
 	var r := clampf(float(poi.get("radius", 22.0)) * 0.6, 10.0, 22.0)
 	s.radius = r + 4.0
@@ -117,7 +116,7 @@ static func outpost_site(o: Dictionary, kind: StringName) -> EncounterSite:
 	s.leash = OUTPOST_RADIUS + 26.0
 	# Face the gate toward the nearest road (or the world centre).
 	s.yaw = _yaw_toward(spot, Vector3.ZERO)
-	_place_ring(s, o.get("roster", []), 5.5 if kind == &"outpost" else 4.0, hash(s.id))
+	_place_ring(s, o.get("roster", []), 4.6 if kind == &"outpost" else 4.0, hash(s.id))
 	return s
 
 
@@ -181,13 +180,13 @@ static func _road(id: StringName) -> Dictionary:
 
 ## The part of a polyline ([[x,y,z],...]) between arc-length fractions t0..t1,
 ## resampled every `step` m, heights from WorldData.
-static func sub_polyline(points: Array, t0: float, t1: float, step: float) -> PackedVector3Array:
+static func sub_polyline(points: Variant, t0: float, t1: float, step: float) -> PackedVector3Array:
 	var out := PackedVector3Array()
-	if points.size() < 2:
-		return out
 	var pts: Array[Vector3] = []
-	for q: Array in points:
-		pts.append(Vector3(float(q[0]), float(q[1]), float(q[2])))
+	for q: Variant in points:
+		pts.append(to_vec3(q))
+	if pts.size() < 2:
+		return out
 	var cum: Array[float] = [0.0]
 	for i in range(1, pts.size()):
 		cum.append(cum[i - 1] + pts[i].distance_to(pts[i - 1]))
@@ -206,6 +205,15 @@ static func sub_polyline(points: Array, t0: float, t1: float, step: float) -> Pa
 		out.append(p)
 		d += step
 	return out
+
+
+## Vector3 from a WorldData value (Vector3 or [x, y, z]).
+static func to_vec3(v: Variant) -> Vector3:
+	if v is Vector3:
+		return v
+	if v is Array and (v as Array).size() >= 3:
+		return Vector3(float(v[0]), float(v[1]), float(v[2]))
+	return Vector3.ZERO
 
 
 ## Nearest flat, dry, open spot to `anchor` within `search` m (spiral, 12 m steps):

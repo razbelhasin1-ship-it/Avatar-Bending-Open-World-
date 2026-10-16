@@ -446,9 +446,11 @@ func world_ready() -> void:
 	w.extra_hooks = [HOOK_PATH] as Array[String]
 	add_child(w)
 	await _wait_until(func() -> bool: return w.playing, 60.0)
-	expect(w.hooks.size() == 1, "hook installed")
-	if w.hooks.size() == 1:
-		expect_eq(w.hooks[0].get("calls"), ["setup", "spawned", "ready"], "hook lifecycle")
+	# Other modules' hooks (enemies, companions, ...) may be installed too: find this test's hook.
+	var mine: Array = w.hooks.filter(func(h: Node) -> bool: return h.get("calls") != null)
+	expect(mine.size() == 1, "hook installed")
+	if mine.size() == 1:
+		expect_eq(mine[0].get("calls"), ["setup", "spawned", "ready"], "hook lifecycle")
 	expect(w.player.get_companion() != null and w.player.get_companion().name == "TestCompanion", "companion linked to the player")
 	expect(w.hud.companion_panel.visible, "HUD companion panel shown")
 	await _free(w)
