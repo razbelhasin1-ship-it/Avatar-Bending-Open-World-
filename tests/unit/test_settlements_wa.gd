@@ -78,6 +78,34 @@ func test_sat_cells_build() -> void:
 	print("    %d cells, worst build %.0f ms, %d lod0 tris total" % [p.cells().size(), worst, tris])
 
 
+## Regression: LOD hand-overs must not use visibility margins (a freshly streamed instance stays
+## hidden inside Godot's margin band, so a cell whose centre sits at lod0_end vanished).
+func test_lod_handover_has_no_gap() -> void:
+	if not WorldData.has_world_data():
+		return
+	var p := Settlements.plan(Settlements.AIR_TEMPLE)
+	var b := Settlements.builder(Settlements.AIR_TEMPLE)
+	var prov := SettlementProvider.new(p, b)
+	prov.cfg = SettlementSettings.current()
+	var far := SettlementFarProvider.new(p, b)
+	far.cfg = prov.cfg
+	var c: Vector2i = p.cells()[0]
+	for pr: ContentProvider in [prov, far]:
+		var cell := ContentCell.new(pr, c if pr == prov else Vector2i(floori(c.x / 4.0), floori(c.y / 4.0)))
+		pr.build_cell(cell)
+		var payload := cell.payload as CellPayload
+		expect(payload != null, "payload built")
+		if payload == null:
+			continue
+		var n := 0
+		for m: Dictionary in payload.meshes:
+			n += 1
+			expect_eq(float(m.get("margin", 0.0)), 0.0, "no visibility margin on %s" % m.get("tag"))
+		for m: Dictionary in payload.multimeshes:
+			expect_eq(float(m.get("margin", 0.0)), 0.0, "no visibility margin on %s" % m.get("tag"))
+		expect(n > 0, "%s has meshes" % pr.id)
+
+
 func test_anchor_api_contract() -> void:
 	if not WorldData.has_world_data():
 		return

@@ -54,7 +54,7 @@ func build_cell(cell: ContentCell) -> void:
 		if r.surfaces.is_empty():
 			continue
 		r.add_to_payload(p, Transform3D.IDENTITY, {"vis_begin": float(cfg["lod1_end"]), "vis_end": float(cfg["far_end"]),
-			"margin": 16.0, "shadow": false, "collision": false, "lights": false,
+			"margin": 0.0, "shadow": false, "collision": false, "lights": false,
 			"tag": StringName("%s_%d_%d" % [id, sub.x, sub.y])})
 	cell.payload = p
 

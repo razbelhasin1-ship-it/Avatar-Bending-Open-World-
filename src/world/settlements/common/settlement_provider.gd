@@ -6,7 +6,9 @@ extends ContentProvider
 ##   LOD0  full detail, visible up to cfg.lod0_end, casts shadows
 ##   LOD1  simplified (no small props), cfg.lod0_end .. cfg.lod1_end
 ## Both share one AABB (KitMerger.normalize_aabb) so the visibility ranges hand over at the same
-## distance. LOD2 silhouettes beyond lod1_end come from SettlementFarProvider. Collision (the
+## distance, with NO visibility margins: Godot's margin hysteresis keeps a freshly streamed,
+## not-yet-visible instance hidden inside the whole margin band, so two LODs handing over with
+## margins leave a cell invisible while the camera sits in the band. LOD2 silhouettes beyond lod1_end come from SettlementFarProvider. Collision (the
 ## LOD0 boxes + trimesh faces) is attached only while the focus is within
 ## cfg.collision_range of the cell (update_cell), lights are capped per cell (LightBudget), and
 ## piece extras (particles, sounds, animated nodes, markers) are created on the main thread.
@@ -63,10 +65,10 @@ func build_cell(cell: ContentCell) -> void:
 	var r1: KitResult = res[1]
 	var shadows: bool = cfg.get("shadows", true)
 	var tag := String(id)
-	r0.add_to_payload(p, Transform3D.IDENTITY, {"vis_end": float(cfg["lod0_end"]), "margin": 12.0, "shadow": shadows,
+	r0.add_to_payload(p, Transform3D.IDENTITY, {"vis_end": float(cfg["lod0_end"]), "margin": 0.0, "shadow": shadows,
 		"collision": false, "lights": false, "tag": StringName(tag + "_lod0")})
 	r1.add_to_payload(p, Transform3D.IDENTITY, {"vis_begin": float(cfg["lod0_end"]), "vis_end": float(cfg["lod1_end"]),
-		"margin": 12.0, "shadow": shadows, "collision": false, "lights": false, "tag": StringName(tag + "_lod1")})
+		"margin": 0.0, "shadow": shadows, "collision": false, "lights": false, "tag": StringName(tag + "_lod1")})
 	p.data["collision"] = {"boxes": r0.boxes, "faces": r0.faces}
 	# night glow sprites sit exactly on the LOD0 lamps and lit windows (light records)
 	SettlementFx.add_glows(p, SettlementFx.glows_from_lights(r0.lights, origin), origin, plan.cell_aabb(cell.coord, origin),

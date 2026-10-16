@@ -114,7 +114,7 @@ static func add_glows(p: CellPayload, glows: Array, origin: Vector3, aabb: AABB,
 		var c: Color = gl[1]
 		CellPayload.write_instance(buf, Transform3D(Basis(), (gl[0] as Vector3) - origin), Color(c.r, c.g, c.b, float(gl[2])))
 	p.add_multimesh(_glow_mesh, _glow_mat, buf, glows.size(), aabb.grow(8.0), {"vis_begin": vis_begin, "vis_end": vis_end,
-		"margin": 12.0, "shadow": false, "tag": tag})
+		"margin": 0.0, "shadow": false, "tag": tag})
 
 
 ## A soft light that also shines by day (registered with LightBudget as an interior light).
