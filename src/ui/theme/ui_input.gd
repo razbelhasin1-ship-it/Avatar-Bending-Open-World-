@@ -19,6 +19,8 @@ static func ensure(tree: SceneTree) -> UiInput:
 	if is_instance_valid(_inst):
 		return _inst
 	install_pad_menu_buttons()
+	# Back button / app-background handling for phones and browsers (src/platform).
+	MobilePlatform.ensure(tree)
 	_inst = UiInput.new()
 	_inst.name = "UiInput"
 	_inst.process_mode = Node.PROCESS_MODE_ALWAYS

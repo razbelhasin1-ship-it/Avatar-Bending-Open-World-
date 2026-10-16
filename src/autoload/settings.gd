@@ -261,7 +261,9 @@ func is_feature_supported(feature: String) -> bool:
 		"ssao", "ssil", "sdfgi", "volumetric_fog", "taa", "fsr2", "smaa":
 			return not compat and not mobile_r
 		"fsr1":
-			return not compat
+			# Godot 4.7: FSR 1.0 3D scaling is Forward+ only ("only available when using the
+			# Forward+ renderer"); the Mobile renderer falls back to bilinear with a warning.
+			return not compat and not mobile_r
 		"exclusive", "borderless", "vsync", "resolution", "display_mode":
 			return not is_headless() and OS.get_name() not in ["Web", "Android", "iOS"]
 		"rebinding":
@@ -344,7 +346,7 @@ func configure_viewport(vp: Viewport) -> void:
 	var scale: float = clampf(float(get_value("display", "render_scale")), 0.5, 2.0)
 	vp.scaling_3d_scale = scale
 	var up: String = get_value("display", "upscaler")
-	if is_compatibility_renderer() or scale >= 1.0:
+	if is_compatibility_renderer() or is_mobile_renderer() or scale >= 1.0:
 		vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_BILINEAR
 	elif up == "fsr2" and not is_mobile_renderer():
 		vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_FSR2

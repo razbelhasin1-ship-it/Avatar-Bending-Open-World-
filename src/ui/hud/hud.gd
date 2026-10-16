@@ -50,6 +50,9 @@ var companion_panel: HudCompanion
 var damage_numbers: HudDamageNumbers
 var title_card: TitleCard
 var prompt_panel: Control
+## On-screen touch controls (src/ui/touch, docs/modules/mobile.md). Shows itself when
+## Settings.touch_controls_enabled(); its buttons then replace the ability bar and prompt.
+var touch: TouchOverlay
 
 var _prompt_label: Label
 var _prompt_glyph: PromptGlyph
@@ -150,6 +153,9 @@ func _build() -> void:
 	title_card = TitleCard.new()
 	title_card.name = "TitleCard"
 	root.add_child(title_card)
+	touch = TouchOverlay.new()
+	touch.hud = self
+	root.add_child(touch)
 
 
 func _build_prompt() -> void:
@@ -331,6 +337,10 @@ func notify(text: String, kind: StringName = &"info") -> void:
 
 ## Shows/hides the interaction prompt (Events.interaction_prompt).
 func set_interaction_prompt(text: String, show: bool) -> void:
+	if touch and touch.active:
+		# The touch overlay's contextual button shows the prompt (tap to interact).
+		prompt_panel.visible = false
+		return
 	if show and not text.is_empty():
 		_prompt_label.text = text
 		if not prompt_panel.visible:
@@ -387,6 +397,30 @@ func set_combat_hud_visible(on: bool) -> void:
 	for c: CanvasItem in [vitals, abilities, compass, quest, companion_panel, lock_on, prompt_panel]:
 		var t := create_tween()
 		t.tween_property(c, "modulate:a", 1.0 if on else 0.0, 0.25)
+
+
+## Touch controls on/off (called by TouchOverlay): its buttons replace the ability bar and
+## the interaction prompt; toasts move below its top bar, the quest tracker under the
+## vitals (the right-thumb cluster owns the lower right) and the companion plate to the
+## right when the cluster is mirrored for left-handed play.
+func apply_touch_layout(on: bool, left_handed: bool = false) -> void:
+	abilities.visible = not on
+	if on:
+		prompt_panel.visible = false
+	toasts.offset_top = 150 if on else 36
+	toasts.offset_bottom = 430 if on else 420
+	toasts.max_visible = 3 if on else 4
+	quest.anchor_left = 0.0 if on else 1.0
+	quest.anchor_right = 0.0 if on else 1.0
+	quest.offset_left = 40.0 if on else -480.0
+	quest.offset_right = 480.0 if on else -40.0
+	quest.offset_top = 190.0 if on else 450.0
+	quest.offset_bottom = 430.0 if on else 700.0
+	var right := on and left_handed
+	companion_panel.anchor_left = 1.0 if right else 0.0
+	companion_panel.anchor_right = 1.0 if right else 0.0
+	companion_panel.offset_left = -400.0 if right else 40.0
+	companion_panel.offset_right = -40.0 if right else 400.0
 
 
 ## Screen rect (design px) that HUD widgets must not cover.

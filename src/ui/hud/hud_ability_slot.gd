@@ -15,6 +15,8 @@ var action: StringName = &"ability_1"
 var info: Dictionary = {}
 ## Signature only: 0..1 focus fill.
 var focus_ratio := 0.0
+## Key/button badge under the slot (off when the slot is a touch button: src/ui/touch).
+var show_prompt := true
 
 var _icon: Texture2D
 var _icon_key := ""
@@ -34,6 +36,8 @@ func _init(p_index: int = 0, p_signature: bool = false) -> void:
 
 
 func _ready() -> void:
+	if not show_prompt:
+		return
 	_prompt = PromptGlyph.for_action(action, 30)
 	add_child(_prompt)
 	_place_prompt()
