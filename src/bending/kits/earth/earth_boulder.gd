@@ -88,7 +88,10 @@ func _throw() -> void:
 	var from := _hover_point()
 	if _riser and is_instance_valid(_riser) and not _riser.released:
 		rock = _riser.take()
-		from = rock.global_position
+		# Use the hover point unless the rock is already close to it (the
+		# rising animation may lag behind when frames are slow).
+		if rock.global_position.distance_to(from) < 0.6:
+			from = rock.global_position
 	else:
 		rock = EarthFx.rock(ctx.caster, _radius)
 	_riser = null

@@ -30,8 +30,9 @@ func strike(_i: int, sd: Dictionary) -> void:
 	var rock: MeshInstance3D = null
 	var from := _fist(sd) + ctx.forward() * (0.35 + r)
 	if _riser and is_instance_valid(_riser) and not _riser.released:
+		# Punch from the fist even if the rising animation lags a frame behind.
 		rock = _riser.take()
-		from = rock.global_position
+		rock.global_position = from
 	else:
 		rock = EarthFx.rock(ctx.caster, r)
 	_riser = null

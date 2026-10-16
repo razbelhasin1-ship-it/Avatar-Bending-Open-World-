@@ -46,6 +46,8 @@ var _rig_connected: HumanoidRig = null
 
 
 func setup(p_ctx: BendingContext) -> void:
+	# Bending-specific clips (also needed by rig-less casters' virtual timelines).
+	BendingClips.ensure()
 	ctx = p_ctx
 	ctx.controller = self
 	element = ctx.element
