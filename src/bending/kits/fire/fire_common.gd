@@ -22,6 +22,16 @@ static func practiced(ctx: BendingContext, id: StringName) -> void:
 		GameState.add_practice(id)
 
 
+## Standing on the ground? (is_on_floor, or within 0.2 m of it for casters whose body
+## is not moved by move_and_slide this frame - rig-less casters, scripted actors.)
+static func grounded(ctx: BendingContext) -> bool:
+	if ctx.body == null:
+		return true
+	if ctx.body.is_on_floor():
+		return true
+	return ctx.body.velocity.y <= 0.5 and ctx.origin().y - ctx.ground_y(ctx.origin(), 0.5, 3.0) < 0.2
+
+
 static func shake(ctx: BendingContext, strength: float, duration: float) -> void:
 	if ctx != null and ctx.is_player():
 		BendingFeedback.shake(strength, duration)

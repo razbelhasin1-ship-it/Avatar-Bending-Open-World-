@@ -57,7 +57,8 @@ func _curve(u: float) -> PackedVector3Array:
 	# Sweep from the right (+half) to the left (-half), high to the ground.
 	var ang := lerpf(half, -half, e)
 	var length := lerpf(2.6, reach, smoothstep(0.0, 0.55, k))
-	var height := lerpf(2.5, 0.25, pow(k, 1.2))
+	# High over the shoulder at first, chest height through the centre, onto the ground at the end.
+	var height := lerpf(2.4, 0.3, smoothstep(0.0, 0.75, k))
 	var hand := ctx.socket_pos(&"hand_r") if ctx.is_valid() else _origin + Vector3.UP * 1.4
 	var local_tip := Vector3(sin(ang), 0.0, -cos(ang)) * length
 	var tip := _origin + _yaw_basis * local_tip

@@ -38,6 +38,9 @@ static var melted := 0
 static var steamed := 0
 
 static var _renderer_ref: WeakRef = null
+## Scripted weather override: true = it is wet (rain spell, quests, tests), false = use
+## the world's weather.
+static var force_wet := false
 
 
 ## Fire reaching the world at `center` within `radius`, with `power` (0.3 a jab .. 2 the
@@ -206,6 +209,8 @@ static func is_burnable(p: Vector3) -> bool:
 
 ## Raining (the world's weather): grass will not catch and fires burn out fast.
 static func is_wet_weather() -> bool:
+	if force_wet:
+		return true
 	var r: Node = _renderer_ref.get_ref() as Node if _renderer_ref != null else null
 	if r == null or not is_instance_valid(r) or not r.has_method("get_weather"):
 		return false

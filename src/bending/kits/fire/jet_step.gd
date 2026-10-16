@@ -22,14 +22,14 @@ var _trail_t := 0.0
 
 
 func can_use() -> StringName:
-	if ctx.body != null and not ctx.body.is_on_floor() and bool(ctx.caster.get_meta(&"jet_air_used", false)):
+	if not FireCommon.grounded(ctx) and bool(ctx.caster.get_meta(&"jet_air_used", false)):
 		return &"airborne"
 	return &""
 
 
 func begin() -> void:
 	FireCommon.begin()
-	airborne_start = ctx.body != null and not ctx.body.is_on_floor()
+	airborne_start = not FireCommon.grounded(ctx)
 	if airborne_start:
 		ctx.caster.set_meta(&"jet_air_used", true)
 		if ctx.caster.get_node_or_null(^"JetLandWatch") == null:
@@ -134,7 +134,7 @@ func update(delta: float) -> void:
 					_end_flight()
 		HOVER:
 			# Ease the climb to a standstill and drift with the stick.
-			var vy := move_toward(_vy(), 0.4 * sin(time * 6.0), 14.0 * delta)
+			var vy := move_toward(_vy(), 0.4 * sin(time * 6.0), 30.0 * delta)
 			_set_vy(vy)
 			var mv := ctx.move_input
 			mv.y = 0.0

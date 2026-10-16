@@ -48,6 +48,11 @@ static func ensure() -> Manager:
 	return m
 
 
+## The burn manager (null until the first fire ability ran / ensure()).
+static func manager() -> Manager:
+	return _manager()
+
+
 static func _manager() -> Manager:
 	var m: Manager = _mgr.get_ref() as Manager if _mgr != null else null
 	return m if m != null and is_instance_valid(m) else null

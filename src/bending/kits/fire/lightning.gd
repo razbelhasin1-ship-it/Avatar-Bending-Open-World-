@@ -1,3 +1,4 @@
+class_name FireLightning
 extends BendingAbility
 ## Lightning Generation - the cold-blooded fire, a separate discipline:
 ## * HOLD: rooted in a long stance, the arms trace slow opposed circles (lightning_charge)
@@ -29,7 +30,7 @@ static var backfires := 0
 
 
 func can_use() -> StringName:
-	if ctx.body != null and not ctx.body.is_on_floor():
+	if not FireCommon.grounded(ctx):
 		return &"airborne"
 	return &""
 

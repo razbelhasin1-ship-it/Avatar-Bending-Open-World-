@@ -58,6 +58,12 @@ static func instance(from: Node) -> GrassFire:
 	return g
 
 
+## The scene's grass-fire manager if one exists (null otherwise; never creates one).
+static func current() -> GrassFire:
+	var g: GrassFire = _inst.get_ref() as GrassFire if _inst != null else null
+	return g if g != null and is_instance_valid(g) and g.is_inside_tree() else null
+
+
 static func max_cells() -> int:
 	return MAX_CELLS[FxLib.tier()]
 

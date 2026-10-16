@@ -23,9 +23,12 @@ signal extinguished(by: Node)
 @export var lit := false
 @export var relight_time := 0.0
 @export var burn_time := 0.0
-## Hook radii (FireEnv / WaterEnv add them to their reach).
+## Hook radii around the flame (FireEnv / WaterEnv add them to their reach).
 var ignite_radius := 0.7
 var extinguish_radius := 0.7
+## The hook node at the flame (in groups &"ignitable" / &"extinguishable"): the shared
+## contracts measure their reach from it.
+var hook: FlameHook = null
 var flame: FireFx.FireBall = null
 var light: OmniLight3D = null
 var proxy: FireHitProxy = null
@@ -39,12 +42,16 @@ static var lit_count := 0
 
 
 func _ready() -> void:
-	add_to_group(FireEnv.IGNITABLE)
-	add_to_group(FireEnv.EXTINGUISHABLE)
 	add_to_group(&"fire_brazier")
 	_build()
+	hook = FlameHook.new()
+	hook.name = "FlameHook"
+	hook.owner_fire = self
+	hook.position = Vector3.UP * _flame_y
+	add_child(hook)
+	# The hit proxy sits just above the prop's collision so hits from any side reach it.
 	proxy = FireHitProxy.make(0.55, _on_hit)
-	proxy.position = Vector3.UP * _flame_y
+	proxy.position = Vector3.UP * (_flame_y + 0.22)
 	add_child(proxy)
 	if lit:
 		lit = false
@@ -174,10 +181,10 @@ func _build() -> void:
 				_part(_box(Vector3(0.025, 0.34, 0.025)), Vector3(cos(a) * 0.12, 2.05, sin(a) * 0.12), iron)
 			_part(_cyl(0.1, 0.1, 0.05, 8), Vector3(0, 1.88, 0), wood)
 			var cap := CylinderShape3D.new()
-			cap.radius = 0.12
-			cap.height = 2.1
+			cap.radius = 0.1
+			cap.height = 1.8
 			col.shape = cap
-			col.position = Vector3(0, 1.05, 0)
+			col.position = Vector3(0, 0.9, 0)
 			ignite_radius = 0.5
 			extinguish_radius = 0.5
 		&"lantern":
@@ -195,9 +202,9 @@ func _build() -> void:
 			_part(_cyl(0.06, 0.48, 0.24, 6), Vector3(0, 1.34, 0), dark)
 			_part(_cyl(0.03, 0.06, 0.12, 6), Vector3(0, 1.5, 0), stone)
 			var box := BoxShape3D.new()
-			box.size = Vector3(0.6, 1.5, 0.6)
+			box.size = Vector3(0.6, 0.86, 0.6)
 			col.shape = box
-			col.position = Vector3(0, 0.75, 0)
+			col.position = Vector3(0, 0.43, 0)
 			ignite_radius = 0.5
 			extinguish_radius = 0.5
 		_:
@@ -214,10 +221,10 @@ func _build() -> void:
 			_part(_cyl(0.56, 0.52, 0.05, 14), Vector3(0, 1.11, 0), bronze)
 			_part(_cyl(0.44, 0.44, 0.04, 12), Vector3(0, 1.08, 0), coal)
 			var bshape := CylinderShape3D.new()
-			bshape.radius = 0.52
-			bshape.height = 1.15
+			bshape.radius = 0.5
+			bshape.height = 0.98
 			col.shape = bshape
-			col.position = Vector3(0, 0.575, 0)
+			col.position = Vector3(0, 0.49, 0)
 	if FxLib.tier() >= 1 or not Settings.is_mobile_device():
 		light = OmniLight3D.new()
 		light.light_color = Color(1.0, 0.6, 0.26)
@@ -227,3 +234,26 @@ func _build() -> void:
 		light.position = Vector3.UP * (_flame_y + 0.35)
 		light.visible = false
 		add_child(light)
+
+
+## The flame's hook node: carries the IGNITE / EXTINGUISH contracts at the fire itself.
+class FlameHook extends Node3D:
+	var owner_fire: FireBrazier = null
+	var ignite_radius := 0.6
+	var extinguish_radius := 0.6
+
+	func _ready() -> void:
+		add_to_group(FireEnv.IGNITABLE)
+		add_to_group(FireEnv.EXTINGUISHABLE)
+		if owner_fire != null:
+			ignite_radius = owner_fire.ignite_radius
+			extinguish_radius = owner_fire.extinguish_radius
+
+	func ignite(by: Node = null, at: Vector3 = Vector3.ZERO) -> bool:
+		return owner_fire != null and owner_fire.ignite(by, at)
+
+	func extinguish(by: Node = null, at: Vector3 = Vector3.ZERO) -> bool:
+		return owner_fire != null and owner_fire.extinguish(by, at)
+
+	func is_burning() -> bool:
+		return owner_fire != null and owner_fire.lit
