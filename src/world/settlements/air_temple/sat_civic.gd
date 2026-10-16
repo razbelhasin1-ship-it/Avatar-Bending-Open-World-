@@ -148,7 +148,7 @@ static func _relief_arch(kit: BuildingKit, c: Vector3, w: float, h: float, v: in
 static func _flat_arch_window(kit: BuildingKit, c: Vector3, w: float, h: float, lit: bool) -> void:
 	kit.push(Transform3D(Basis(), c))
 	var slot: StringName = &"glow" if lit else &"solid"
-	var col: Color = kit.col(&"glow") * 0.8 if lit else kit.col(&"window", false)
+	var col: Color = KitX.lit_window_color(kit) if lit else kit.col(&"window", false)
 	kit.g(slot).box(Transform3D(Basis(), Vector3(0, -h * 0.15, -0.05)), Vector3(w, h * 0.7, 0.06), col)
 	var segs := 6 if kit.lod == 0 else 3
 	var top := h * 0.2

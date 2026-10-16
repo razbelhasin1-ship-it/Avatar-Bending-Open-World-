@@ -55,7 +55,7 @@ static func build(kit: BuildingKit, kind: StringName, v: int) -> void:
 static func _win(kit: BuildingKit, c: Vector3, w: float, h: float, lit: bool) -> void:
 	if kit.lod >= 2:
 		if lit:
-			kit.g(&"glow").box(Transform3D(Basis(), c + Vector3(0, 0, -0.05)), Vector3(w * 1.3, h * 1.2, 0.05), kit.col(&"glow") * 0.6)
+			kit.g(&"glow").box(Transform3D(Basis(), c + Vector3(0, 0, -0.05)), Vector3(w * 1.3, h * 1.2, 0.05), KitX.lit_window_color(kit) * 1.1)
 		return
 	KitX.window(kit, c, w, h, NwtStyle.navy(), 0.0, lit)
 
@@ -105,8 +105,9 @@ static func dome_home(kit: BuildingKit, v: int) -> void:
 			var a1 := PI * float(i + 1) / segs
 			var p0 := Vector3(cos(a0) * vw * 0.5, y + vh - 0.4 + sin(a0) * 0.8, 0)
 			var p1 := Vector3(cos(a1) * vw * 0.5, y + vh - 0.4 + sin(a1) * 0.8, 0)
-			kit.g(&"ice").flat_quad(p1 + Vector3(0, 0, z1), p0 + Vector3(0, 0, z1), p0 + Vector3(0, 0, z0), p1 + Vector3(0, 0, z0), vc)
-		kit.g().flat_quad(Vector3(-vw * 0.5, y + vh - 0.4, z1), Vector3(vw * 0.5, y + vh - 0.4, z1), Vector3(vw * 0.5, y + vh + 0.4, z1), Vector3(-vw * 0.5, y + vh + 0.4, z1), wall)
+			# wound so the vault faces outward (an inward face shows the black ink pass)
+			kit.g(&"ice").flat_quad(p0 + Vector3(0, 0, z1), p1 + Vector3(0, 0, z1), p1 + Vector3(0, 0, z0), p0 + Vector3(0, 0, z0), vc)
+		kit.g().flat_quad(Vector3(-vw * 0.5, y + vh + 0.4, z1), Vector3(vw * 0.5, y + vh + 0.4, z1), Vector3(vw * 0.5, y + vh - 0.4, z1), Vector3(-vw * 0.5, y + vh - 0.4, z1), wall)
 		KitX.doorway(kit, Vector3(0, y, z1 + 0.02), 1.2, 2.0, NwtStyle.navy(), &"cloth" if v % 2 == 0 else &"cloth_alt", 0.02)
 	else:
 		kit.box(Vector3(0, y + vh * 0.5, (z0 + z1) * 0.5), Vector3(vw, vh, vd), wall)
@@ -417,7 +418,7 @@ static func igloo(kit: BuildingKit, v: int) -> void:
 		var a1 := PI * float(i + 1) / segs
 		var p0 := Vector3(cos(a0) * tw * 0.5, sin(a0) * tw * 0.75, 0)
 		var p1 := Vector3(cos(a1) * tw * 0.5, sin(a1) * tw * 0.75, 0)
-		kit.g().flat_quad(p1 + Vector3(0, 0, z0 - tl), p0 + Vector3(0, 0, z0 - tl), p0 + Vector3(0, 0, z0), p1 + Vector3(0, 0, z0), snow * 0.96)
+		kit.g().flat_quad(p0 + Vector3(0, 0, z0 - tl), p1 + Vector3(0, 0, z0 - tl), p1 + Vector3(0, 0, z0), p0 + Vector3(0, 0, z0), snow * 0.96)
 	if kit.lod < 2:
 		var dark := kit.col(&"window", false)
 		for i in segs:

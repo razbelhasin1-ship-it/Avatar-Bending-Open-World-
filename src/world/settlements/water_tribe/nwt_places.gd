@@ -47,7 +47,8 @@ static func healer_hut(kit: BuildingKit, _spec: Dictionary) -> void:
 	var r := 6.5
 	var h := 4.0
 	var y := 0.3
-	kit.cylinder(Vector3(0, -1.2, 0), 1.5, r + 0.9, &"base", 18, false)
+	# foundation drum: its top stays under the floor slab (coplanar tops z-fight)
+	kit.cylinder(Vector3(0, -1.2, 0), 1.44, r + 0.9, &"base", 18, false)
 	var floor_ring := PackedVector2Array()
 	for i in 18:
 		var a := TAU * i / 18.0
@@ -78,11 +79,11 @@ static func healer_hut(kit: BuildingKit, _spec: Dictionary) -> void:
 		gw.uv = Vector2(0, 0.15)
 		gw.cylinder(Vector3(0, y + 0.18, 0), Vector3(0, y + 0.24, 0), 1.72, 1.72, 18, Color(0.40, 0.78, 1.0) * 0.7, 2)
 		# a hanging lamp over the pool
-		kit.g().cylinder(Vector3(0, y + h + 2.0, 0), Vector3(0, y + 2.9, 0), 0.015, 0.015, 3, kit.col(&"metal"), 0)
+		kit.g().cylinder(Vector3(0, y + h + 2.0, 0), Vector3(0, y + 3.55, 0), 0.015, 0.015, 3, kit.col(&"metal"), 0)
 		var lamp := kit.g(&"glow")
 		lamp.uv = Vector2(0, 0.6)
-		lamp.blob(Vector3(0, y + 2.65, 0), 0.28, 1, Color(1.0, 0.86, 0.62), null, 0.0, Vector3(1, 1.2, 1))
-		kit.g().cylinder(Vector3(0, y + 2.95, 0), Vector3(0, y + 3.05, 0), 0.3, 0.2, 8, kit.col(&"metal"), 2)
+		lamp.blob(Vector3(0, y + 3.35, 0), 0.17, 1, Color(1.0, 0.86, 0.62), null, 0.0, Vector3(1, 1.2, 1))
+		kit.g().cylinder(Vector3(0, y + 3.5, 0), Vector3(0, y + 3.58, 0), 0.2, 0.13, 8, kit.col(&"metal"), 2)
 		# cots with furs around the pool
 		for k in 4:
 			var a := TAU * (k + 0.5) / 4.0 + PI * 0.5

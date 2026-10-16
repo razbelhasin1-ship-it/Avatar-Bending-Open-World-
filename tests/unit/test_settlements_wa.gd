@@ -78,6 +78,168 @@ func test_sat_cells_build() -> void:
 	print("    %d cells, worst build %.0f ms, %d lod0 tris total" % [p.cells().size(), worst, tris])
 
 
+func test_anchor_api_contract() -> void:
+	if not WorldData.has_world_data():
+		return
+	var ids := {}
+	for sid in Settlements.ALL:
+		var p := Settlements.plan(sid)
+		for a in p.anchors:
+			for k in ["id", "settlement", "kind", "position", "yaw", "district", "tags"]:
+				if not expect(a.has(k), "%s anchor has %s" % [sid, k]):
+					return
+			expect(not ids.has(a["id"]), "anchor id %s unique" % a["id"])
+			ids[a["id"]] = true
+			expect((a["position"] as Vector3).is_finite(), "anchor position finite")
+			if a["kind"] == &"patrol":
+				expect(a.has("points") and (a["points"] as PackedVector3Array).size() >= 2, "patrol has a route")
+	var kinds_nwt := {}
+	for a in Settlements.get_anchors(Settlements.WATER_TRIBE):
+		kinds_nwt[a["kind"]] = true
+	for k: StringName in [&"home", &"market_stall", &"guard_post", &"patrol", &"trainer", &"quest_giver", &"healer", &"fisher", &"idle"]:
+		expect(kinds_nwt.has(k), "Water Tribe anchors include %s" % k)
+	var kinds_sat := {}
+	for a in Settlements.get_anchors(Settlements.AIR_TEMPLE):
+		kinds_sat[a["kind"]] = true
+	for k: StringName in [&"home", &"trainer", &"quest_giver", &"bison_stall", &"patrol", &"idle", &"child_play", &"gardener"]:
+		expect(kinds_sat.has(k), "Air Temple anchors include %s" % k)
+	expect(not Settlements.get_anchors(Settlements.ARCTIC, &"home").is_empty(), "igloo villages have homes")
+	# lookups
+	var stall: Dictionary = Settlements.get_anchors(Settlements.WATER_TRIBE, &"market_stall")[0]
+	expect_eq(Settlements.get_anchor(stall["id"]), stall, "get_anchor by id")
+	var near := Settlements.anchors_near(stall["position"], 40.0, &"market_stall")
+	expect(not near.is_empty() and near[0]["id"] == stall["id"], "anchors_near: the stall itself first")
+	var last := -1.0
+	for a in near:
+		var d := (a["position"] as Vector3).distance_to(stall["position"])
+		expect(d >= last - 0.001 and d <= 40.0, "anchors_near sorted and within the radius")
+		last = d
+	expect(Settlements.get_anchor(&"no_such_anchor").is_empty(), "unknown anchor -> {}")
+
+
+func test_settlement_and_district_lookup() -> void:
+	if not WorldData.has_world_data():
+		return
+	var city := WorldData.get_city(Settlements.WATER_TRIBE)
+	var palace: Vector3 = city["palace"]["position"]
+	expect_eq(Settlements.settlement_at(palace), Settlements.WATER_TRIBE, "palace is in the Water Tribe")
+	expect_eq(Settlements.district_at(palace), &"nwt_palace", "palace district")
+	expect_eq(Settlements.district_at(city["spirit_oasis"]["position"]), &"nwt_spirit_oasis", "oasis district")
+	var sat := WorldData.get_city(Settlements.AIR_TEMPLE)
+	expect_eq(Settlements.settlement_at(sat["center"]), Settlements.AIR_TEMPLE, "temple centre")
+	expect_eq(Settlements.district_at(sat["center"]), &"sat_sanctum", "sanctum district")
+	expect_eq(Settlements.district_at(WorldData.get_poi(&"at_airball_courts")["position"]), &"sat_airball_court", "airball court district")
+	expect_eq(Settlements.settlement_at(Vector3(0, 0, 0)), &"", "nothing in the middle of the world")
+	var info := Settlements.get_info(Settlements.AIR_TEMPLE)
+	expect(int(info["pieces"]) > 0 and int(info["anchors"]) > 0 and info["name"] == "Southern Air Temple", "get_info")
+
+
+func test_plans_are_deterministic() -> void:
+	if not WorldData.has_world_data():
+		return
+	var sig := func(p: SettlementPlan) -> int:
+		var h := p.pieces.size() * 31 + p.anchors.size()
+		for pc in p.pieces:
+			var q: Vector3 = pc["pos"]
+			h = ContentHash.hash4(h, int(q.x * 100.0), int(q.z * 100.0), ContentHash.hash_name(String(pc["arch"])))
+		return h
+	var before := {}
+	for sid in Settlements.ALL:
+		before[sid] = sig.call(Settlements.plan(sid))
+	Settlements.reset()
+	for sid in Settlements.ALL:
+		expect_eq(sig.call(Settlements.plan(sid)), before[sid], "%s plan is identical when rebuilt" % sid)
+	# an archetype built twice is the same geometry
+	var b := Settlements.builder(Settlements.AIR_TEMPLE)
+	var pc: Dictionary = Settlements.plan(Settlements.AIR_TEMPLE).pieces_of(&"dormitory")[0]
+	var k1 := BuildingKit.new(b.palette(), 0, 7)
+	b.build_piece(k1, pc)
+	var k2 := BuildingKit.new(b.palette(), 0, 7)
+	b.build_piece(k2, pc)
+	expect_eq(k1.build().triangle_count, k2.build().triangle_count, "recipe output is deterministic")
+
+
+func test_register_claims_and_skip_tags() -> void:
+	if not WorldData.has_world_data():
+		return
+	var content := WorldContent.new()
+	content.use_default_providers = false
+	add_child(content)
+	var provs := Settlements.register(content, {"skip_tags": [&"airball_court"]})
+	expect(provs.size() >= 6, "near + far provider per settlement (%d)" % provs.size())
+	expect(content.get_provider(&"settlement_southern_air_temple") != null, "temple streams")
+	for c: StringName in SatPlanner.CLAIMS:
+		expect(ContentClaims.is_claimed(c), "%s claimed from worldcontent" % c)
+	var near: SettlementProvider = content.get_provider(&"settlement_southern_air_temple")
+	expect(near.skip_tags.has(&"airball_court"), "skip tags reach the provider")
+	# the cell of the airball court is lighter without it
+	var poi: Vector3 = WorldData.get_poi(&"at_airball_courts")["position"]
+	var p := near.plan
+	var coord := p.coord_of(poi.x, poi.z)
+	var origin := Vector3((coord.x + 0.5) * p.cell_size, 0, (coord.y + 0.5) * p.cell_size)
+	near.cfg = SettlementSettings.current()
+	var with_skip: int = (near.build_lods(coord, origin)[0] as KitResult).triangle_count
+	near.skip_tags = []
+	var full: int = (near.build_lods(coord, origin)[0] as KitResult).triangle_count
+	expect(with_skip < full, "airball court left out (%d < %d tris)" % [with_skip, full])
+	Settlements.unregister(content)
+	expect(content.get_provider(&"settlement_southern_air_temple") == null, "unregistered")
+	content.queue_free()
+	for c: StringName in SatPlanner.CLAIMS:
+		ContentClaims.release(c)
+
+
+func test_tutorial_site_is_tagged() -> void:
+	if not WorldData.has_world_data():
+		return
+	var poi: Vector3 = WorldData.get_poi(&"at_airball_courts")["position"]
+	var n := 0
+	for pc in Settlements.plan(Settlements.AIR_TEMPLE).pieces:
+		if pc["kind"] in [&"tier_wall", &"stair", &"edge_rail", &"sky_bridge"]:
+			continue
+		var q: Vector3 = pc["pos"]
+		if Vector2(q.x - poi.x, q.z - poi.z).length() - float(pc["r"]) < 13.0:
+			expect_eq((pc["spec"] as Dictionary).get("tag"), &"airball_court", "%s inside the training circle is tagged" % pc["kind"])
+			n += 1
+	expect(n >= 1, "the court itself is there")
+
+
+## The air arrival flight passes ~20 m from the Great Spire at Sanctum height: a 1.2 m sphere
+## swept along the camera path (1 m steps) must touch nothing of the temple's collision (walls,
+## roofs, cones, spires, stairs) nor the terrain.
+func test_air_arrival_flight_is_clear() -> void:
+	if not WorldData.has_world_data():
+		return
+	var planner := SatPlanner.new()
+	planner.build()
+	expect(planner.cam_path.size() > 50, "the flight path is known")
+	var near_temple := PackedVector3Array()
+	var c: Vector3 = Settlements.plan(Settlements.AIR_TEMPLE).center
+	for q in planner.cam_path:
+		if Vector2(q.x - c.x, q.z - c.z).length() < 260.0:
+			near_temple.append(q)
+	_walk_world(Settlements.AIR_TEMPLE, _path_rect([near_temple]))
+	await physics_frames(3)
+	var space := _walk_root.get_world_3d().direct_space_state
+	var sq := PhysicsShapeQueryParameters3D.new()
+	var sphere := SphereShape3D.new()
+	sphere.radius = 1.2
+	sq.shape = sphere
+	sq.collision_mask = Layers.WORLD
+	var checked := 0
+	for i in near_temple.size() - 1:
+		var a := near_temple[i]
+		var bq := near_temple[i + 1]
+		var n := maxi(int(ceil(a.distance_to(bq))), 1)
+		for k in n:
+			sq.transform = Transform3D(Basis(), a.lerp(bq, float(k) / n))
+			checked += 1
+			if not space.intersect_shape(sq, 1).is_empty():
+				fail("the arrival camera touches the temple at %s" % sq.transform.origin)
+				return
+	expect(checked > 200, "the flight over the temple was swept (%d points)" % checked)
+
+
 func test_nwt_cell_build_budget() -> void:
 	if not WorldData.has_world_data():
 		return

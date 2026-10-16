@@ -141,11 +141,19 @@ static func doorway(kit: BuildingKit, c: Vector3, w: float = 1.3, h: float = 2.2
 					{"role": curtain, "alt_role": &"cloth_alt", "rod": true, "tail": false})
 
 
+## Colour of a lit window pane (glow slot): a warm amber that reads as a curtained window by day
+## and glows at night.
+static func lit_window_color(kit: BuildingKit) -> Color:
+	var g := kit.col(&"glow", false)
+	return Color(g.r * 0.55, g.g * 0.42, g.b * 0.26)
+
+
 ## Window inset (dark with a light frame) on a face facing -Z at local `c` (centre).
 static func window(kit: BuildingKit, c: Vector3, w: float = 0.7, h: float = 0.9, frame_role: Variant = &"trim",
 		depth: float = 0.06, lit: bool = false) -> void:
 	if lit:
-		kit.g(&"glow").box(Transform3D(Basis(), c + Vector3(0, 0, -depth)), Vector3(w, h, 0.05), kit.col(&"glow") * 0.85)
+		# amber by day, glowing at night (kit_glow multiplies by 0.6 by day, 2.6 at night)
+		kit.g(&"glow").box(Transform3D(Basis(), c + Vector3(0, 0, -depth)), Vector3(w, h, 0.05), lit_window_color(kit))
 	else:
 		kit.box(c + Vector3(0, 0, -depth), Vector3(w, h, 0.05), &"window", false)
 	if kit.lod == 0:

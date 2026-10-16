@@ -494,12 +494,13 @@ static func garden(kit: BuildingKit, spec: Dictionary) -> void:
 static func statue(kit: BuildingKit, v: int) -> void:
 	var stone := SatStyle.masonry(2) * 1.05
 	var stone2 := SatStyle.masonry(0)
-	# stepped pedestal
-	kit.box(Vector3(0, 0.4, 0), Vector3(4.2, 0.8, 4.2), SatStyle.masonry(1), true)
-	kit.box(Vector3(0, 1.3, 0), Vector3(3.2, 1.0, 3.2), SatStyle.wall(1), true)
+	# stepped pedestal (long for the resting bison)
+	var pl := 7.0 if v % 3 == 2 else 3.2
+	kit.box(Vector3(0, 0.4, 0), Vector3(4.2, 0.8, pl + 1.0), SatStyle.masonry(1), true)
+	kit.box(Vector3(0, 1.3, 0), Vector3(3.2, 1.0, pl), SatStyle.wall(1), true)
 	if kit.lod < 2:
-		kit.box(Vector3(0, 1.82, 0), Vector3(3.5, 0.12, 3.5), SatStyle.orange(), false)
-		KitX.emblem_air(kit, Vector3(0, 1.3, -1.61), 0.8, SatStyle.saffron(), 0.02)
+		kit.box(Vector3(0, 1.82, 0), Vector3(3.5, 0.12, pl + 0.3), SatStyle.orange(), false)
+		KitX.emblem_air(kit, Vector3(0, 1.3, -pl * 0.5 - 0.01), 0.8, SatStyle.saffron(), 0.02)
 	var b := Vector3(0, 1.88, 0)
 	var g := kit.g()
 	var sub := 1 if kit.lod == 0 else 0
@@ -529,15 +530,34 @@ static func statue(kit: BuildingKit, v: int) -> void:
 				for sx: float in [-1.0, 1.0]:
 					g.box(Transform3D(Basis(Vector3.UP, sx * 0.4), b + Vector3(0.75 + sx * 0.55, 3.9, -0.3)), Vector3(1.0, 0.05, 0.4), kit.col(stone2))
 		_:
-			# resting sky bison: the long furry body, the head with horns, a broad tail
-			g.blob(b + Vector3(0, 1.1, 0.1), 1.6, sub, kit.col(stone), null, 0.0, Vector3(0.95, 0.62, 1.35))
-			g.blob(b + Vector3(0, 1.0, -1.85), 0.75, sub, kit.col(stone2), null, 0.0, Vector3(1.2, 0.85, 1.0))
-			for sx: float in [-1.0, 1.0]:
-				g.tube(PackedVector3Array([b + Vector3(sx * 0.6, 1.5, -1.9), b + Vector3(sx * 1.0, 1.7, -1.7), b + Vector3(sx * 1.05, 2.1, -1.95)]),
-						PackedFloat32Array([0.14, 0.1, 0.03]), 5, kit.col(stone2))
-				for fz: float in [-1.0, 1.0]:
-					g.blob(b + Vector3(sx * 0.9, 0.3, fz * 0.9), 0.38, 0, kit.col(stone2), null, 0.0, Vector3(1.0, 0.7, 1.2))
-			g.blob(b + Vector3(0, 0.8, 2.1), 0.6, 0, kit.col(stone), null, 0.0, Vector3(1.4, 0.35, 0.9))
+			# resting sky bison: long furry body with a scalloped fringe, six tucked legs, the
+			# broad flat face with curving horns, a wide fan tail, the arrow inlaid down its back
+			var fur := SatStyle.lin(Color(0.86, 0.82, 0.74))
+			var fur2 := SatStyle.lin(Color(0.74, 0.70, 0.62))
+			var arrow := SatStyle.lin(Color(0.46, 0.34, 0.24))
+			g.blob(b + Vector3(0, 1.05, 0.2), 1.0, sub + 1, kit.col(fur), null, 0.0, Vector3(1.45, 0.95, 2.1))
 			if kit.lod < 2:
-				g.box(Transform3D(Basis(Vector3.RIGHT, -0.4), b + Vector3(0, 1.75, -1.75)), Vector3(0.18, 0.03, 0.6), kit.col(SatStyle.sky()))
-	kit.collide_box(Vector3(0, 3.6, 0), Vector3(2.2, 3.4, 2.4))
+				# fur fringe: a ring of soft lobes around the belly
+				for k in 14:
+					var a := TAU * k / 14.0
+					g.blob(b + Vector3(cos(a) * 1.35, 0.42, 0.2 + sin(a) * 1.95), 0.34, 0, kit.col(fur2), null, 0.0, Vector3(1.0, 0.8, 1.0))
+			for sx: float in [-1.0, 1.0]:
+				for fz: float in [-1.2, 0.2, 1.5]:
+					g.blob(b + Vector3(sx * 1.15, 0.28, fz), 0.32, 0, kit.col(fur2), null, 0.0, Vector3(1.0, 0.75, 1.3))
+			# head: broad, flat-faced, low in front of the body
+			var hc := b + Vector3(0, 1.15, -2.15)
+			g.blob(hc, 0.72, sub, kit.col(fur), null, 0.0, Vector3(1.25, 0.95, 0.95))
+			g.blob(hc + Vector3(0, -0.22, -0.5), 0.42, 0, kit.col(fur2), null, 0.0, Vector3(1.3, 0.75, 0.7))
+			for sx: float in [-1.0, 1.0]:
+				g.tube(PackedVector3Array([hc + Vector3(sx * 0.55, 0.45, 0.05), hc + Vector3(sx * 1.05, 0.62, 0.05), hc + Vector3(sx * 1.2, 1.05, -0.2)]),
+						PackedFloat32Array([0.13, 0.09, 0.025]), 6, kit.col(SatStyle.lin(Color(0.62, 0.55, 0.44))))
+				g.blob(hc + Vector3(sx * 0.33, 0.12, -0.62), 0.07, 0, kit.col(arrow))
+			# the broad fan tail
+			g.blob(b + Vector3(0, 0.75, 2.55), 0.75, 0, kit.col(fur), null, 0.0, Vector3(1.6, 0.32, 1.0))
+			if kit.lod < 2:
+				# the arrow: a stripe down the back widening into the head chevron
+				var spine := PackedVector3Array([b + Vector3(0, 2.02, 1.6), b + Vector3(0, 2.0, 0.2), b + Vector3(0, 1.82, -1.3), hc + Vector3(0, 0.62, -0.1)])
+				g.tube(spine, PackedFloat32Array([0.12, 0.16, 0.16, 0.12]), 5, kit.col(arrow))
+				for sx: float in [-1.0, 1.0]:
+					g.tube(PackedVector3Array([hc + Vector3(0, 0.66, -0.1), hc + Vector3(sx * 0.32, 0.55, -0.42)]), PackedFloat32Array([0.12, 0.07]), 5, kit.col(arrow))
+	kit.collide_box(Vector3(0, 3.4, 0), Vector3(2.4, 3.0, minf(pl, 5.6)))

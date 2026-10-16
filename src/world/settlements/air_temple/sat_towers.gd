@@ -27,16 +27,16 @@ static func _shaft_window(kit: BuildingKit, r: float, a: float, y: float, w: flo
 	kit.push(Transform3D(Basis(Vector3.UP, atan2(dir.x, dir.z) + PI), dir * (r - 0.03) + Vector3(0, y, 0)))
 	if kit.lod >= 2:
 		if lit:
-			kit.g(&"glow").box(Transform3D(Basis(), Vector3(0, 0, -0.06)), Vector3(w * 1.2, h * 1.1, 0.05), kit.col(&"glow") * 0.55)
+			kit.g(&"glow").box(Transform3D(Basis(), Vector3(0, 0, -0.06)), Vector3(w * 1.2, h * 1.1, 0.05), KitX.lit_window_color(kit) * 1.1)
 	else:
 		if lit:
-			kit.g(&"glow").box(Transform3D(Basis(), Vector3(0, -h * 0.1, -0.05)), Vector3(w, h * 0.8, 0.05), kit.col(&"glow") * 0.8)
+			kit.g(&"glow").box(Transform3D(Basis(), Vector3(0, -h * 0.1, -0.05)), Vector3(w, h * 0.8, 0.05), KitX.lit_window_color(kit))
 		else:
 			kit.box(Vector3(0, -h * 0.1, -0.05), Vector3(w, h * 0.8, 0.06), &"window", false)
 		# arched head: a dark half disc + orange frame ring
 		var segs := 6 if kit.lod == 0 else 3
 		var gb := kit.g()
-		var dark := kit.col(&"window", false) if not lit else kit.col(&"glow") * 0.8
+		var dark := kit.col(&"window", false) if not lit else KitX.lit_window_color(kit)
 		var top := h * 0.3
 		for i in segs:
 			var a0 := PI * float(i) / segs
