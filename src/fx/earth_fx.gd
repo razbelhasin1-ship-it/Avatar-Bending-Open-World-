@@ -33,34 +33,47 @@ static func release_rock(m: MeshInstance3D) -> void:
 	FxLib.release(m)
 
 
-## Ground tears open where rock is ripped out: debris, dust and a crack.
+## Ground tears open where rock is ripped out: debris, dust and a crack, in the
+## colours of the ground (EarthPalette: turf, sand, ash, snow ...).
 static func tear_out(from: Node, ground_pos: Vector3, size: float, surface: StringName = &"dirt") -> void:
-	var col := FxLib.surface_color(surface)
+	var pal := EarthPalette.of(surface)
 	FxDebris.spawn(from, ground_pos + Vector3.UP * 0.05, {"count": 4 + int(size * 6.0), "size": 0.08 + size * 0.12, "up": 3.0 + size * 3.0, "out": 1.5 + size * 2.0,
-			"ground_y": ground_pos.y, "color": col.darkened(0.15)})
-	FxBurst.spawn(from, &"dust", ground_pos, {"color": col, "count": 0.6 + size, "size": 0.6 + size * 0.6, "radius": 0.6 + size})
+			"ground_y": ground_pos.y, "color": pal["debris"]})
+	FxBurst.spawn(from, &"snow" if surface == &"snow" else &"dust", ground_pos, {"color": pal["dust"], "count": 0.6 + size, "size": 0.6 + size * 0.6, "radius": 0.6 + size})
 	FxDecal.spawn(from, ground_pos, &"crack", 0.6 + size * 1.4)
 
 
 ## Rock smashing into something: chunks, dust, ring.
 static func impact(from: Node, pos: Vector3, size: float, surface: StringName = &"dirt", ground_y: float = INF) -> void:
 	var gy := ground_y if ground_y < INF else pos.y - 0.5
-	FxDebris.spawn(from, pos, {"count": 5 + int(size * 6.0), "size": 0.1 + size * 0.14, "up": 3.5 + size * 2.0, "out": 3.0 + size * 2.5, "ground_y": gy})
-	FxBurst.spawn(from, &"dust", pos, {"color": FxLib.surface_color(surface), "count": 0.8 + size, "size": 0.7 + size * 0.7, "speed": 1.2 + size * 0.5, "spread": 120.0})
+	var pal := EarthPalette.of(surface)
+	FxDebris.spawn(from, pos, {"count": 5 + int(size * 6.0), "size": 0.1 + size * 0.14, "up": 3.5 + size * 2.0, "out": 3.0 + size * 2.5, "ground_y": gy,
+			"color": pal["debris"]})
+	FxBurst.spawn(from, &"dust", pos, {"color": pal["dust"], "count": 0.8 + size, "size": 0.7 + size * 0.7, "speed": 1.2 + size * 0.5, "spread": 120.0})
 	if size > 0.6:
-		FxRing.spawn(from, Vector3(pos.x, gy, pos.z), 1.5 + size * 2.0, FxLib.surface_color(surface), 0.45, {"opacity": 0.55, "fill": 0.3})
-		FxDecal.spawn(from, Vector3(pos.x, gy, pos.z), &"crack", 0.8 + size)
+		FxRing.spawn(from, Vector3(pos.x, gy, pos.z), 1.5 + size * 2.0, pal["dust"], 0.45, {"opacity": 0.55, "fill": 0.3})
+		if absf(pos.y - gy) < 1.2:
+			# A heavy rock striking the ground leaves a crater that stays a while.
+			EarthMarks.crater(from, Vector3(pos.x, gy, pos.z), 0.6 + size * 0.8, surface)
+		else:
+			FxDecal.spawn(from, Vector3(pos.x, gy, pos.z), &"crack", 0.8 + size)
 
 
-## Shockwave over the ground (earth landings, stomps, slides).
+## Shockwave over the ground (earth landings, stomps, slides). Big ones (radius
+## >= 2.5 m) leave a persistent cracked crater (EarthMarks).
 static func quake(from: Node, ground_pos: Vector3, radius: float, surface: StringName = &"dirt") -> void:
-	var col := FxLib.surface_color(surface)
-	FxRing.spawn(from, ground_pos, radius, col.lightened(0.1), 0.55, {"opacity": 0.7, "width": 0.2, "fill": 0.35, "inner": col})
+	var pal := EarthPalette.of(surface)
+	var col: Color = pal["dust"]
+	FxRing.spawn(from, ground_pos, radius, col.lightened(0.1), 0.55, {"opacity": 0.7, "width": 0.2, "fill": 0.35, "inner": pal["rock"]})
 	FxBurst.spawn(from, &"dust_ring", ground_pos, {"color": col, "radius": radius * 0.5, "count": 1.0 + radius * 0.2})
-	FxDebris.spawn(from, ground_pos, {"count": 3 + int(radius), "size": 0.12, "up": 3.0, "out": radius * 1.2, "ground_y": ground_pos.y, "color": col.darkened(0.2)})
-	FxDecal.spawn(from, ground_pos, &"crack", radius * 0.55)
+	FxDebris.spawn(from, ground_pos, {"count": 3 + int(radius), "size": 0.12, "up": 3.0, "out": radius * 1.2, "ground_y": ground_pos.y, "color": pal["debris"]})
+	if radius >= 2.5:
+		EarthMarks.crater(from, ground_pos, radius * 0.45, surface)
+	else:
+		FxDecal.spawn(from, ground_pos, &"crack", radius * 0.55)
 
 
 ## Dust kicked up along a slide or a dragged rock.
 static func dust_trail(from: Node, ground_pos: Vector3, dir: Vector3, surface: StringName = &"dirt", strength: float = 1.0) -> void:
-	FxBurst.spawn(from, &"dust", ground_pos, {"color": FxLib.surface_color(surface), "count": 0.5 * strength, "dir": (Vector3.UP * 0.6 - dir * 0.4), "size": 0.7, "spread": 45.0})
+	FxBurst.spawn(from, &"snow" if surface == &"snow" else &"dust", ground_pos, {"color": EarthPalette.color(surface, "dust"), "count": 0.5 * strength,
+			"dir": (Vector3.UP * 0.6 - dir * 0.4), "size": 0.7, "spread": 45.0})
