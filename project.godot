@@ -28,6 +28,7 @@ SaveSystem="*res://src/autoload/save_system.gd"
 Audio="*res://src/autoload/audio_manager.gd"
 WorldData="*res://src/autoload/world_data.gd"
 Router="*res://src/autoload/router.gd"
+Quests="*res://src/quests/quest_system.gd"
 
 [display]
 
