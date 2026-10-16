@@ -283,14 +283,16 @@ static func arc(L: RingLayout, r: float, b0: float, b1: float, y: float, step: f
 ## Hanging nation banner (cloth slot, ripples in the wind): `t` origin = top centre, hangs
 ## along -Y facing -Z. A field colour with thin edge stripes, a pointed tail and an emblem
 ## sampled per vertex: &"moon" (Water Tribe crescent over waves), &"swirl" (Air Nomad ring),
-## &"none". field/trim: palette roles or Colors.
+## &"earth" (Earth Kingdom ring and square), &"fire" (Fire Nation flame), &"none". field/trim:
+## palette roles or Colors. res: grid resolution multiplier at LOD0 (giant banners).
 static func banner(kit: BuildingKit, t: Transform3D, width: float, length: float, field: Variant = &"cloth",
-		trim: Variant = &"cloth_alt", emblem: StringName = &"moon") -> void:
+		trim: Variant = &"cloth_alt", emblem: StringName = &"moon", res: int = 1) -> void:
 	kit.push(t)
 	var c0 := kit.col(field, false)
 	var c1 := kit.col(trim, false)
-	var nx: int = [8, 3, 1][clampi(kit.lod, 0, 2)]
-	var ny: int = [14, 5, 2][clampi(kit.lod, 0, 2)]
+	# res > 1 (LOD0 only): a finer grid so emblems resolve on giant banners
+	var nx: int = [8 * res, 3, 1][clampi(kit.lod, 0, 2)]
+	var ny: int = [14 * res, 5, 2][clampi(kit.lod, 0, 2)]
 	var cb := kit.g(&"cloth")
 	var base := cb.vertex_count()
 	var aspect := length / maxf(width, 0.01)

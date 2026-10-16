@@ -112,10 +112,13 @@ static func _leak_windows(kit: BuildingKit, a: Vector3, b: Vector3, wh: float, f
 	for k in n:
 		var p := a + dir * (length * (k + 0.5) / n) + Vector3(0, wh * 0.62, 0)
 		kit.box_t(Transform3D(basis, p), Vector3(0.95, 0.75, 0.5), &"window", false)
-		kit.box_t(Transform3D(basis, p), Vector3(1.15, 0.12, 0.56), frame, false)
-		kit.box_t(Transform3D(basis, p), Vector3(0.1, 0.75, 0.56), frame, false)
-		kit.box_t(Transform3D(basis, p + Vector3(0, 0.42, 0)), Vector3(1.2, 0.1, 0.58), frame, false)
-		kit.box_t(Transform3D(basis, p - Vector3(0, 0.42, 0)), Vector3(1.2, 0.1, 0.58), frame, false)
+		kit.box_t(Transform3D(basis, p), Vector3(0.95, 0.07, 0.54), frame, false)
+		for sx: float in [-0.17, 0.17]:
+			kit.box_t(Transform3D(basis, p + dir * sx), Vector3(0.07, 0.75, 0.54), frame, false)
+		for sy: float in [-1.0, 1.0]:
+			kit.box_t(Transform3D(basis, p + Vector3(0, sy * 0.42, 0)), Vector3(1.2, 0.1, 0.58), frame, false)
+		for sx: float in [-1.0, 1.0]:
+			kit.box_t(Transform3D(basis, p + dir * sx * 0.52), Vector3(0.1, 0.94, 0.58), frame, false)
 
 
 ## Cloth awning over a shop front (cloth slot, ripples), sloping down towards -Z.

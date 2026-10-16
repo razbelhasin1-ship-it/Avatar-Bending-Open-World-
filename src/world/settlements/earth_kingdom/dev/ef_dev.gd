@@ -23,6 +23,8 @@ const EF_VIEWS := {
 	"bss_palace": {"pos": Vector3(2000, 100, 330), "look": Vector3(2000, 115, 200), "hour": 15.0, "fov": 64.0},
 	"bss_spawn": {"pos": Vector3(1875.75, 89, 242.64), "look": Vector3(1808.75, 86.5, 242.64), "hour": 16.4, "fov": 72.0},
 	"bss_night": {"pos": Vector3(1590, 95, 120), "look": Vector3(2000, 80, 200), "hour": 22.0, "fov": 60.0},
+	"bss_arrival": {"pos": Vector3(2508.75, 346.0, 242.64), "look": Vector3(1608.75, 56.0, 242.64), "hour": 16.4, "fov": 58.0},
+	"bss_gate_noon": {"pos": Vector3(1215, 61, 206), "look": Vector3(1300, 70, 200), "hour": 11.0, "fov": 64.0},
 	"bss_aerial": {"pos": Vector3(1400, 520, 900), "look": Vector3(2000, 60, 200), "hour": 15.0, "fov": 55.0},
 	# --- Omashu ---
 	"omashu_far": {"pos": Vector3(980, 260, -300), "look": Vector3(380, 190, -420), "hour": 15.0, "fov": 55.0},

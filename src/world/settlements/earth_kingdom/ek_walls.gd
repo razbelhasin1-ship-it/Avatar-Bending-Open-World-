@@ -127,7 +127,7 @@ static func city_wall(kit: BuildingKit, spec: Dictionary) -> void:
 	if spec.get("banner", false):
 		var tilt := asin(bat / (H - bottom))
 		KitX.banner(kit, Transform3D(Basis(Vector3.RIGHT, tilt), Vector3(hl * 0.25, H - 0.6, face_z.call(H - 0.6) - 0.3)), 3.2,
-				minf(H * 0.42, 15.0), EkStyle.CLOTH_GREEN, EkStyle.CLOTH_GOLD, &"earth")
+				minf(H * 0.42, 15.0), EkStyle.CLOTH_GREEN, EkStyle.CLOTH_GOLD, &"earth", 2)
 
 
 ## Square bastion: spec S (width along the wall), H (wall height), T (wall thickness), out
@@ -169,7 +169,7 @@ static func wall_tower(kit: BuildingKit, spec: Dictionary) -> void:
 	if v % 2 == 0 and kit.lod < 2:
 		var tilt := asin(bat / (Ht - bottom))
 		KitX.banner(kit, Transform3D(Basis(Vector3.RIGHT, tilt), Vector3(0, Ht - 1.4, z0 - 0.3 - bat * 1.4 / (Ht - bottom))), 3.4, minf(Ht * 0.45, 16.0),
-				EkStyle.CLOTH_GREEN, EkStyle.CLOTH_GOLD, &"earth")
+				EkStyle.CLOTH_GREEN, EkStyle.CLOTH_GOLD, &"earth", 2)
 	if not roof:
 		return
 	# pavilion: lacquered posts, emerald hip roof with gold ridges
@@ -221,9 +221,9 @@ static func great_gate(kit: BuildingKit, spec: Dictionary) -> void:
 			# giant banners on the outer and inner faces (following the battered faces)
 			var tilt := asin(bat / (Hg - bottom))
 			KitX.banner(kit, Transform3D(Basis(Vector3.RIGHT, tilt), Vector3((x0 + x1) * 0.5, Hg - 1.6, -hd - 0.35 - bat * 1.6 / (Hg - bottom))), Wt * 0.42,
-					minf(Hg * 0.62, 24.0), EkStyle.CLOTH_GREEN, EkStyle.CLOTH_GOLD, &"earth")
+					minf(Hg * 0.62, 24.0), EkStyle.CLOTH_GREEN, EkStyle.CLOTH_GOLD, &"earth", 3)
 			KitX.banner(kit, Transform3D(Basis(Vector3.UP, PI) * Basis(Vector3.RIGHT, tilt * 0.5), Vector3((x0 + x1) * 0.5, Hg - 1.6, hd + 0.35)), Wt * 0.36,
-					minf(Hg * 0.5, 18.0), EkStyle.CLOTH_GREEN, EkStyle.CLOTH_GOLD, &"earth")
+					minf(Hg * 0.5, 18.0), EkStyle.CLOTH_GREEN, EkStyle.CLOTH_GOLD, &"earth", 2)
 			if kit.lod == 0:
 				for y: float in [Hg * 0.45, Hg * 0.7]:
 					kit.box(Vector3((x0 + x1) * 0.5 + sx * Wt * 0.3, y, -hd - Hg * 0.05 * (1.0 - y / Hg) - 0.02), Vector3(0.5, 2.2, 0.3), &"window", false)
