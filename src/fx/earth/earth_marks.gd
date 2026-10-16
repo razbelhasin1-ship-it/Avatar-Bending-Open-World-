@@ -44,7 +44,8 @@ static func crater(from: Node, pos: Vector3, radius: float, surface: StringName 
 		x = Vector3.RIGHT
 	x = x.normalized()
 	var b := Basis(x, n, x.cross(n)).orthonormalized().rotated(n, randf() * TAU)
-	m._place(Transform3D(b, pos + n * 0.03), Vector3(radius * 2.0, 0.9, radius * 2.0), surface)
+	# Shallow projection box (+-0.35 m): the cracks stay on the ground, not up the legs of whoever stands there.
+	m._place(Transform3D(b, pos + n * 0.03), Vector3(radius * 2.0, 0.7, radius * 2.0), surface)
 	return m
 
 

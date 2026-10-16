@@ -45,11 +45,12 @@ func on_event(event: StringName) -> void:
 			{"clearance": float(param("clearance", 1.2))})
 	EarthWaveFx.spawn(ctx.caster, gp, radius, dur, kind, EarthEnv.ground_fn(ctx),
 			{"rings": 3, "per_ring": int(param("shards", 9)), "height": 0.8 * pw, "inner": 0.35})
-	FxRing.spawn(ctx.caster, gp, radius, EarthPalette.color(kind, "dust"), dur + 0.2, {"opacity": 0.6, "width": 0.14, "fill": 0.25,
+	# A thin expanding line marks the reach (no flat filled disc).
+	FxRing.spawn(ctx.caster, gp, radius, EarthPalette.color(kind, "dust"), dur + 0.2, {"opacity": 0.4, "width": 0.07, "fill": 0.0,
 			"inner": EarthPalette.color(kind, "rock")})
 	FxBurst.spawn(ctx.caster, &"dust_ring", gp, {"color": EarthPalette.color(kind, "dust"), "radius": 1.2, "count": 1.6})
 	FxDebris.spawn(ctx.caster, gp, {"count": 8, "size": 0.13, "up": 4.5, "out": 3.0, "ground_y": gp.y, "color": EarthPalette.color(kind, "debris")})
-	EarthEnv.crater(ctx, gp, float(param("crater", 1.5)), kind)
+	EarthEnv.crater(ctx, gp, float(param("crater", 1.5)), kind, g["normal"])
 	sound(&"stomp", gp, 2.0)
 	sound(&"debris", gp, -4.0)
 	EarthEnv.shake(ctx, gp, 0.42, 0.3)

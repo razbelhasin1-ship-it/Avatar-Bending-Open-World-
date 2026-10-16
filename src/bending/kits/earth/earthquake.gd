@@ -97,7 +97,7 @@ func _slam(gp: Vector3, kind: StringName) -> void:
 	var pw := EarthEnv.power(info)
 	wave = EarthShockwave.start(ctx, gp, r, dur, EarthEnv.scaled_hit(hit_data(), info), attack_id, def.id, {"clearance": 1.5, "inner": 0.6})
 	EarthWaveFx.spawn(ctx.caster, gp, r, dur, kind, EarthEnv.ground_fn(ctx), {"rings": 4, "per_ring": 12, "height": 1.25 * pw, "inner": 0.22, "keep": 0.2})
-	FxRing.spawn(ctx.caster, gp, r, EarthPalette.color(kind, "dust"), dur + 0.3, {"opacity": 0.75, "width": 0.12, "fill": 0.3,
+	FxRing.spawn(ctx.caster, gp, r, EarthPalette.color(kind, "dust"), dur + 0.3, {"opacity": 0.5, "width": 0.06, "fill": 0.06,
 			"inner": EarthPalette.color(kind, "rock")})
 	# Fissures splitting the ground outward, broken slabs along them.
 	var n := clampi(int(round(float(param("fissures", 7)) * clampf(FxLib.scale(), 0.6, 1.2))), 4, 9)

@@ -156,7 +156,7 @@ func _raise() -> void:
 	var facing := ctx.forward() if self_mode else -_flat_to(gp)
 	pillar = EarthEnv.raise_pillar(ctx, gp, facing, {"radius": float(param("radius", 0.75)) * lerpf(1.0, pw, 0.4), "height": height,
 			"hp": float(param("hp", 120.0)) * pw, "lifetime": float(param("lifetime", 9.0)), "rise_time": rise, "kind": kind})
-	EarthEnv.crater(ctx, gp, 1.25, kind)
+	EarthEnv.crater(ctx, gp, 1.25, kind, info.get("normal", Vector3.UP))
 	FxBurst.spawn(ctx.caster, &"dust_ring", gp, {"color": EarthPalette.color(kind, "dust"), "radius": 0.9, "count": 1.1})
 	sound(&"launch", gp)
 	EarthEnv.shake(ctx, gp, 0.3, 0.22)
