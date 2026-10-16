@@ -66,16 +66,25 @@ func test_sat_cells_build() -> void:
 	far.cfg = prov.cfg
 	var worst := 0.0
 	var tris := 0
+	var tris1 := 0
+	var tris2 := 0
+	var max_tris := 0
+	var cache0 := KitCache.size()
 	for c: Vector2i in p.cells():
 		var origin := Vector3((c.x + 0.5) * p.cell_size, 0, (c.y + 0.5) * p.cell_size)
 		var t0 := Time.get_ticks_usec()
 		var res := prov.build_lods(c, origin)
 		worst = maxf(worst, (Time.get_ticks_usec() - t0) / 1000.0)
 		tris += (res[0] as KitResult).triangle_count
+		tris1 += (res[1] as KitResult).triangle_count
+		max_tris = maxi(max_tris, (res[0] as KitResult).triangle_count)
 		expect(not (res[0] as KitResult).surfaces.is_empty(), "cell %s has geometry" % c)
 		var r2 := far.build_sub(c, origin)
+		tris2 += r2.triangle_count
 		expect(r2.triangle_count < (res[0] as KitResult).triangle_count, "far LOD is lighter (%s)" % c)
-	print("    %d cells, worst build %.0f ms, %d lod0 tris total" % [p.cells().size(), worst, tris])
+	var n := maxi(p.cells().size(), 1)
+	print("    %d cells, worst build %.0f ms, %d lod0 tris total, lod0 avg %d max %d, lod1 avg %d, lod2 avg %d, +%d archetypes" % [
+		p.cells().size(), worst, tris, tris / n, max_tris, tris1 / n, tris2 / n, KitCache.size() - cache0])
 
 
 ## Regression: LOD hand-overs must not use visibility margins (a freshly streamed instance stays

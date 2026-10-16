@@ -100,10 +100,11 @@ slightly with distance — exactly on the LOD0 lamps and lit windows up to `lod1
 
 | | Water Tribe | Air Temple | Arctic |
 | --- | --- | --- | --- |
-| near cells (LOD0 + LOD1) | 54 × 128 m | 32 × 96 m | 6 |
-| LOD0 triangles per cell | avg ≈ 67 k, max ≈ 110 k | avg ≈ 42 k, max ≈ 105 k | < 15 k |
-| worst cell build (worker thread, llvmpipe box) | ≈ 115–145 ms | ≈ 130–150 ms | < 20 ms |
-| archetypes cached | ≈ 780 | ≈ 200 | shared |
+| near cells (LOD0 + LOD1) | 54 × 128 m | 32 × 96 m | 11 × 128 m (5 sites + wardens' camp) |
+| plan | 2807 pieces, 1224 anchors, 0.13 s | 615 pieces, 126 anchors, 0.07 s | 94 pieces, 92 anchors |
+| LOD0 triangles per cell | avg 53 k, max 114 k | avg 42 k, max 104 k | max 7 k |
+| LOD1 / LOD2 triangles per cell | avg 17 k / 3.4 k | avg 6.6 k / 1.5 k | – |
+| worst cell build (one worker, llvmpipe CI box) | 70–90 ms (≈ 110 ms with every worker busy) | 140–150 ms | < 15 ms |
 
 * One mesh per cell per LOD with ≤ 4 material surfaces (solid / ice / glow / cloth), so a cell
   costs a handful of draw calls; LOD1 is ≈ 1/5 of LOD0, LOD2 a few thousand triangles per
@@ -156,14 +157,15 @@ tools/playtest.sh settlements_wa_walk out 960x540
 ELEMENT=air tools/playtest.sh settlements_wa_world out 960x540
 ```
 
-* Unit: plan counts and kinds, every cell builds (LOD0 / LOD1 / LOD2, LOD2 lighter), cell
-  build budget, no LOD margins, anchors contract (unique ids, required keys, every kind present,
-  patrol routes),
-  `settlement_at` / `district_at`, determinism, registration (providers, claims, skip tags,
-  unregister), tutorial tag, arrival-flight clearance, and **probe-capsule walk tests over the
-  real collision** (terrain heightmap + cell bodies): the Air Temple stairs, sanctum gateway,
-  landing and both bridges; the 9 grand stairs; all 29 canal bridges, the piers and the three
-  interiors (step ≤ 0.42 m, drop ≤ 1.2 m, slope ≤ 46°, capsule clearance).
+* Unit: plan counts and kinds, every cell of every settlement builds (LOD0 / LOD1 / LOD2, LOD2
+  lighter; the stats above), cell build budget, no LOD margins, anchors contract (unique ids,
+  required keys, every kind present, patrol routes), `settlement_at` / `district_at`,
+  determinism, registration (providers, claims, skip tags, unregister), tutorial tag,
+  arrival-flight clearance, and **probe-capsule walk tests over the real collision** (terrain
+  heightmap + cell bodies; step ≤ 0.42 m, drop ≤ 1.2 m, slope ≤ 46°, capsule clearance): the
+  Air Temple stairs, sanctum gateway, landing and both bridges; the 9 grand stairs; all 29
+  canal bridges, the piers and the three interiors; out of both new-game spawns (air, water)
+  in four directions.
 * Playtests: the screenshot tour (any preset / renderer), the real player walking a bridge, a
   stair, a grand stair and into the healer hut, and a new game per element through the real
   world scene (hook registered, spawn on the settlement floor with no safety floor, walking).
@@ -171,8 +173,8 @@ ELEMENT=air tools/playtest.sh settlements_wa_world out 960x540
 ## Known issues / next steps
 
 * Performance numbers come from the software renderer (llvmpipe) on the CI box; no real
-  phone was profiled. Water Tribe LOD0 cells are heavy (avg ≈ 67 k triangles), mobile relies
-  on the 110 m LOD0 range.
+  phone was profiled. Water Tribe LOD0 cells are heavy (avg 53 k, max 114 k triangles); mobile
+  relies on the 110 m LOD0 range.
 * LOD hand-overs pop (no cross-fade). Far night glows use approximate spots, so glows shift
   slightly at `lod1_end`.
 * Anchors are data only: no NPCs are spawned here (NPC module). The stables and landing have
