@@ -48,8 +48,11 @@ void light() {
 	float ndl = dot(NORMAL, LIGHT);
 	float lit = smoothstep(-band_softness, band_softness, ndl + band_offset);
 	lit *= smoothstep(0.0, 0.25, ATTENUATION);
-	// Shadow side keeps a tinted fraction of the light so forms read clearly.
-	vec3 shade = mix(shade_tint.rgb * 0.35, vec3(1.0), lit);
+	// Shadow side keeps a tinted fraction of the light so forms read clearly. Point/spot lights
+	// fade that fill with their distance attenuation (otherwise it is added unattenuated to every
+	// pixel of the light's clusters and shows up as blocky patches).
+	float fill = LIGHT_IS_DIRECTIONAL ? 1.0 : clamp(ATTENUATION * 4.0, 0.0, 1.0);
+	vec3 shade = mix(shade_tint.rgb * 0.35 * fill, vec3(1.0), lit);
 	DIFFUSE_LIGHT += LIGHT_COLOR / PI * shade;
 	// Toon specular
 	vec3 h = normalize(LIGHT + VIEW);
@@ -57,5 +60,5 @@ void light() {
 	SPECULAR_LIGHT += LIGHT_COLOR / PI * spec * specular_strength * lit;
 	// Rim light on the lit side, scaled by light so it stays dark at night.
 	float rim = smoothstep(1.0 - rim_width, 1.0 - rim_width + 0.12, 1.0 - max(dot(NORMAL, VIEW), 0.0));
-	SPECULAR_LIGHT += LIGHT_COLOR / PI * rim * rim_strength * rim_color.rgb * max(lit, 0.25) * ALBEDO;
+	SPECULAR_LIGHT += LIGHT_COLOR / PI * rim * rim_strength * rim_color.rgb * max(lit, 0.25 * fill) * ALBEDO;
 }
