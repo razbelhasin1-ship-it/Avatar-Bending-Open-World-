@@ -190,8 +190,10 @@ func _defense() -> void:
 	# Parry a melee bot attack: the Fire Burst counter.
 	bot.mode = &"melee"
 	bot.global_position = Vector3(0, 0, -10.2)
-	var landed := [false]
-	var cb := func(_kind: StringName, _in: float) -> void: landed[0] = true
+	var landed := [false, 0.0]
+	var cb := func(_kind: StringName, release_in: float) -> void:
+		landed[0] = true
+		landed[1] = release_in
 	bot.telegraphed.connect(cb)
 	bot.attack_in(0.1, &"melee")
 	await _tick_until(func() -> bool: return landed[0], 2.0)
@@ -201,9 +203,12 @@ func _defense() -> void:
 		if t == pl and r == Combat.Result.DEFLECTED:
 			parried[0] = true
 	Events.hit_landed.connect(pc)
-	for i in 120:
+	var counters0 := _hits_of(&"flame_guard")
+	# Raise the guard just before the kick lands (the parry window is the first 0.15 s).
+	var press_at := int(maxf(0.0, float(landed[1]) - 0.07) * 60.0)
+	for i in 150:
 		await p.get_tree().physics_frame
-		if i == 20:
+		if i == press_at:
 			Input.action_press(&"block")
 		if parried[0]:
 			break
@@ -211,7 +216,9 @@ func _defense() -> void:
 	await _obs("defense_2_parry_burst", pl.global_position + Vector3.UP, 1.0, 5.0, 1.8)
 	Input.action_release(&"block")
 	Events.hit_landed.disconnect(pc)
-	p.note("parry: %s" % str(parried[0]))
+	await p.wait_game(0.2)
+	p.check(parried[0], "the kick was parried")
+	p.check(_hits_of(&"flame_guard") > counters0, "the Fire Burst counter knocked the bot down (%d)" % (_hits_of(&"flame_guard") - counters0))
 	bot.active = false
 	bot.global_position = Vector3(0, 0, -15)
 	await _place(Vector3(-2, 0, 0.0), 90.0)
@@ -392,16 +399,21 @@ func _env() -> void:
 	pl = p.player() as PlayerCharacter
 	pl.resources.infinite_chi = true
 	# An enemy's ice wall melts under a Blaze Charge; the snow patch steams.
+	await _place(Vector3(-12.0, 0, -2.0), 0.0)     # (placing crumbles constructs: raise the wall after)
 	var foe := BendingContext.new(arena.get("bot"), null, E.WATER, Combat.Team.ENEMY)
 	var wall := BendingConstruct.raise(foe, Vector3(-12.0, 0, -10.0), Vector3(0, 0, 1), {"kind": &"ice", "size": Vector3(4.0, 2.6, 0.9), "hp": 220.0, "lifetime": 30.0})
-	await _place(Vector3(-12.0, 0, -2.0), 0.0)
-	await p.wait_game(0.4)
+	var wall_at := wall.global_position
+	await p.wait_game(0.8)
+	var melted0 := FireEnv.melted
 	Input.action_press(&"attack_heavy")
 	await p.wait_game(1.4)
 	Input.action_release(&"attack_heavy")
-	await p.wait_game(0.6)
-	await _obs("env_4_ice_melting", wall.global_position + Vector3.UP * 1.3, -1.0, 6.0, 1.8)
-	p.check(not is_instance_valid(wall) or wall.hp < 220.0, "the ice wall melts (%.0f)" % (wall.hp if is_instance_valid(wall) else 0.0))
+	# The blast reaches the wall: it takes the fire (x1.8 vs ice), steams and sags.
+	await _tick_until(func() -> bool: return not is_instance_valid(wall) or wall.hp < 220.0, 1.5)
+	await p.wait_game(0.12)
+	await _obs("env_4_ice_melting", wall_at + Vector3.UP * 1.3, -1.0, 6.0, 1.8)
+	var hp_left := wall.hp if is_instance_valid(wall) and wall.is_alive() else 0.0
+	p.check(hp_left < 220.0 and FireEnv.melted > melted0, "the ice wall melts (%.0f / 220 HP left)" % hp_left)
 	await _place(Vector3(-12.0, 0, 1.0), 0.0)
 	_equip(&"fire_burst")
 	p.check(await _cast(&"ability_1", &"fire_burst"), "burst on the snow")
