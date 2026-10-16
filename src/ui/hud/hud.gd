@@ -31,6 +31,9 @@ extends CanvasLayer
 
 const CENTER_CLEAR := Rect2(0.3, 0.22, 0.4, 0.52)
 
+## Show a title card on every Events.region_entered (default). The world scene turns this
+## off and shows first-visit cards itself (RegionDirector); the compass still updates.
+var region_titles := true
 var player: Node = null
 var quest_provider: Object = null
 var health: HealthComponent = null
@@ -343,7 +346,8 @@ func set_region(region_id: StringName) -> void:
 
 func _on_region_entered(region_id: StringName) -> void:
 	set_region(region_id)
-	title_card.show_region(region_id)
+	if region_titles:
+		title_card.show_region(region_id)
 
 
 func _on_ability_failed(ability_id: StringName, _reason: StringName) -> void:

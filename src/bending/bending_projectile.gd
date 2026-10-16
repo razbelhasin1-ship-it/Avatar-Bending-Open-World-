@@ -66,9 +66,11 @@ static var live: Array[BendingProjectile] = []
 static func launch(p_ctx: BendingContext, from: Vector3, dir: Vector3, speed: float, h: Dictionary, opts: Dictionary = {}) -> BendingProjectile:
 	var p: BendingProjectile = null
 	while not _free.is_empty() and p == null:
-		var c: BendingProjectile = _free.pop_back()
+		# Untyped: pooled projectiles are freed with their scene's FxRoot (scene changes), and
+		# assigning a freed instance to a typed variable is a script error.
+		var c: Variant = _free.pop_back()
 		if is_instance_valid(c):
-			p = c
+			p = c as BendingProjectile
 	if p == null:
 		p = BendingProjectile.new()
 		p.name = "Projectile"
@@ -344,6 +346,13 @@ func _place_visual(delta: float) -> void:
 	if spin_visual != Vector3.ZERO and delta > 0.0:
 		visual.rotate_object_local(Vector3.FORWARD, spin_visual.z * delta)
 		visual.rotate_object_local(Vector3.RIGHT, spin_visual.x * delta)
+
+
+func _notification(what: int) -> void:
+	# Freed with its scene (FxRoot) while flying or pooled: never leave a dead entry behind.
+	if what == NOTIFICATION_PREDELETE:
+		live.erase(self)
+		_free.erase(self)
 
 
 func _finish() -> void:
