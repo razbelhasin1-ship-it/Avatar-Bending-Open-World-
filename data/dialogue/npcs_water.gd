@@ -3,6 +3,10 @@ extends RefCounted
 ## docs/modules/quests_npcs.md "Named NPCs" / "Dialogue trees"). Original writing.
 
 const NWT := &"northern_water_tribe"
+## On the Spirit Oasis lawn by the koi pond (pond centre (-555.4, -3193.7), radius 10.5), her back to
+## the water so the pond frames her in conversation (tested against the baked oasis).
+const NAALU_SPOT := Vector3(-550.8, 54.0, -3182.0)
+const NAALU_LOOK := Vector3(-544.4, 54.0, -3165.9)
 
 const NPCS := {
 	&"wt_anaaya": {
@@ -50,7 +54,7 @@ const NPCS := {
 	&"wt_naalu": {
 		"name": "Princess Naalu", "title": "Daughter of the Chief", "nation": &"water", "role": &"noble",
 		"look": {"preset": &"water_tribe", "body": "female", "age": "teen", "seed": 6, "hair_color": Color(0.94, 0.94, 0.96)},
-		"place": {"anchor": {"settlement": NWT, "kind": &"quest_giver", "tags": ["princess"]}},
+		"place": {"pos": NAALU_SPOT, "ground": true, "face": {"pos": NAALU_LOOK}},
 		"idle": &"stand",
 		"barks": ["Listen. Tui and La are circling.", "The oasis is never cold. Have you noticed?"],
 		"talk": [

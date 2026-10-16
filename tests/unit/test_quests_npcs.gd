@@ -409,6 +409,22 @@ func test_named_npcs_and_targets_resolve_in_the_world() -> void:
 					expect(QuestTargets.site_center(o["site"]).is_finite(), "%s: site %s exists" % [q["id"], o["site"]])
 				for pr: Variant in o.get("props", []):
 					expect(QuestTargets.resolve((pr as Dictionary)["at"]).is_finite(), "%s/%s: prop place resolves" % [q["id"], o["id"]])
+	# hand-placed spots at the Spirit Oasis stay on its lawn (pond rim .. garden wall) if the bake moves
+	var oasis: Dictionary = RingLayout.from_city(Settlements.WATER_TRIBE).record.get("spirit_oasis", {})
+	if not oasis.is_empty():
+		var c: Vector3 = oasis["position"]
+		var spots := {"naalu": NpcRegistry.placement(&"wt_naalu").origin}
+		var moon := {}
+		for q2 in _data_quests():
+			if q2["id"] == &"wt_moon_and_ocean":
+				moon = q2
+		for st: Dictionary in moon.get("stages", []):
+			for o: Dictionary in st["objectives"]:
+				for pr: Variant in o.get("props", []):
+					spots["bowl"] = QuestTargets.resolve((pr as Dictionary)["at"])
+		for k: String in spots:
+			var r := Vector2(spots[k].x - c.x, spots[k].z - c.z).length()
+			expect(r > float(oasis["pond_radius"]) + 0.8 and r < float(oasis["radius"]) - 4.0, "%s on the oasis lawn (%.1f m from the pond centre)" % [k, r])
 
 
 # --- NPC system -------------------------------------------------------------------------------------
