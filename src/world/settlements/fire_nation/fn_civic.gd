@@ -13,6 +13,7 @@ extends RefCounted
 ##   fn_lamp        iron lamp post with a red paper lantern (v 0) or a basalt stone lantern (v 1)
 ##   fn_statue      v 0 a coiled dragon, v 1 a firebending master, on a basalt plinth
 ##   fn_temple      the kit's Fire Nation temple (BuildingPresets.fn_temple)
+##   lantern_string red paper lanterns on a sagging wire between two iron poles (spec L, h, n, light)
 
 static func build(kit: BuildingKit, kind: StringName, spec: Dictionary) -> void:
 	var v := int(spec.get("v", 0))
@@ -23,6 +24,7 @@ static func build(kit: BuildingKit, kind: StringName, spec: Dictionary) -> void:
 		&"fn_garden": garden(kit, spec)
 		&"fn_stall": stall(kit, v)
 		&"fn_lamp": lamp(kit, v, bool(spec.get("light", false)))
+		&"lantern_string": lantern_string(kit, spec)
 		&"fn_statue": statue(kit, v)
 		&"fn_temple": BuildingPresets.fn_temple(kit, Transform3D(), {"w": float(spec.get("w", 11.0)), "d": float(spec.get("d", 9.0))})
 
@@ -189,7 +191,7 @@ static func garden(kit: BuildingKit, spec: Dictionary) -> void:
 	var inner := PackedVector2Array()
 	for p in pond:
 		inner.append(pc + (p - pc) * 0.88)
-	kit.g(&"ice").extrude(inner, 0.1, 0.16, kit.col(FnStyle.WATER, false), 2)
+	kit.g(&"ice").extrude(inner, 0.1, 0.2, kit.col(FnStyle.WATER, false), 2)
 	# arched red bridge
 	var b0 := Vector3(pc.x - pr * 1.1, 0.25, pc.y)
 	var b1 := Vector3(pc.x, 0.9, pc.y)
@@ -216,6 +218,33 @@ static func garden(kit: BuildingKit, spec: Dictionary) -> void:
 	for sx: float in [-1.0, 1.0]:
 		KitX.lantern(kit, Vector3(sx * w * 0.38, 0.1, d * 0.36), {"style": &"stone", "height": 1.5, "light": sx > 0.0 and v % 2 == 0, "range": 9.0,
 			"role": FnStyle.BASALT_2, "color": Color(1.0, 0.55, 0.25)})
+
+
+## A string of red paper lanterns sagging between two iron poles across a street (spec L, h, n,
+## light: the middle lantern lights the street).
+static func lantern_string(kit: BuildingKit, spec: Dictionary) -> void:
+	var L := float(spec.get("L", 8.0))
+	var hh := float(spec.get("h", 4.8))
+	var n := int(spec.get("n", 5))
+	for sx: float in [-1.0, 1.0]:
+		kit.cylinder(Vector3(sx * L * 0.5, 0, 0), hh, 0.08, FnStyle.BLACK, 6, true, 0.06)
+		if kit.lod < 2:
+			FnStyle.flame_finial(kit, Vector3(sx * L * 0.5, hh, 0), 0.35)
+	if kit.lod >= 2:
+		return
+	var sag := L * 0.08
+	var pts := PackedVector3Array()
+	var rr := PackedFloat32Array()
+	for i in 9:
+		var t := i / 8.0
+		pts.append(Vector3(lerpf(-L * 0.5, L * 0.5, t), hh - 0.15 - sag * 4.0 * t * (1.0 - t), 0))
+		rr.append(0.02)
+	kit.g().tube(pts, rr, 3, kit.col(FnStyle.BLACK))
+	for i in n:
+		var t := (i + 1.0) / (n + 1.0)
+		var p := Vector3(lerpf(-L * 0.5, L * 0.5, t), hh - 0.15 - sag * 4.0 * t * (1.0 - t) - 0.5, 0)
+		KitX.lantern(kit, p, {"style": &"paper", "light": bool(spec.get("light", false)) and i == n / 2, "range": 9.0, "energy": 1.4,
+			"color": Color(0.9, 0.16, 0.06)})
 
 
 static func stall(kit: BuildingKit, v: int) -> void:

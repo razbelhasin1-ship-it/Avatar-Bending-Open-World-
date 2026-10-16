@@ -4,7 +4,7 @@ extends SettlementBuilder
 ## the resort isle; thread-safe). Piece kinds map to the recipe libraries:
 ##   FnWalls    fn_tier_wall fn_stair fn_gate gate_fort fn_curtain fn_brazier
 ##   FnHomes    fn_house fn_townhouse noble_house fn_villa fisher_hut tea_house_fn
-##   FnCivic    fn_plaza sun_monument kata_grounds fn_garden fn_stall fn_lamp fn_statue fn_temple
+##   FnCivic    fn_plaza sun_monument kata_grounds fn_garden fn_stall fn_lamp fn_statue fn_temple lantern_string
 ##   FnPalace   fn_podium fn_throne_hall fn_hall fn_palace_gate flame_pillar
 ##   FnHarbor   warship fn_quay fn_pier crane coal_pile fn_warehouse watchtower
 ##   FnPlaces   fn_dojo noble_interior (enterable)
@@ -17,7 +17,8 @@ extends SettlementBuilder
 
 const WALLS: Array[StringName] = [&"fn_tier_wall", &"fn_stair", &"fn_gate", &"gate_fort", &"fn_curtain", &"fn_brazier"]
 const HOMES: Array[StringName] = [&"fn_house", &"fn_townhouse", &"noble_house", &"fn_villa", &"fisher_hut", &"tea_house_fn"]
-const CIVIC: Array[StringName] = [&"fn_plaza", &"sun_monument", &"kata_grounds", &"fn_garden", &"fn_stall", &"fn_lamp", &"fn_statue", &"fn_temple"]
+const CIVIC: Array[StringName] = [&"fn_plaza", &"sun_monument", &"kata_grounds", &"fn_garden", &"fn_stall", &"fn_lamp", &"fn_statue", &"fn_temple",
+	&"lantern_string"]
 const PALACE: Array[StringName] = [&"fn_podium", &"fn_throne_hall", &"fn_hall", &"fn_palace_gate", &"flame_pillar"]
 const HARBOR: Array[StringName] = [&"warship", &"fn_quay", &"fn_pier", &"crane", &"coal_pile", &"fn_warehouse", &"watchtower"]
 const PLACES: Array[StringName] = [&"fn_dojo", &"noble_interior"]
@@ -212,4 +213,9 @@ func piece_glows(piece: Dictionary) -> Array:
 			out.append([at(piece, Vector3(W * 0.5 - 0.6 + 0.78, 2.95, -float(spec.get("L", 30.0)) + 0.6)), lamp, 1.0])
 		&"fire_shrine":
 			out.append([pos + Vector3(0, 1.9, 0), fire, 1.0])
+		&"lantern_string":
+			var L := float(spec.get("L", 8.0))
+			var y := float(spec.get("h", 4.8)) - 0.15 - L * 0.08 - 0.5
+			for sx: float in [-0.25, 0.0, 0.25]:
+				out.append([at(piece, Vector3(sx * L, y, 0)), Color(1.0, 0.42, 0.18), 0.7])
 	return out

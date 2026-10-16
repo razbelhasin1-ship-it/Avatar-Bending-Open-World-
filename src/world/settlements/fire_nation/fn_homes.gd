@@ -21,6 +21,7 @@ static func footprint(kind: StringName, v: int) -> Vector2:
 		&"fn_villa": return Vector2([14.0, 16.0][v % 2], [12.0, 13.0][v % 2])
 		&"fisher_hut": return Vector2(6.0, 6.5)
 		&"tea_house_fn": return Vector2(11.0, 9.0)
+		&"fn_warehouse": return Vector2(18.4 + (v % 2) * 4.0, 11.4)
 	return Vector2(8.0, 8.0)
 
 
@@ -32,6 +33,7 @@ static func height(kind: StringName, v: int) -> float:
 		&"fn_villa": return 8.0
 		&"fisher_hut": return 4.5
 		&"tea_house_fn": return 6.5
+		&"fn_warehouse": return 9.6
 	return 8.0
 
 

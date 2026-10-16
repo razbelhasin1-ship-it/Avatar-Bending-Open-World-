@@ -8,8 +8,15 @@ extends RefCounted
 ##   cabana       resort beach pavilion: red posts, a thatched cone roof, mats and cushions
 ##   hot_spring   volcanic hot-spring pool ringed with dark rocks and a red bench (steam:
 ##                FnBuilder extras)
+##   salt_pans    a grid of shallow evaporation pans (spec w, d, nx, nz): low basalt dikes, brine
+##                and white salt crust, heaps of salt with rakes along the front
+##   lawn         a round clipped lawn with a sand border (spec r): the resort court's ground
 
-const KINDS: Array[StringName] = [&"tea_rows", &"tea_shed", &"fire_shrine", &"cabana", &"hot_spring"]
+const KINDS: Array[StringName] = [&"tea_rows", &"tea_shed", &"fire_shrine", &"cabana", &"hot_spring", &"salt_pans", &"lawn"]
+const LAWN := Color(0.30, 0.46, 0.18)
+const SAND := Color(0.80, 0.72, 0.54)
+const SALT := Color(0.93, 0.92, 0.88)
+const BRINE := Color(0.62, 0.72, 0.74)
 const TEA := Color(0.16, 0.34, 0.12)
 const TEA_TOP := Color(0.24, 0.44, 0.16)
 const THATCH := Color(0.62, 0.5, 0.3)
@@ -23,6 +30,49 @@ static func build(kit: BuildingKit, kind: StringName, spec: Dictionary) -> void:
 		&"fire_shrine": fire_shrine(kit, v)
 		&"cabana": cabana(kit, v)
 		&"hot_spring": hot_spring(kit, spec)
+		&"salt_pans": salt_pans(kit, spec)
+		&"lawn": lawn(kit, float(spec.get("r", 40.0)))
+
+
+static func lawn(kit: BuildingKit, r: float) -> void:
+	var sides := 40 if kit.lod == 0 else 20
+	var outer := PackedVector2Array()
+	var inner := PackedVector2Array()
+	for i in sides:
+		var a := TAU * i / sides
+		outer.append(Vector2(cos(a), sin(a)) * r)
+		inner.append(Vector2(cos(a), sin(a)) * (r - 2.5))
+	kit.slab(outer, 0.0, 0.03, SAND.srgb_to_linear(), false)
+	kit.slab(inner, 0.0, 0.05, LAWN.srgb_to_linear(), false)
+
+
+static func salt_pans(kit: BuildingKit, spec: Dictionary) -> void:
+	var w := float(spec.get("w", 20.0))
+	var d := float(spec.get("d", 12.0))
+	var nx := int(spec.get("nx", 3))
+	var nz := int(spec.get("nz", 2))
+	kit.box(Vector3(0, 0.06, 0), Vector3(w, 0.12, d), FnStyle.BASALT_2, true)
+	var pw := w / nx
+	var pd := d / nz
+	for i in nx:
+		for j in nz:
+			var c := Vector3(-w * 0.5 + (i + 0.5) * pw, 0.13, -d * 0.5 + (j + 0.5) * pd)
+			var crust := (i + j) % 3 != 0
+			kit.box(c, Vector3(pw - 0.7, 0.04, pd - 0.7), (SALT if crust else BRINE).srgb_to_linear(), false, &"solid" if crust else &"ice")
+	if kit.lod >= 2:
+		return
+	# dikes between the pans
+	for i in nx + 1:
+		kit.box(Vector3(-w * 0.5 + i * pw, 0.2, 0), Vector3(0.35, 0.2, d), FnStyle.BASALT, false)
+	for j in nz + 1:
+		kit.box(Vector3(0, 0.2, -d * 0.5 + j * pd), Vector3(w, 0.2, 0.35), FnStyle.BASALT, false)
+	# salt heaps and rakes along the front
+	for k in nx:
+		var p := Vector3(-w * 0.5 + (k + 0.5) * pw, 0.1, -d * 0.5 - 1.4)
+		kit.g().cone(p, p + Vector3(0, 0.9 + (k % 2) * 0.3, 0), 0.9, 7 if kit.lod == 0 else 5, kit.col(SALT.srgb_to_linear()))
+		if kit.lod == 0 and k % 2 == 0:
+			kit.beam(p + Vector3(0.9, 0.0, 0.2), p + Vector3(1.3, 1.5, 0.5), 0.05, 0.05, &"wood")
+	kit.collide_box(Vector3(0, 0.3, -d * 0.5 - 1.4), Vector3(w, 0.6, 1.6))
 
 
 static func tea_rows(kit: BuildingKit, spec: Dictionary) -> void:
@@ -115,7 +165,7 @@ static func hot_spring(kit: BuildingKit, spec: Dictionary) -> void:
 	var inner := PackedVector2Array()
 	for p in pts:
 		inner.append(p * 0.86)
-	kit.g(&"ice").extrude(inner, 0.1, 0.2, kit.col(Color(0.36, 0.6, 0.62).srgb_to_linear(), false), 2)
+	kit.g(&"ice").extrude(inner, 0.1, 0.29, kit.col(Color(0.36, 0.6, 0.62).srgb_to_linear(), false), 2)
 	if kit.lod >= 2:
 		return
 	for i in 12:

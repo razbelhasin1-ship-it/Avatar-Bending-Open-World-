@@ -94,7 +94,7 @@ static func garden(kit: BuildingKit, spec: Dictionary) -> void:
 	var inner := PackedVector2Array()
 	for p in pond:
 		inner.append(pc + (p - pc) * 0.88)
-	kit.g(&"ice").extrude(inner, 0.1, 0.16, kit.col(EkStyle.WATER, false), 2)
+	kit.g(&"ice").extrude(inner, 0.1, 0.2, kit.col(EkStyle.WATER, false), 2)
 	# zig-zag bridge across the pond
 	var tim := EkStyle.LACQUER
 	var b0 := Vector3(pc.x - pr * 1.05, 0.25, pc.y - pr * 0.2)

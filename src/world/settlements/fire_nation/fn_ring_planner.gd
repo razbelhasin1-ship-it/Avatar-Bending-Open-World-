@@ -23,6 +23,9 @@ func house_piece(kind: StringName, v: int, style: int) -> Array:
 
 
 func house_anchors(kind: StringName, v: int, style: int, tier: StringName, _pos: Vector3, yaw: float, _fp: Vector2, door: Vector3) -> void:
+	if kind == &"fn_warehouse":
+		plan.anchor(&"worker", door, yaw + PI, {"tags": [String(tier), "dock", "warehouse"], "building": kind})
+		return
 	var shop: bool = kind == &"fn_house" and v % 4 == 0 and style == FnStyle.LOWER
 	plan.anchor(&"market_stall" if shop else &"home", door, yaw + PI, {"tags": [String(tier)] + (["shop"] as Array if shop else []),
 		"building": kind, "capacity": {&"noble_house": 10, &"fn_townhouse": 6, &"fn_villa": 5, &"fisher_hut": 3}.get(kind, 3),
