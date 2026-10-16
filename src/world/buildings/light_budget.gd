@@ -24,7 +24,8 @@ static func max_lights() -> int:
 	return [4, 8, 14, 22][Settings.detail_level()]
 
 
-## Creates a budgeted light from a record {"position", "color", "range", "energy", "priority"}.
+## Creates a budgeted light from a record {"position", "color", "range", "energy", "priority",
+## "interior"}. Interior lights (caves, tunnels) shine by day too; the others fade in with dusk.
 static func make_light(rec: Dictionary) -> OmniLight3D:
 	var l := OmniLight3D.new()
 	l.name = "KitLight"
@@ -39,6 +40,7 @@ static func make_light(rec: Dictionary) -> OmniLight3D:
 	l.light_volumetric_fog_energy = 0.0
 	l.set_meta(&"base_energy", float(rec.get("energy", 1.6)))
 	l.set_meta(&"priority", int(rec.get("priority", 0)))
+	l.set_meta(&"interior", bool(rec.get("interior", false)))
 	l.light_energy = 0.0
 	l.visible = false
 	register(l)
@@ -122,8 +124,9 @@ func update_now() -> void:
 		if not l.is_inside_tree():
 			continue
 		var d := cam.global_position.distance_to(l.global_position) if cam else 0.0
-		if d < MAX_DISTANCE and dark > 0.02:
-			cand.append([d - float(l.get_meta(&"priority", 0)) * 10.0, l, d])
+		var dk := 1.0 if l.get_meta(&"interior", false) else dark
+		if d < MAX_DISTANCE and dk > 0.02:
+			cand.append([d - float(l.get_meta(&"priority", 0)) * 10.0, l, d, dk])
 		else:
 			l.visible = false
 	_lights = alive
@@ -135,7 +138,7 @@ func update_now() -> void:
 		l.visible = on
 		if on:
 			var fade := 1.0 - smoothstep(MAX_DISTANCE * 0.6, MAX_DISTANCE, float(cand[i][2]))
-			l.set_meta(&"target", float(l.get_meta(&"base_energy", 1.6)) * dark * fade)
+			l.set_meta(&"target", float(l.get_meta(&"base_energy", 1.6)) * float(cand[i][3]) * fade)
 	_apply_fade()
 
 

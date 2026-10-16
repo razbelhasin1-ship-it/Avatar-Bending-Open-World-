@@ -40,6 +40,8 @@ var _requests: Dictionary = {}     # id -> {pos, radius, expires}
 var _next_request := 1
 var _focus_pos := Vector3.INF
 var _time := 0.0
+var _holes_version := 0
+var _stale: Dictionary = {}        # in-flight patch builds computed before a hole change
 
 
 func _ready() -> void:
@@ -112,6 +114,7 @@ static func build_heights(key: Vector2i) -> PackedFloat32Array:
 	if not WorldData.has_world_data() or WorldData.height_override.is_valid():
 		for k in out.size():
 			out[k] = WorldData.get_height(o.x + (k % SAMPLES), o.y + int(k / SAMPLES))
+		TerrainHoles.punch(o, SAMPLES, out)
 		return out
 	# texel-aligned 2 m block (exact stored heights), then exact bilinear midpoints
 	var n := PATCH_M / 2 + 1
@@ -131,6 +134,8 @@ static func build_heights(key: Vector2i) -> PackedFloat32Array:
 			var a := h00 + (h10 - h00) * fx
 			var b := h01 + (h11 - h01) * fx
 			out[j * SAMPLES + i] = a + (b - a) * fz
+	# cave mouths (worldcontent): NaN samples are holes in the Jolt heightfield
+	TerrainHoles.punch(o, SAMPLES, out)
 	return out
 
 
@@ -139,6 +144,9 @@ static func build_heights(key: Vector2i) -> PackedFloat32Array:
 func update(focus_pos: Vector3, delta: float) -> void:
 	_time += delta
 	_focus_pos = focus_pos
+	if TerrainHoles.version != _holes_version:
+		_holes_version = TerrainHoles.version
+		_rebuild_holed_patches()
 	# guarantee ground under the focus
 	if focus_pos.is_finite():
 		ensure_now(focus_pos)
@@ -175,6 +183,18 @@ func update(focus_pos: Vector3, delta: float) -> void:
 		if not margin.has(key):
 			(_active[key]["body"] as Node).queue_free()
 			_active.erase(key)
+
+
+## Drops live patches touched by terrain holes (they are rebuilt with the holes punched).
+func _rebuild_holed_patches() -> void:
+	for key: Vector2i in _active.keys():
+		var o := patch_origin(key)
+		if TerrainHoles.touches(Rect2(o, Vector2(PATCH_M, PATCH_M))):
+			(_active[key]["body"] as Node).queue_free()
+			_active.erase(key)
+	for key: Vector2i in _pending.keys():
+		if TerrainHoles.touches(Rect2(patch_origin(key), Vector2(PATCH_M, PATCH_M))):
+			_stale[key] = true
 
 
 func _collect(pos: Vector3, radius: float, into: Dictionary) -> void:
@@ -235,6 +255,9 @@ func _apply_results() -> void:
 	for r: Array in batch:
 		var key: Vector2i = r[0]
 		_pending.erase(key)
+		if _stale.has(key):
+			_stale.erase(key)
+			continue
 		if not _active.has(key):
 			_apply(key, r[1])
 

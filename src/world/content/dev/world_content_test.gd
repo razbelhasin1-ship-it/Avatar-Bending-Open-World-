@@ -26,6 +26,7 @@ const VIEWS := {
 var world: WorldRenderer
 var content: WorldContent
 var cam: Camera3D
+var player: PlayerCharacter = null
 var speed := 30.0
 var _yaw := 0.0
 var _pitch := 0.0
@@ -64,6 +65,32 @@ func set_view(vname: String) -> void:
 	if v.has("hour"):
 		world.set_time_of_day(v["hour"])
 	world.set_weather(v.get("weather", &"clear"), 0.0)
+
+
+## Spawns (or moves) the real player character - walk tests over bridges and into caves. World
+## streaming and content then follow the player and its camera rig.
+func spawn_player(xform: Transform3D, element: int = ElementDefs.Element.AIR) -> PlayerCharacter:
+	if player == null:
+		player = (load("res://scenes/player/player.tscn") as PackedScene).instantiate() as PlayerCharacter
+		player.element = element
+		player.auto_respawn = false
+		add_child(player)
+	player.teleport(xform)
+	var pc := player.camera_rig.get_camera()
+	pc.current = true
+	world.setup(player, pc)
+	content.setup(player, pc)
+	return player
+
+
+## Back to the free-fly camera.
+func remove_player() -> void:
+	if player:
+		player.queue_free()
+		player = null
+	cam.current = true
+	world.setup(cam, cam)
+	content.setup(cam, cam)
 
 
 func place_camera(pos: Vector3, look: Vector3, fov: float = 60.0) -> void:
