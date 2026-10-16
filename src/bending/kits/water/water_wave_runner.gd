@@ -235,5 +235,7 @@ func _crash() -> void:
 
 func _exit_tree() -> void:
 	live.erase(self)
+	# Scene teardown: no new effects, just hand the crest back.
 	if not _done and fx != null and is_instance_valid(fx):
-		fx.crash(0.2)
+		fx.drop()
+	fx = null

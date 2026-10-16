@@ -165,6 +165,14 @@ func crash(duration: float = -1.0) -> void:
 	FxBurst.spawn(self, &"droplets", c, {"count": 1.5, "speed": 1.4, "radius": clampf(radius * 0.3, 0.5, 2.5)})
 
 
+## Returns to the pool at once (no spray; scene teardown).
+func drop() -> void:
+	_crash = 99.0
+	spray.emitting = false
+	foam.emitting = false
+	FxLib.release(self)
+
+
 func is_crashing() -> bool:
 	return _crash >= 0.0
 

@@ -4,7 +4,7 @@ extends RefCounted
 ## from the player's camera and an observer camera framing bender + targets;
 ## water drawn from the pool and from the snow patch, an ice floe on the pool,
 ## a fire put out, the core kit (whip chain, torrent charge, shield, slide).
-## TECH=surge,wall,trap,wave,jet,heal,tidal,core,env (default: all).
+## TECH=core,defense,shards,surge,wall,trap,wave,jet,heal,tidal,env (default: all).
 
 const E := ElementDefs.Element
 const POOL_C := Vector3(12.5, 0, -0.5)
@@ -32,7 +32,7 @@ func run(pt: Playtest) -> void:
 	arena.add_child(cam)
 	Events.hit_landed.connect(func(hit: HitInfo, t: Node, r: int) -> void: hits.append([hit.ability_id, t, r]))
 	var only := OS.get_environment("TECH")
-	for t in ["core", "surge", "wall", "trap", "wave", "jet", "heal", "tidal", "env"]:
+	for t in ["core", "defense", "shards", "surge", "wall", "trap", "wave", "jet", "heal", "tidal", "env"]:
 		if only == "" or only.split(",").has(t):
 			p.note("--- %s ---" % t)
 			await call("_" + t)
@@ -123,6 +123,78 @@ func _core() -> void:
 	await p.screenshot("core_torrent_release")
 	await _obs("core_torrent_release_side", Vector3(0, 1, -6), 1.0, 7.0, 2.0)
 	await _tick_until(func() -> bool: return not pl.controller.is_busy(), 3.0)
+
+
+## Water Shield blocking the bot's fireball, a parry, and Flow Slide spraying snow.
+func _defense() -> void:
+	var bot := arena.get("bot") as SparringBot
+	bot.global_position = Vector3(-11, 0, -18)
+	await _place(Vector3(-11, 0, -11))
+	bot.mode = &"projectile"
+	bot.active = true
+	Input.action_press(&"block")
+	await p.wait_game(0.3)
+	bot.attack_in(0.2, &"projectile")
+	await p.wait_game(0.75)
+	await _obs("defense_1_shield", Vector3(-11, 1, -15), -1.0, 5.0, 1.6)
+	await p.wait_game(0.5)
+	Input.action_release(&"block")
+	# Parry: raise the shield just before the bolt lands.
+	var landed := [false]
+	var cb := func(kind: StringName, _in: float) -> void: landed[0] = true
+	bot.telegraphed.connect(cb)
+	bot.attack_in(0.1, &"projectile")
+	await _tick_until(func() -> bool: return landed[0], 2.0)
+	bot.telegraphed.disconnect(cb)
+	await p.wait_game(0.55)
+	Input.action_press(&"block")
+	await p.wait_game(0.25)
+	await p.screenshot("defense_2_parry")
+	Input.action_release(&"block")
+	bot.active = false
+	bot.global_position = Vector3(0, 0, -15)
+	# Flow Slide across the snow patch.
+	await _place(Vector3(-12, 0, -1.0), 90.0)
+	Input.action_press(&"move_left")
+	await p.wait_game(0.1)
+	Input.action_press(&"dodge")
+	await p.wait_game(0.05)
+	Input.action_release(&"dodge")
+	await p.wait_game(0.15)
+	await _obs("defense_3_slide_snow", pl.global_position, 1.0, 5.0, 1.6)
+	Input.action_release(&"move_left")
+	await _tick_until(func() -> bool: return not pl.controller.is_busy(), 1.5)
+
+
+## Ice Shards: drawn from the pool, frozen into daggers, thrown; a soaked dummy flash-freezes.
+func _shards() -> void:
+	_equip(&"ice_shards")
+	await _place(Vector3(6.5, 0, -4.5))
+	var target := arena.get("dummies")[3] as TrainingDummy
+	WaterStatus.soak(target, 20.0)
+	var froze := [false]
+	var on_hit := func(hit: HitInfo, _r: int) -> void:
+		if hit.reaction == HitInfo.Reaction.FREEZE:
+			froze[0] = true
+	target.hit_received.connect(on_hit)
+	pl.targeting.call("toggle_lock")
+	await p.wait_game(0.2)
+	Input.action_press(&"ability_1")
+	await p.wait_game(0.05)
+	Input.action_release(&"ability_1")
+	await p.wait_game(0.3)
+	await _obs("shards_1_form", target.global_position + Vector3.UP, 1.0, 4.0, 1.4)
+	await _tick_until(func() -> bool: return BendingProjectile.live.size() > 0, 1.0)
+	await p.wait_game(0.05)
+	await _obs("shards_2_flight", target.global_position + Vector3.UP, 1.0, 5.0, 1.6)
+	await _tick_until(func() -> bool: return froze[0], 1.5)
+	await p.wait_game(0.05)
+	await _obs("shards_3_flash_freeze", target.global_position + Vector3.UP, -1.0, 3.5, 1.2)
+	p.check(froze[0], "soaked dummy flash-frozen by the shards")
+	target.hit_received.disconnect(on_hit)
+	if pl.get_lock_target() != null:
+		pl.targeting.call("toggle_lock")
+	await _tick_until(func() -> bool: return not pl.controller.is_busy(), 2.0)
 
 
 # --- techniques ------------------------------------------------------------------------------------
