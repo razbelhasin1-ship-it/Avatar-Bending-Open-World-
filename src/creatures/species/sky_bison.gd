@@ -326,6 +326,16 @@ func make_action(action_name: StringName, opts: Dictionary) -> CreatureAction:
 			l.add_event(0.2, &"stroke")
 			l.add_event(1.25, &"touchdown")
 			return l
+		&"tail_gust":
+			# Companion assist: the flat tail is raised high, then slammed down in one huge
+			# stroke that throws a gust behind the bison (event "gust" at the slam).
+			var g := CreatureAction.new(action_name, 1.7)
+			g.roots = true
+			g.blend_in = 0.2
+			g.blend_out = 0.45
+			g.add_event(0.2, &"windup")
+			g.add_event(0.8, &"gust")
+			return g
 	return super.make_action(action_name, opts)
 
 
@@ -349,6 +359,19 @@ func action_pose(rig: CreatureRig, a: CreatureAction, pose: CreaturePose) -> voi
 			pose.head_pitch += (-0.1 * crouch + 0.15 * leap) * w
 			pose.ears_back += leap * w
 			pose.jaw += 0.3 * a.window(0.3, 0.6, 0.1) * w
+			return
+		&"tail_gust":
+			var lift := a.window(0.0, 0.66, 0.24)
+			var slam := a.window(0.62, 1.25, 0.1)
+			pose.tail_pitch += (1.2 * lift - 1.3 * slam) * w
+			pose.tail_yaw += sin(a.t * 9.0) * 0.07 * lift * w
+			pose.body_pitch += (-0.06 * lift + 0.05 * slam) * w
+			pose.body_y += (-0.14 * lift - 0.08 * slam) * k * w
+			pose.head_pitch += 0.12 * lift * w
+			pose.neck_pitch += -0.08 * slam * w
+			pose.ears_back += (lift + slam) * w
+			pose.jaw += 0.35 * slam * w
+			pose.eyes_narrow += 0.5 * slam * w
 			return
 		&"land":
 			var reach := a.window(0.1, 0.7, 0.2)
@@ -407,7 +430,7 @@ func sound_for(action: StringName, event: StringName) -> StringName:
 	match event:
 		&"vocal_start":
 			return &"bison_groan" if action == &"groan" else &"bison_call"
-		&"stroke", &"leap":
+		&"stroke", &"leap", &"gust":
 			return &"wing_flap_large"
 		&"touchdown":
 			return &"land_heavy"

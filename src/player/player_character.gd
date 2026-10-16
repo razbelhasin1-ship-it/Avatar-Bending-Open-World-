@@ -525,4 +525,8 @@ func update_mounted(_delta: float) -> void:
 	motor.face(f)
 	velocity = Vector3.ZERO
 	if input.consume(&"mount"):
-		dismount()
+		# The mount may animate the dismount (hop down / let go in the air): companions module.
+		if mount_node != null and is_instance_valid(mount_node) and mount_node.has_method("request_dismount"):
+			mount_node.call("request_dismount")
+		else:
+			dismount()

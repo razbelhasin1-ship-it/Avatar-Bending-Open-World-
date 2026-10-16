@@ -167,5 +167,7 @@ static func _frame(d: Vector3, pole: Vector3) -> Basis:
 static func _put(skel: RigSkeleton, i: int, b: Basis) -> void:
 	var p := skel.parent[i]
 	var origin := skel.glob[p] * (skel.rest_off[i] + skel.off[i]) if p >= 0 else skel.rest_off[i]
-	skel.rot[i] = (skel.glob[p].basis.transposed() * b).get_rotation_quaternion() if p >= 0 else b.get_rotation_quaternion()
+	# Pre-orthonormalized: near-degenerate IK frames (legs swinging free while a flyer lands)
+	# otherwise fail the engine's float32 rotation check inside get_rotation_quaternion().
+	skel.rot[i] = (skel.glob[p].basis.transposed() * b).orthonormalized().get_rotation_quaternion() if p >= 0 else b.orthonormalized().get_rotation_quaternion()
 	skel.glob[i] = Transform3D(b.orthonormalized(), origin)
