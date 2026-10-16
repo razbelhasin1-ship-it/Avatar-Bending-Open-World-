@@ -71,6 +71,27 @@ func _find(species: StringName, near: Vector3) -> Dictionary:
 	return best
 
 
+## An observer spot `dist` m from `focus` (preferring direction `pref`) with a clear line of sight
+## (walls of the bison stalls, hillsides); pulled in before the first wall when none is clear.
+func _eye_for(focus: Vector3, pref: Vector3, dist: float, up: float) -> Vector3:
+	var space := w.get_world_3d().direct_space_state
+	pref.y = 0.0
+	pref = pref.normalized() if pref.length() > 0.1 else Vector3.BACK
+	var best := Vector3.INF
+	var best_len := -1.0
+	for i in 8:
+		var d := pref.rotated(Vector3.UP, TAU * i / 8.0)
+		var e := focus + d * dist + Vector3(0, up, 0)
+		var r := space.intersect_ray(PhysicsRayQueryParameters3D.create(focus, e, Layers.CAMERA_BLOCKERS))
+		if r.is_empty():
+			return e
+		var free := focus.distance_to(r["position"])
+		if free > best_len:
+			best_len = free
+			best = focus.lerp(r["position"], 0.85)
+	return best
+
+
 func _visit(species: StringName, near: Vector3) -> void:
 	var rec := _find(species, near)
 	if not p.check(not rec.is_empty(), "%s herd found" % species):
@@ -82,11 +103,13 @@ func _visit(species: StringName, near: Vector3) -> void:
 	if species == &"sky_bison":
 		stand = c + Basis(Vector3.UP, float(rec["yaw"])) * Vector3(0, 0, -9.0)
 	if species == &"turtle_duck":
-		# stand on the shore: walk out from the water until dry ground
-		for k in 40:
+		# stand on the shore: walk out from the herd (swimming at the surface, c.y) until the
+		# ground rises above the water
+		for k in 80:
 			var q := c + away.normalized() * (6.0 + k * 2.0)
-			if WorldData.get_water_height(q.x, q.z) == -INF:
-				stand = Vector3(q.x, WorldData.get_height(q.x, q.z), q.z)
+			var gy := WorldData.get_height(q.x, q.z)
+			if gy > c.y + 0.6:
+				stand = Vector3(q.x, gy, q.z)
 				break
 	var yaw := atan2(-(c - stand).x, -(c - stand).z)
 	var ok: bool = await w.travel.travel_to(Transform3D(Basis(Vector3.UP, yaw), stand), {"text": "", "autosave": false})
@@ -101,8 +124,8 @@ func _visit(species: StringName, near: Vector3) -> void:
 	await p.wait_game(2.5)
 	var cam := Camera3D.new()
 	w.add_child(cam)
-	var mid := c + Vector3(0, 0.6, 0)
-	var eye := stand + Vector3(0, 2.6 if species != &"sky_bison" else 4.5, 0) + (stand - c).normalized() * 2.0
+	var mid := c + Vector3(0, 0.6 if species != &"sky_bison" else 1.6, 0)
+	var eye := _eye_for(mid, stand - c, (stand - c).length() + 2.0, 2.0 if species != &"sky_bison" else 3.5)
 	cam.global_transform = Transform3D(Basis.looking_at(mid - eye, Vector3.UP), eye)
 	cam.fov = 50.0
 	cam.make_current()

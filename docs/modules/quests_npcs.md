@@ -172,9 +172,13 @@ NpcDirector (4 Hz): present by schedule / `present` condition, ranked by distanc
 | `NpcDirector.BUDGETS` (Settings.detail_level) | low / mobile | medium | high | ultra |
 | --- | --- | --- | --- | --- |
 | `max_npcs` (crowd + named) | 10 | 18 | 28 | 40 |
-| `crowd_range` / `named_range` | 45 / 70 m | 62 / 90 m | 80 / 110 m | 100 / 130 m |
+| `crowd_range` / `named_range` | 55 / 70 m | 66 / 90 m | 80 / 110 m | 100 / 130 m |
 | full tier (`tier_a`) | 4 | 7 | 10 | 14 |
-| anchor density | 0.55 | 0.75 | 1.0 | 1.25 |
+| anchor density | 0.85 | 0.9 | 1.0 | 1.25 |
+
+The cap (`max_npcs`, `tier_a`) is what costs frames; density and range only decide who fills
+it, so the low preset keeps a nearly full anchor density (a sparse plaza on phones read as a dead
+city in the mobile playtest) and stays strictly within 10 NPCs.
 
 * **Full tier** (near): `move_and_slide` with gravity, whisker steering, footsteps (snow trails,
   sounds), talk prompt. **Light tier**: kinematic stepping, a throttled ground probe, no
@@ -387,18 +391,88 @@ in a tree - tested), every NPC place and objective target resolves in the baked 
   bounded variants), routines and attitudes, the director (nearest within budget, full tier cap,
   despawn), named NPC presence + marker, flee -> cower -> recover, merchants (buy / afford / sold
   out / restock / sell / quest items), trainers (gates, flags, unlock, spar archetypes), the
-  dialogue runner (conditions, choices, actions, branch, placeholders) and wildlife rules; the
+  dialogue runner (conditions, choices, actions, branch, placeholders), escorts (follow, catch up
+  when stuck behind a wall, report on arrival), market customers, the hand-placed oasis spots
+  staying on the baked lawn, and wildlife rules; the
   integration test boots the real world scene (Water), checks the hooks, the auto-started quest
   on the HUD, Elder Anaaya by the spawn, a real conversation advancing the quest, the compass
   target, and save / load.
 * Playtests: see "Playtest results" below.
 
-PLAYTEST_RESULTS
+### Playtest results
+
+All runs through the real world scene (`res://scenes/world/world.tscn`, new game, software
+Vulkan / llvmpipe under Xvfb), inputs through the InputMap; long trips use the game's own fast
+travel (`TravelSystem.travel_to`).
+
+* **`quests_npcs_water_chain`** (1280x720, ~50 min wall clock on llvmpipe): Born of the Tide
+  auto-starts on arrival (tracker + compass) -> Elder Anaaya at the spawn (6 lines, choice) ->
+  fast travel to the training hall door, walk in through the gate past the pillars and the
+  students, up the dais steps -> Master Siku (quest complete, The First Form starts) -> "Raise the
+  posts": 3 posts in the open room, 6 hits with real light-attack Water Whip input -> report
+  (waterskin) -> Chief Tulok in the palace -> fast travel east -> the Fire Navy Landing found
+  (go_to) -> the camp fought for real (3 scouts driven off, ~33 s) -> the officer's chest prop
+  ("Sealed Navy Orders") -> Chief Tulok -> Princess Naalu by the koi pond (Tui and La circling
+  behind her) -> the pond prop ("Water of the Oasis") -> Siku: **Moon and Ocean complete, the Water
+  opening chain done** (reward: a skill point, see Known issues) -> a trainer lesson ("Train me" ->
+  lesson menu -> posts challenge -> technique unlocked and equipped) -> Healer Yara's shop (BUY
+  with ui_accept: Wild Herbs, coins 160 -> 155; SELL tab; Esc closes; player free again).
+* **`quests_npcs_city`** per home city (960x540, 11:00): townsfolk around the spawn (live within
+  the budget of 28 on the desktop preset) - Water 19 (98 records in range), Earth 19 (91), Fire 24
+  (84), Air 17 (55); the opening quest started and its giver spawned in every city (Elder Anaaya,
+  Guide Lin, Envoy Kaida, Brother Pasang), a real conversation with each; then fast travel to the
+  nearest market stall / guard post / kids' play spot: people at each (Water 6 / 3 / 2, Earth 6 /
+  2 / 5, Fire 3 / 1 / 8, Air: kids' court 9; the Air Temple has no stalls or guard posts).
+* **Mobile** (`RENDERER=mobile MOBILE=1`, low preset, budget 10): touch HUD + dialogue + trade
+  panel work; the spawn plaza first showed only 2 townsfolk (density 0.55 / 45 m), so the low
+  preset now keeps a near-full anchor density inside the same 10-NPC cap (re-run: MOBILE_RESULT).
+* **`quests_npcs_wildlife`** (960x540): a herd of each species found by the provider's own rules,
+  spawned when the player arrives, and each fled from a sprinting player: otter penguins on the
+  arctic shore, ostrich horses beside an Earth Kingdom road, a komodo rhino on Fire Nation
+  grassland, turtle ducks on Moonmirror Lake, resting sky bison in the Air Temple stalls.
+
+Found through the screenshots and fixed: NPCs facing the wall in the Water Tribe interiors (the
+plan's anchor yaw convention) and the chain teleporting the player behind the hall's back wall;
+challenge posts spawned into the wall behind the master; huge marker / name plates when the camera
+passed close to an NPC; barks overlapping name plates; the conversation camera inside the polar
+bear dog (now steps to the other shoulder / a higher angle and re-checks every line); the trainer
+menu opening invisible (DialogueBox closing fade race, waited out by the runner); Princess Naalu
+waiting outside the oasis wall instead of by the pond; quest props out of walking reach; a sparse
+plaza on the mobile preset; empty-looking markets (customers added).
 
 ## Changes outside the module
 
 * `project.godot`: autoload `Quests="*res://src/quests/quest_system.gd"` (added after Router).
+* `tests/integration/test_quests_npcs_world.gd` (new file, additive).
+* No other module's files were edited. Worked around in this module instead: the Water Tribe
+  interior anchors' yaw convention (`NpcCharacter.ensure_open_facing`) and the DialogueBox
+  close / open fade race (`DialogueRunner._settle_box`).
 
 ## Known issues / next steps
 
-KNOWN_ISSUES
+* **Technique rewards on this branch are skill points.** The opening chains and trainers name
+  technique candidates (`water_surge`, `ice_wall`, `earth_pillar`, `fire_burst`, `air_push`...);
+  the element modules that register those lockable techniques are separate wave-3 branches, so
+  here `QuestRewards` grants its fallback skill point (toast says so), and the chain playtest's
+  trainer lesson uses a clearly named stand-in AbilityDef it registers itself ("Lesson Stand-in
+  (Ice Shards)") to exercise the lesson -> unlock -> equip flow. After the merge the candidate
+  ids must match the element modules' ids (the lists are data in `data/quests/*.gd`).
+* Only the Water opening chain is played end to end in the world; the Earth, Fire and Air chains
+  are covered by the data / reachability / world-resolution tests and an in-world check of their
+  first quest and giver, not a full scripted run.
+* **No navmesh**: crowd NPCs walk only straight lines they verified (rays + floor probe) or the
+  planners' routes; in tight interiors they mostly hold their spots. A stuck escort catches up out
+  of the camera's view rather than path-finding round the obstacle.
+* The gameplay camera (player module) does not avoid NPCs; NPCs turn see-through when the camera
+  is inside / right behind them instead.
+* The Water Tribe plan's interior anchors face local +Z (the anchor contract says -Z); this module
+  turns indoor / named NPCs to the open side at runtime. The source fix belongs to settlements_wa.
+* `DialogueBox.close()` hides the box 0.15 s later even if `open()` ran meanwhile (UI module);
+  the runner waits the fade out, a fix in `DialogueBox.open()` (kill the close tween) would be
+  cleaner.
+* `WorldData.get_water_height` tests lakes by radius while the lake surface follows its polygon
+  (a companion swam where it reported dry ground); turtle duck herds spawn by the former.
+* Crowd variety is bounded (~20-25 mesh variants per nation), so outfits repeat in a busy street;
+  no voiced lines (text barks and dialogue only); shops do not pause the game.
+* No dedicated frame-time measurement for the crowds; the strict per-preset caps (10 / 18 / 28 /
+  40 NPCs, 4 / 7 / 10 / 14 in the full tier, one spawn per frame) bound the cost.

@@ -12,8 +12,8 @@ extends Node3D
 
 ## Budgets by Settings.detail_level() (0 = mobile / low ... 3 = ultra).
 const BUDGETS := [
-	{"max_npcs": 10, "crowd_range": 45.0, "named_range": 70.0, "tier_a": 4, "density": 0.55},
-	{"max_npcs": 18, "crowd_range": 62.0, "named_range": 90.0, "tier_a": 7, "density": 0.75},
+	{"max_npcs": 10, "crowd_range": 55.0, "named_range": 70.0, "tier_a": 4, "density": 0.85},
+	{"max_npcs": 18, "crowd_range": 66.0, "named_range": 90.0, "tier_a": 7, "density": 0.9},
 	{"max_npcs": 28, "crowd_range": 80.0, "named_range": 110.0, "tier_a": 10, "density": 1.0},
 	{"max_npcs": 40, "crowd_range": 100.0, "named_range": 130.0, "tier_a": 14, "density": 1.25},
 ]
