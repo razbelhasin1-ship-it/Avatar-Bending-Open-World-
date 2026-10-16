@@ -226,9 +226,10 @@ distance; no grass when flying high).
   recorded apex, thick buried feet, sediment strata, moss/snow tops, trimesh collision (walk over
   it), scree boulders.
 * **Bridges** (`BridgeBuilder`): suspended rope-and-plank bridges on a sagging deck with rope
-  rails, hangers, pylons and prayer flags (`deck_y(a, b, sag, t)`), and arched stone bridges
-  with parapets, lanterns and piers. Decks are walkable trimesh; rope bridges have invisible
-  railing barriers.
+  rails, hangers, pylons and prayer flags (`deck_y(a, b, sag, t)`; near the anchors the planks
+  rest on the ground where the sag would dip under it, so there is no step on or off), and
+  arched stone bridges with parapets, lanterns and piers. Decks are walkable trimesh; rope
+  bridges have invisible railing barriers.
 * **Cave mouths** (`CaveBuilder`): the recorded tunnel is re-anchored where the hillside rises
   over half the opening (`CaveBuilder.anchor`; mouths below water are lifted out). An inward-facing
   rock tube (collision in both windings) follows it into the hill; a rocky portal frames the
@@ -250,8 +251,8 @@ simplified LOD1 at `poi_lod0`:
 | `dock` | pier from the nearest shoreline (`PoiSites.find_shore`) with a T-head, piles, lanterns, cargo, moored boats, boat shed | `&"dock_berth"` |
 | `vista` | overlook terrace with railing, cairn, bench, prayer flag | `&"vista"` |
 | `spirit_spot` | glowing standing-stone circle around a heart stone or a spirit tree, spirit motes / vent steam, light | `&"spirit_spot"`, pickup `spirit_blossom` |
-| `resource` | jade crystal outcrops, whale-bone ribs or ore rocks, a worker's lean-to | `ResourcePickup`s (`jade_shard`, `whale_bone`, `iron_ore`) |
-| `landmark` | lighthouse (`lantern_isle`), pass gatehouse (`*_gate`), otherwise a carved stele with lanterns | — |
+| `resource` | quarry outcrops studded with glowing jade crystals (or ore), cut-block stacks, a wooden hoist; a beached whale skeleton (skull, spine, arching ribs) for whale bone; a worker's lean-to | `ResourcePickup`s (`jade_shard`, `whale_bone`, `iron_ore`) |
+| `landmark` | lighthouse (`lantern_isle`), gatehouse straddling the nearest road (`*_gate`, `PoiStructures.nearest_road`), otherwise a carved stele with lanterns | — |
 
 POIs inside city tiers (landmarks: inside the whole city radius) and, except docks, inside
 village footprints belong to the settlement builders and are skipped; so are `village`,
@@ -356,7 +357,8 @@ a cell of buildings stays one mesh per LOD.
 
 **Lights.** `LightBudget` keeps only the nearest `max_lights()` kit lights enabled (4/8/14/22 by
 detail), fades them in with darkness and distance (≤ 70 m) and never casts shadows; emissive
-glow geometry reads at any distance.
+glow geometry reads at any distance. Light records with `"interior": true` (cave and tunnel
+lights; set it on `kit.lights` entries for windowless interiors) also shine by day.
 
 **Other builders available to settlements:** `BridgeBuilder.stone/suspended(kit, a, b, width,
 ...)`, `BoatBuilder.rowboat/sampan/kayak/ferry(kit)` and `BoatBuilder.ferry_node(nation)` (a

@@ -52,7 +52,7 @@ func run(p: Playtest) -> void:
 
 ## Frame cost with each provider hidden in turn (which layer costs what).
 func _breakdown(p: Playtest, content: WorldContent) -> void:
-	for id: StringName in [&"groundcover", &"vegetation", &"forest_far"]:
+	for id: StringName in [&"groundcover", &"vegetation", &"forest_far", &"landmarks", &"poi_structures", &"road_dressing"]:
 		var hidden: Array[Node3D] = []
 		for c in content.get_cells(id):
 			if c.root and c.root.visible:
@@ -63,15 +63,22 @@ func _breakdown(p: Playtest, content: WorldContent) -> void:
 		p.note("  without %s: %.0f ms, %d draw calls, %d prims" % [id, s.x, int(s.y), int(s.z)])
 		for n in hidden:
 			n.visible = true
-	for c in content.get_cells(&"groundcover") + content.get_cells(&"vegetation") + content.get_cells(&"forest_far"):
+	for c in _all_cells(content):
 		if c.root:
 			c.root.visible = false
 	await p.frames(3)
 	var s0 := await _measure(p, 6)
 	p.note("  without content: %.0f ms, %d draw calls, %d prims" % [s0.x, int(s0.y), int(s0.z)])
-	for c in content.get_cells(&"groundcover") + content.get_cells(&"vegetation") + content.get_cells(&"forest_far"):
+	for c in _all_cells(content):
 		if c.root:
 			c.root.visible = true
+
+
+func _all_cells(content: WorldContent) -> Array[ContentCell]:
+	var out: Array[ContentCell] = []
+	for p in content.get_providers():
+		out.append_array(content.get_cells(p.id))
+	return out
 
 
 ## Ground views: step the camera back while a trunk/boulder collider is right in front of it.

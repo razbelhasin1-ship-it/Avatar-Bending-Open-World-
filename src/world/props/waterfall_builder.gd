@@ -98,32 +98,40 @@ static func fall_path(top: Vector3, bottom: Vector3) -> PackedVector3Array:
 
 
 ## Ribbon along the path (UV.x across, UV.y metres fallen), offset towards the cliff by `back`.
+## The ribbon keeps one horizontal orientation (the overall fall direction), so near-vertical
+## stretches of the path cannot twist it.
 static func _sheet(path: PackedVector3Array, width: float, back: float, origin: Vector3) -> Array:
 	var g := GeoBuilder.new()
 	var n := path.size()
 	var cols := 6
 	var fallen := 0.0
 	var top_y := path[1].y
+	var fd := fall_dir(path)
+	var side := Vector3.UP.cross(fd).normalized()
 	for i in n:
 		var p := path[i]
 		var t := (path[mini(i + 1, n - 1)] - path[maxi(i - 1, 0)]).normalized()
-		var flat_t := Vector3(t.x, 0, t.z).normalized() if Vector2(t.x, t.z).length() > 0.05 else Vector3(0, 0, 1)
-		var side := Vector3.UP.cross(flat_t).normalized()
 		var nrm := t.cross(side).normalized()
-		if nrm.dot(flat_t) < 0.0:
+		if nrm.dot(fd) < 0.0:
 			nrm = -nrm
 		if i > 0:
 			fallen = maxf(top_y - p.y, 0.0)
 		var spread := 1.0 + 0.45 * clampf(fallen / maxf(top_y - path[n - 1].y, 1.0), 0.0, 1.0)
 		for c in cols + 1:
 			var u := float(c) / cols
-			var q := p + side * (u - 0.5) * width * spread - nrm * back
+			var q := p + side * (u - 0.5) * width * spread - fd * back
 			g.raw_vertex(q - origin, nrm, Color(1, 1, 1, 1), Vector2(u, fallen))
 	for i in n - 1:
 		for c in cols:
 			var k := i * (cols + 1) + c
 			g.quad(k, k + 1, k + cols + 2, k + cols + 1)
 	return g.arrays()
+
+
+## Overall horizontal direction of a fall path (away from the cliff).
+static func fall_dir(path: PackedVector3Array) -> Vector3:
+	var d := Vector3(path[path.size() - 1].x - path[0].x, 0, path[path.size() - 1].z - path[0].z)
+	return d.normalized() if d.length() > 0.05 else Vector3(0, 0, 1)
 
 
 static func _foam_disc(center: Vector3, r: float) -> Array:
@@ -138,47 +146,50 @@ static func _foam_disc(center: Vector3, r: float) -> Array:
 	return g.arrays()
 
 
-## Frozen fall: a glossy ice curtain with bulging columns of uneven length, icicles along the
-## lip and the columns, and a frozen plunge pool.
+## Frozen fall: a wall of bulging ice columns of uneven length over a darker back curtain,
+## icy bulges, icicles and a frozen plunge pool (all glossy kit ice).
 static func _ice_cascade(kit: BuildingKit, path: PackedVector3Array, width: float, rng: RandomNumberGenerator, origin: Vector3) -> void:
 	var n := path.size()
-	var deep := Color(0.42, 0.66, 0.88).srgb_to_linear()
-	var pale := Color(0.86, 0.94, 1.0).srgb_to_linear()
-	# curtain (faces away from the cliff), widening downwards
+	var deep := Color(0.40, 0.64, 0.88).srgb_to_linear()
+	var pale := Color(0.88, 0.95, 1.0).srgb_to_linear()
+	var fd := fall_dir(path)
+	var side := Vector3.UP.cross(fd).normalized()
 	var gi := kit.g(&"ice")
+	# back curtain (faces away from the cliff), widening downwards
 	for i in n - 1:
-		var p0 := path[i]
-		var p1 := path[i + 1]
-		var t := Vector3(p1.x - p0.x, 0, p1.z - p0.z)
-		var flat_t := t.normalized() if t.length() > 0.05 else Vector3(0, 0, 1)
-		var side := Vector3.UP.cross(flat_t).normalized()
-		var w0 := width * (0.55 + 0.25 * float(i) / n)
-		var w1 := width * (0.55 + 0.25 * float(i + 1) / n)
-		var back := -flat_t * 0.6
-		var c := pale.lerp(deep, float(i) / n)
-		gi.flat_quad(p1 - side * w1 + back - origin, p1 + side * w1 + back - origin, p0 + side * w0 + back - origin, p0 - side * w0 + back - origin, c)
-	var cols := 7
+		var p0 := path[i] - fd * 0.9
+		var p1 := path[i + 1] - fd * 0.9
+		var w0 := width * (0.6 + 0.3 * float(i) / n)
+		var w1 := width * (0.6 + 0.3 * float(i + 1) / n)
+		gi.flat_quad(p1 - side * w1 - origin, p1 + side * w1 - origin, p0 + side * w0 - origin, p0 - side * w0 - origin, deep * 0.8)
+	# columns
+	var cols := 11
 	for c in cols:
-		var off := (float(c) / (cols - 1) - 0.5) * width * 1.1
-		var stop := n - 1 - rng.randi_range(0, n / 3)
+		var u := float(c) / (cols - 1) - 0.5
+		var stop := n - 1 - rng.randi_range(0, n / 4)
 		var pts := PackedVector3Array()
 		var radii := PackedFloat32Array()
-		for i in range(1, stop, 2):
-			var p := path[i]
-			var t := (path[mini(i + 1, n - 1)] - path[maxi(i - 1, 0)])
-			var side := Vector3.UP.cross(Vector3(t.x, 0, t.z).normalized()).normalized()
-			pts.append(p + side * off * (0.8 + 0.4 * float(i) / n) + Vector3(rng.randf_range(-0.3, 0.3), 0, rng.randf_range(-0.3, 0.3)) - origin)
-			radii.append(rng.randf_range(0.5, 1.5) * (1.0 - 0.45 * absf(off) / width))
+		var phase := rng.randf() * TAU
+		for i in range(1, stop + 1, 2):
+			var f := float(i) / n
+			var p := path[i] + side * u * width * (1.1 + 0.4 * f) + fd * rng.randf_range(-0.2, 0.3)
+			pts.append(p - origin)
+			radii.append((0.75 + 0.45 * sin(f * 9.0 + phase) + rng.randf_range(0.0, 0.4)) * (1.0 - 0.5 * absf(u)))
 		if pts.size() >= 2:
-			kit.g(&"ice").tube(pts, radii, 6, pale, deep)
+			gi.tube(pts, radii, 7, pale, deep)
 			var tip: Vector3 = pts[pts.size() - 1]
-			kit.g(&"ice").cone(tip, tip - Vector3(0, rng.randf_range(1.5, 4.0), 0), radii[radii.size() - 1], 6, deep, true)
-	for k in 24:
-		var i := rng.randi_range(1, n - 2)
-		var p := path[i] + Vector3(rng.randf_range(-0.5, 0.5) * width, 0, 0) - origin
-		kit.g(&"ice").cone(p, p - Vector3(0, rng.randf_range(1.0, 3.0), 0), rng.randf_range(0.15, 0.35), 5, kit.col(&"ice"), true)
+			gi.cone(tip, tip - Vector3(0, rng.randf_range(1.5, 4.0), 0), radii[radii.size() - 1] * 0.9, 6, deep, true)
+	# frozen bulges where the water piled up
+	for k in 14:
+		var i := rng.randi_range(2, n - 2)
+		var p := path[i] + side * rng.randf_range(-0.5, 0.5) * width + fd * 0.6 - origin
+		gi.blob(p, rng.randf_range(0.9, 1.8), 1, pale.lerp(deep, rng.randf_range(0.2, 0.7)), rng, 0.2, Vector3(1.3, 0.8, 0.7))
+	# icicles along the lip
+	for k in 16:
+		var p := path[1] + side * rng.randf_range(-0.6, 0.6) * width + fd * 0.4 - origin
+		gi.cone(p, p - Vector3(0, rng.randf_range(1.0, 3.5), 0), rng.randf_range(0.18, 0.4), 5, pale, true)
 	var pl := path[n - 1] - origin
-	kit.g(&"ice").blob(pl + Vector3(0, -0.2, 0), width * 0.7, 1, kit.col(&"ice"), rng, 0.15, Vector3(1.3, 0.25, 1.1))
+	gi.blob(pl + Vector3(0, -0.2, 0), width * 0.8, 1, pale, rng, 0.15, Vector3(1.4, 0.25, 1.2))
 
 
 # --- main thread -----------------------------------------------------------------------------

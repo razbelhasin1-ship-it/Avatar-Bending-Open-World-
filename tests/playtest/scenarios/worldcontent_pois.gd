@@ -116,7 +116,11 @@ func _arches(p: Playtest) -> void:
 		var across := Vector3(pb.x - pa.x, 0, pb.z - pa.z).normalized().cross(Vector3.UP)
 		var span := Vector2(pb.x - pa.x, pb.z - pa.z).length()
 		var look := Vector3(mid.x, float(a["apex_height"]) - 10.0, mid.z)
-		await _shoot(p, v, _clear_view(look, across, span * 1.1, 12.0), look, 9.5)
+		var cam := _clear_view(look, across, span * 1.1, 12.0)
+		if cam.y < look.y - 40.0:
+			# a span climbing a mountainside: look at it from the air, level with the crown
+			cam = look + across * span * 1.3 + Vector3(0, -15.0, 0)
+		await _shoot(p, v, cam, look, 9.5)
 
 
 func _bridge(p: Playtest) -> void:
@@ -143,6 +147,7 @@ func _bridge(p: Playtest) -> void:
 	var pl: PlayerCharacter = scene.spawn_player(Transform3D(Basis.looking_at(dir), a - dir * 3.0 + Vector3(0, 0.3, 0)))
 	await p.wait_game(1.0)
 	var sag := float(b.get("sag", 5.0))
+	var edges := BridgeBuilder.edges(a, c, Vector3.ZERO)
 	var length := Vector2(c.x - a.x, c.z - a.z).length()
 	var lowest := INF
 	var below := 0.0
@@ -156,7 +161,7 @@ func _bridge(p: Playtest) -> void:
 		t += 0.5
 		var pos := pl.global_position
 		var s := clampf((pos - a).dot(dir) / length, 0.0, 1.0)
-		var deck := BridgeBuilder.deck_y(a, c, sag, s)
+		var deck := BridgeBuilder.deck_height(a, c, sag, Vector3.ZERO, s, edges)
 		lowest = minf(lowest, pos.y)
 		below = maxf(below, deck - pos.y)
 		if s > 0.3 and shots == 0 or s > 0.7 and shots == 1:
@@ -171,6 +176,21 @@ func _bridge(p: Playtest) -> void:
 			stall += 0.5
 			if stall >= 4.0:
 				p.note("bridge walk stalled at s %.2f, pos %s, state %s" % [s, pos, pl.get_state_name()])
+				var q := PhysicsShapeQueryParameters3D.new()
+				var cap := CapsuleShape3D.new()
+				cap.radius = 0.45
+				cap.height = 1.6
+				q.shape = cap
+				q.collision_mask = 0xffffffff
+				q.transform = Transform3D(Basis(), pos + dir * 0.6 + Vector3(0, 1.0, 0))
+				for hit in pl.get_world_3d().direct_space_state.intersect_shape(q, 8):
+					var col: Object = hit["collider"]
+					p.note("  blocked by %s shape %d" % [(col as Node).get_path() if col is Node else str(col), int(hit["shape"])])
+				p.note("  vel %s floor %s wall %s" % [pl.velocity, pl.is_on_floor(), pl.is_on_wall()])
+				for k in pl.get_slide_collision_count():
+					var sc := pl.get_slide_collision(k)
+					var cn: Object = sc.get_collider()
+					p.note("  slide %s normal %s at %s" % [(cn as Node).get_path() if cn is Node else str(cn), sc.get_normal(), sc.get_position()])
 				break
 	p.release(&"move_forward")
 	var end := pl.global_position
@@ -225,7 +245,7 @@ func _cave(p: Playtest) -> void:
 	var up_hit := space.intersect_ray(PhysicsRayQueryParameters3D.create(pl.global_position + Vector3(0, 1, 0), pl.global_position + Vector3(0, 12, 0), Layers.WORLD))
 	p.note("  camera %s (terrain there %.1f), ceiling hit %s" % [camp, WorldData.get_height(camp.x, camp.z), up_hit.get("position", "none")])
 	p.check(depth > 8.0, "player walked into the cave (%.1f m)" % depth)
-	p.check(pl.global_position.y < WorldData.get_height(pl.global_position.x, pl.global_position.z) - 1.0, "player is under the terrain surface (inside)")
+	p.check(not up_hit.is_empty() and (up_hit["position"] as Vector3).y - pl.global_position.y < 6.0, "player is inside the tunnel (roof overhead)")
 	await p.screenshot("worldcontent_poi_cave_inside")
 	pl.camera_rig.set_yaw(pl.camera_rig.get_yaw() + PI)
 	await p.wait_game(0.5)

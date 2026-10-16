@@ -31,19 +31,54 @@ static func deck_y(a: Vector3, b: Vector3, sag: float, t: float) -> float:
 	return lerpf(a.y, b.y, t) - sag * 4.0 * t * (1.0 - t)
 
 
-## Deck height that never dips under the terrain near the anchors (planks rest on the ground there,
-## so walking on and off the bridge has no step). `origin` = world offset of the kit frame (INF: no
-## terrain, the pure curve).
-static func _deck(a: Vector3, b: Vector3, sag: float, origin: Vector3, t: float) -> float:
-	var y := deck_y(a, b, sag, t)
-	if origin.is_finite():
+## Where the ground under the span falls away at each end: Vector2(t_a, t_b) (0..1 along a->b).
+## The sag curve hangs between these cliff edges, so the deck meets each edge at its anchor height
+## instead of running into the cliff face. `origin` = world offset of the kit frame (INF: 0, 1).
+static func edges(a: Vector3, b: Vector3, origin: Vector3) -> Vector2:
+	if not origin.is_finite():
+		return Vector2(0.0, 1.0)
+	var e := Vector2(0.0, 1.0)
+	var t := 0.0
+	while t < 0.45:
 		var p := a.lerp(b, t) + origin
-		y = maxf(y, WorldData.get_height(p.x, p.z) - origin.y + 0.06)
+		if WorldData.get_height(p.x, p.z) - origin.y < a.y - 0.6:
+			break
+		e.x = t
+		t += 0.0025
+	t = 1.0
+	while t > 0.55:
+		var p := a.lerp(b, t) + origin
+		if WorldData.get_height(p.x, p.z) - origin.y < b.y - 0.6:
+			break
+		e.y = t
+		t -= 0.0025
+	return e
+
+
+## Deck height at t: on the ground up to each cliff edge, then the sagging span between the edges;
+## never under the terrain (planks rest on it), so there is no step on or off the bridge.
+static func deck_height(a: Vector3, b: Vector3, sag: float, origin: Vector3, t: float, e: Vector2) -> float:
+	var y: float
+	if t <= e.x:
+		y = a.y
+	elif t >= e.y:
+		y = b.y
+	else:
+		var u := (t - e.x) / maxf(e.y - e.x, 0.001)
+		y = lerpf(a.y, b.y, u) - sag * 4.0 * u * (1.0 - u)
+	if origin.is_finite():
+		# highest ground within 1.2 m along the span: the deck collision (2 m quads) then never dips
+		# under a cliff lip of the 1 m heightfield, which would stop walkers like a low wall
+		var dt := 0.6 / maxf(Vector2(b.x - a.x, b.z - a.z).length(), 1.0)
+		for k in range(-2, 3):
+			var p := a.lerp(b, clampf(t + k * dt, 0.0, 1.0)) + origin
+			y = maxf(y, WorldData.get_height(p.x, p.z) - origin.y + 0.06)
 	return y
 
 
 static func suspended(kit: BuildingKit, a: Vector3, b: Vector3, width: float, sag: float, opts: Dictionary = {}) -> void:
 	var origin: Vector3 = opts.get("origin", Vector3.INF)
+	var e := edges(a, b, origin)
 	var dir := Vector3(b.x - a.x, 0, b.z - a.z)
 	var length := dir.length()
 	dir = dir.normalized()
@@ -55,10 +90,10 @@ static func suspended(kit: BuildingKit, a: Vector3, b: Vector3, width: float, sa
 	for i in n:
 		var t := (float(i) + 0.5) / n
 		var p := a.lerp(b, t)
-		p.y = _deck(a, b, sag, origin, t)
+		p.y = deck_height(a, b, sag, origin, t, e)
 		var t0 := float(i) / n
 		var t1 := float(i + 1) / n
-		var slope := atan2(_deck(a, b, sag, origin, t1) - _deck(a, b, sag, origin, t0), length / n)
+		var slope := atan2(deck_height(a, b, sag, origin, t1, e) - deck_height(a, b, sag, origin, t0, e), length / n)
 		kit.box_t(Transform3D(Basis(side, Vector3.UP.rotated(side, slope), -dir.rotated(side, slope)).orthonormalized(), p - Vector3(0, 0.05, 0)),
 				Vector3(width + rng_jitter(kit, 0.15), 0.09, plank), &"wood" if i % 5 else &"wood_dark", false)
 	var segs := maxi(int(length / 2.0), 4)
@@ -67,8 +102,8 @@ static func suspended(kit: BuildingKit, a: Vector3, b: Vector3, width: float, sa
 		var t1 := float(i + 1) / segs
 		var p0 := a.lerp(b, t0)
 		var p1 := a.lerp(b, t1)
-		p0.y = _deck(a, b, sag, origin, t0)
-		p1.y = _deck(a, b, sag, origin, t1)
+		p0.y = deck_height(a, b, sag, origin, t0, e)
+		p1.y = deck_height(a, b, sag, origin, t1, e)
 		var hw := side * width * 0.5
 		kit.collide_quad(p0 - hw, p0 + hw, p1 + hw, p1 - hw)
 		# rope barrier (invisible walls at the handrails)
@@ -85,8 +120,8 @@ static func suspended(kit: BuildingKit, a: Vector3, b: Vector3, width: float, sa
 		for i in nr + 1:
 			var t := float(i) / nr
 			var p := a.lerp(b, t) + side * s * (width * 0.5 + 0.06)
-			foot.append(Vector3(p.x, _deck(a, b, sag, origin, t) + 0.02, p.z))
-			rope.append(Vector3(p.x, maxf(deck_y(a, b, sag * 0.85, t) + rail_h + 0.25 * (1.0 - 4.0 * t * (1.0 - t)), _deck(a, b, sag, origin, t) + 0.9), p.z))
+			foot.append(Vector3(p.x, deck_height(a, b, sag, origin, t, e) + 0.02, p.z))
+			rope.append(Vector3(p.x, deck_height(a, b, sag, origin, t, e) + rail_h + 0.15 * (1.0 - 4.0 * t * (1.0 - t)), p.z))
 		var radii := PackedFloat32Array()
 		radii.resize(rope.size())
 		radii.fill(0.035)
