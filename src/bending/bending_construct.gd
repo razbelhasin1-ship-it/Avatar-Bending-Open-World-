@@ -33,6 +33,10 @@ var _attack_id := 0
 var _top := Transform3D.IDENTITY
 var _flash := 0.0
 var _mat_flash: ShaderMaterial = null
+## Optional: the construct follows this node (Earth Shield slab) at `follow_offset`
+## (x right, z forward of the node, ground level) and never expires on its own.
+var follow: Node3D = null
+var follow_offset := Vector3(0, 0, 0.9)
 
 ## Live constructs (tests / AI queries).
 static var live: Array[BendingConstruct] = []
@@ -52,6 +56,10 @@ static func raise(ctx: BendingContext, ground_pos: Vector3, facing: Vector3, opt
 	c.rise_time = float(opts.get("rise_time", 0.32))
 	c._launch = opts.get("launch", {})
 	c._attack_id = HitInfo.new_attack_id()
+	c.follow = opts.get("follow", null)
+	c.follow_offset = opts.get("follow_offset", Vector3(0, 0, 0.9))
+	if c.follow != null:
+		c.lifetime = INF
 	var f := Vector3(facing.x, 0.0, facing.z)
 	f = f.normalized() if f.length_squared() > 1e-4 else Vector3.FORWARD
 	c.ground_y = ground_pos.y
@@ -88,6 +96,8 @@ func _build() -> void:
 	shape.position = Vector3(0, size.y * 0.5, 0)
 	add_child(shape)
 	global_transform = _top.translated(Vector3.DOWN * (size.y + 0.3))
+	if _ctx != null and _ctx.caster is PhysicsBody3D:
+		add_collision_exception_with(_ctx.caster as PhysicsBody3D)
 	live.append(self)
 	# Eruption feedback.
 	var surface := GroundSampler.surface(_top.origin)
@@ -130,6 +140,17 @@ func receive_hit(hit: HitInfo) -> int:
 
 func _physics_process(delta: float) -> void:
 	_t += delta
+	if follow != null and is_instance_valid(follow) and _state < 2:
+		var fb := Basis(Vector3.UP, follow.global_rotation.y)
+		var fwd := -fb.z
+		var o := follow.global_position + fb.x * follow_offset.x + fwd * follow_offset.z
+		o.y = _ctx.ground_y(o, 1.5, 3.0) if _ctx != null and _ctx.is_valid() else follow.global_position.y
+		_top = Transform3D(Basis.looking_at(-fwd, Vector3.UP), o)
+		if _state == 1:
+			global_transform = _top
+	elif follow != null and _state < 2:
+		crumble()
+		return
 	match _state:
 		0:
 			var u := clampf(_t / maxf(rise_time, 0.01), 0.0, 1.0)

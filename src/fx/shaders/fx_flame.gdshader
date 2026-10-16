@@ -6,8 +6,8 @@ shader_type spatial;
 render_mode unshaded, blend_mix, depth_draw_never, cull_disabled, shadows_disabled;
 
 uniform sampler2D noise_tex : filter_linear_mipmap, repeat_enable;
-uniform vec4 core_color : source_color = vec4(1.0, 0.96, 0.72, 1.0);
-uniform vec4 mid_color : source_color = vec4(1.0, 0.58, 0.14, 1.0);
+uniform vec4 core_color : source_color = vec4(1.0, 0.92, 0.55, 1.0);
+uniform vec4 mid_color : source_color = vec4(1.0, 0.5, 0.1, 1.0);
 uniform vec4 edge_color : source_color = vec4(0.88, 0.17, 0.05, 1.0);
 // 1 = camera-facing quad (particles / sprites).
 uniform float billboard = 1.0;
@@ -15,7 +15,7 @@ uniform float billboard = 1.0;
 uniform float intensity = 1.0;
 uniform float scroll_speed = 1.7;
 // HDR boost so Environment glow blooms the core.
-uniform float emission_boost = 1.5;
+uniform float emission_boost = 1.15;
 // 0 = round puff, 1 = tall licking tongue.
 uniform float tongue = 0.6;
 uniform float opacity = 1.0;

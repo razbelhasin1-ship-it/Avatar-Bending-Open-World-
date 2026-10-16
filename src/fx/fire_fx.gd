@@ -151,6 +151,7 @@ class FireBall extends Node3D:
 			var s := StandardMaterial3D.new()
 			s.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 			s.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+			s.billboard_keep_scale = true
 			s.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 			s.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
 			s.vertex_color_use_as_albedo = true
@@ -222,6 +223,10 @@ class FireArc extends Node3D:
 	var t := 0.0
 	var duration := 0.35
 	var hold := 0.15
+	var r0 := 1.0
+	var r1 := 1.0
+	## Expanding waves reveal the whole arc at once and grow r0 -> r1 instead.
+	var expanding := false
 
 	static func make() -> FireArc:
 		var a := FireArc.new()
@@ -251,6 +256,9 @@ class FireArc extends Node3D:
 		mat.set_shader_parameter(&"head", 0.0)
 		mat.set_shader_parameter(&"fade", 0.0)
 		mat.set_shader_parameter(&"tongue_scale", float(opts.get("tongues", 5.0)))
+		r0 = radius
+		r1 = float(opts.get("grow_to", radius))
+		expanding = r1 != r0
 
 	func fx_reset() -> void:
 		t = duration + hold + 1.0
@@ -258,7 +266,12 @@ class FireArc extends Node3D:
 	func _process(delta: float) -> void:
 		t += delta
 		var sweep := clampf(t / duration, 0.0, 1.0)
-		mat.set_shader_parameter(&"head", 1.0 - pow(1.0 - sweep, 2.0) + 0.02)
+		if expanding:
+			var r := lerpf(r0, r1, 1.0 - pow(1.0 - sweep, 1.6))
+			mesh_i.scale = Vector3(r, mesh_i.scale.y, r)
+			mat.set_shader_parameter(&"head", 1.02)
+		else:
+			mat.set_shader_parameter(&"head", 1.0 - pow(1.0 - sweep, 2.0) + 0.02)
 		var burn := clampf((t - duration) / maxf(hold + 0.2, 0.05), 0.0, 1.0)
 		mat.set_shader_parameter(&"fade", burn)
 		if burn >= 1.0:

@@ -7,6 +7,8 @@ extends OmniLight3D
 ##   FxFlash.spawn(self, pos, Color(1, 0.6, 0.2), 3.0, 0.25)
 ##   var l := FxFlash.attach(self, fireball_node, color, 2.0)   # follows, call fade_out()
 
+const ENERGY_SCALE := 0.5
+
 var t := 0.0
 var duration := 0.25
 var peak := 2.0
@@ -21,6 +23,8 @@ static func spawn(from: Node, pos: Vector3, color: Color, energy: float = 2.5, d
 	var l := FxLib.take(from, &"flash", FxFlash._make) as FxFlash
 	l.global_position = pos
 	l.light_color = color
+	# Callers think in "how hot"; keep scene lighting from blowing out.
+	energy *= ENERGY_SCALE
 	l.peak = energy
 	l.light_energy = energy
 	l.omni_range = range_m

@@ -298,6 +298,7 @@ func try_air_jump() -> bool:
 		return false
 	air_jumps_used += 1
 	gliding = false
+	_jump_buffer = 0.0
 	body.velocity.y = profile.air_jump_velocity
 	peak_y = body.global_position.y
 	jumped.emit(&"air_jump")

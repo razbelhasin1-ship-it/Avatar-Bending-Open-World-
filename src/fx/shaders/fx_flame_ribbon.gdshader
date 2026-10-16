@@ -6,8 +6,8 @@ shader_type spatial;
 render_mode unshaded, blend_mix, depth_draw_never, cull_disabled, shadows_disabled;
 
 uniform sampler2D noise_tex : filter_linear_mipmap, repeat_enable;
-uniform vec4 core_color : source_color = vec4(1.0, 0.96, 0.72, 1.0);
-uniform vec4 mid_color : source_color = vec4(1.0, 0.56, 0.12, 1.0);
+uniform vec4 core_color : source_color = vec4(1.0, 0.92, 0.55, 1.0);
+uniform vec4 mid_color : source_color = vec4(1.0, 0.5, 0.1, 1.0);
 uniform vec4 edge_color : source_color = vec4(0.88, 0.17, 0.05, 1.0);
 // Visible window: head position (0..1.3) and tail length along UV.x.
 uniform float head = 1.0;
@@ -16,7 +16,7 @@ uniform float tail = 1.0;
 uniform float fade = 0.0;
 uniform float scroll_speed = 2.2;
 uniform float tongue_scale = 5.0;
-uniform float emission_boost = 1.5;
+uniform float emission_boost = 1.15;
 uniform float opacity = 1.0;
 // 1: the strip is symmetric across (UV.y 0..1 both edges thin), 0: base at UV.y = 0.
 uniform float symmetric = 0.0;
@@ -25,8 +25,8 @@ void fragment() {
 	float along = UV.x;
 	float across = mix(UV.y, abs(UV.y * 2.0 - 1.0), symmetric);
 	float win = smoothstep(head - tail, head - tail * 0.55, along) * (1.0 - smoothstep(head - 0.04, head + 0.01, along));
-	float n1 = texture(noise_tex, vec2(along * tongue_scale * 0.35, across * 0.6 - TIME * scroll_speed)).r;
-	float n2 = texture(noise_tex, vec2(along * tongue_scale * 0.9 + 0.37, across * 1.2 - TIME * scroll_speed * 1.7)).r;
+	float n1 = texture(noise_tex, vec2(along * tongue_scale * 0.7, across * 0.32 - TIME * scroll_speed)).r;
+	float n2 = texture(noise_tex, vec2(along * tongue_scale * 1.7 + 0.37, across * 0.7 - TIME * scroll_speed * 1.7)).r;
 	float n = n1 * 0.6 + n2 * 0.4;
 	// Height profile: full at the base, tongues reach up with noise.
 	float h = 1.0 - across;

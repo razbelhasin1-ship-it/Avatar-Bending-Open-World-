@@ -11,29 +11,29 @@ extends Node3D
 ## size (mult), speed (mult), radius (emission radius mult), spread (deg).
 
 const KINDS := {
-	&"dust": {"amount": 14, "life": 0.95, "mat": &"puff", "shape": &"sphere", "radius": 0.35, "dir": Vector3.UP, "spread": 70.0,
-		"vel": [1.2, 3.2], "gravity": Vector3(0, -0.4, 0), "damping": [2.0, 3.5], "scale": [0.55, 1.1], "grow": 1.6, "alpha": 0.8},
+	&"dust": {"amount": 12, "life": 0.9, "mat": &"puff", "shape": &"sphere", "radius": 0.3, "dir": Vector3.UP, "spread": 70.0,
+		"vel": [1.2, 3.0], "gravity": Vector3(0, -0.4, 0), "damping": [2.0, 3.5], "scale": [0.32, 0.62], "grow": 1.7, "alpha": 0.62, "crisp": 0.6},
 	&"dust_ring": {"amount": 22, "life": 0.9, "mat": &"puff", "shape": &"ring", "radius": 0.5, "dir": Vector3.UP, "spread": 10.0,
-		"vel": [0.3, 0.8], "radial": [3.5, 6.5], "gravity": Vector3(0, 0.0, 0), "damping": [4.0, 6.0], "scale": [0.5, 0.95], "grow": 1.8, "alpha": 0.75},
+		"vel": [0.3, 0.8], "radial": [3.5, 6.5], "gravity": Vector3(0, 0.0, 0), "damping": [4.0, 6.0], "scale": [0.3, 0.6], "grow": 1.9, "alpha": 0.6, "crisp": 0.6},
 	&"snow": {"amount": 16, "life": 0.9, "mat": &"puff", "shape": &"sphere", "radius": 0.3, "dir": Vector3.UP, "spread": 60.0,
-		"vel": [1.5, 3.5], "gravity": Vector3(0, -2.0, 0), "damping": [1.5, 3.0], "scale": [0.4, 0.85], "grow": 1.5, "alpha": 0.95, "crisp": 0.75,
+		"vel": [1.5, 3.5], "gravity": Vector3(0, -2.0, 0), "damping": [1.5, 3.0], "scale": [0.22, 0.48], "grow": 1.5, "alpha": 0.9, "crisp": 0.8,
 		"color": Color(0.95, 0.97, 1.0)},
 	&"embers": {"amount": 18, "life": 0.9, "mat": &"glow", "shape": &"sphere", "radius": 0.25, "dir": Vector3.UP, "spread": 65.0,
 		"vel": [1.5, 4.5], "gravity": Vector3(0, 2.0, 0), "damping": [1.0, 2.0], "scale": [0.05, 0.11], "grow": 0.3, "alpha": 1.0,
 		"color": Color(1.0, 0.62, 0.18), "hdr": 2.5},
 	&"flame": {"amount": 10, "life": 0.5, "mat": &"flame", "shape": &"sphere", "radius": 0.3, "dir": Vector3.UP, "spread": 50.0,
-		"vel": [1.0, 3.0], "gravity": Vector3(0, 2.5, 0), "damping": [2.0, 3.0], "scale": [0.55, 0.95], "grow": 0.55, "alpha": 1.0},
+		"vel": [1.0, 3.0], "gravity": Vector3(0, 2.5, 0), "damping": [2.0, 3.0], "scale": [0.45, 0.8], "grow": 0.55, "alpha": 1.0},
 	&"smoke": {"amount": 8, "life": 1.4, "mat": &"puff", "shape": &"sphere", "radius": 0.35, "dir": Vector3.UP, "spread": 35.0,
-		"vel": [0.6, 1.6], "gravity": Vector3(0, 0.8, 0), "damping": [1.0, 2.0], "scale": [0.6, 1.0], "grow": 2.0, "alpha": 0.55,
+		"vel": [0.6, 1.6], "gravity": Vector3(0, 0.8, 0), "damping": [1.0, 2.0], "scale": [0.4, 0.75], "grow": 2.0, "alpha": 0.5, "crisp": 0.6,
 		"color": Color(0.24, 0.21, 0.2)},
 	&"steam": {"amount": 10, "life": 1.1, "mat": &"puff", "shape": &"sphere", "radius": 0.35, "dir": Vector3.UP, "spread": 40.0,
-		"vel": [0.8, 2.0], "gravity": Vector3(0, 1.2, 0), "damping": [1.0, 2.0], "scale": [0.5, 0.9], "grow": 2.2, "alpha": 0.6,
+		"vel": [0.8, 2.0], "gravity": Vector3(0, 1.2, 0), "damping": [1.0, 2.0], "scale": [0.35, 0.65], "grow": 2.0, "alpha": 0.5, "crisp": 0.6,
 		"color": Color(0.92, 0.95, 0.97)},
 	&"droplets": {"amount": 22, "life": 0.75, "mat": &"drop", "shape": &"sphere", "radius": 0.2, "dir": Vector3.UP, "spread": 70.0,
 		"vel": [2.5, 6.0], "gravity": Vector3(0, -12.0, 0), "damping": [0.0, 0.5], "scale": [0.05, 0.11], "grow": 0.8, "alpha": 0.95,
 		"color": Color(0.82, 0.94, 1.0)},
 	&"spray": {"amount": 10, "life": 0.7, "mat": &"puff", "shape": &"sphere", "radius": 0.25, "dir": Vector3.UP, "spread": 55.0,
-		"vel": [1.5, 3.5], "gravity": Vector3(0, -3.0, 0), "damping": [1.0, 2.0], "scale": [0.35, 0.7], "grow": 1.6, "alpha": 0.8, "crisp": 0.7,
+		"vel": [1.5, 3.5], "gravity": Vector3(0, -3.0, 0), "damping": [1.0, 2.0], "scale": [0.18, 0.4], "grow": 1.5, "alpha": 0.75, "crisp": 0.8,
 		"color": Color(0.86, 0.95, 1.0)},
 	&"sparkle": {"amount": 14, "life": 0.6, "mat": &"glow", "shape": &"sphere", "radius": 0.35, "dir": Vector3.UP, "spread": 90.0,
 		"vel": [0.8, 2.5], "gravity": Vector3(0, -1.0, 0), "damping": [1.0, 2.0], "scale": [0.04, 0.08], "grow": 0.5, "alpha": 1.0,
@@ -200,6 +200,7 @@ static func _material(mat_kind: StringName, cfg: Dictionary) -> Material:
 			var s := StandardMaterial3D.new()
 			s.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 			s.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+			s.billboard_keep_scale = true
 			s.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 			s.vertex_color_use_as_albedo = true
 			s.albedo_texture = FxLib.soft_dot() if mat_kind != &"leaf" else _leaf_texture()

@@ -5,11 +5,11 @@ shader_type spatial;
 render_mode blend_mix, depth_draw_always, cull_back, specular_schlick_ggx;
 
 uniform sampler2D noise_tex : filter_linear_mipmap, repeat_enable;
-uniform vec4 deep_color : source_color = vec4(0.10, 0.40, 0.80, 1.0);
-uniform vec4 shallow_color : source_color = vec4(0.45, 0.82, 0.98, 1.0);
+uniform vec4 deep_color : source_color = vec4(0.05, 0.3, 0.72, 1.0);
+uniform vec4 shallow_color : source_color = vec4(0.32, 0.72, 0.96, 1.0);
 uniform vec4 foam_color : source_color = vec4(0.96, 0.99, 1.0, 1.0);
 uniform float freeze = 0.0;
-uniform float opacity = 0.8;
+uniform float opacity = 0.86;
 uniform float flow_speed = 2.2;
 uniform float wobble = 0.03;
 uniform float foam_amount = 1.0;

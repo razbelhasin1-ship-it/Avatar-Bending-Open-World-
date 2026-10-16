@@ -3,9 +3,9 @@
 shader_type spatial;
 render_mode blend_mix, cull_back, depth_draw_opaque;
 
-uniform vec4 base_color : source_color = vec4(0.58, 0.84, 0.97, 1.0);
-uniform vec4 core_color : source_color = vec4(0.88, 0.97, 1.0, 1.0);
-uniform float glow = 0.28;
+uniform vec4 base_color : source_color = vec4(0.38, 0.7, 0.93, 1.0);
+uniform vec4 core_color : source_color = vec4(0.82, 0.95, 1.0, 1.0);
+uniform float glow = 0.16;
 uniform float hit_flash = 0.0;
 // 0..1 shatter fade (dims and whitens).
 uniform float frost = 0.0;
