@@ -8,10 +8,12 @@ shader_type spatial;
 render_mode blend_mix, depth_draw_always, cull_disabled, specular_schlick_ggx;
 
 uniform sampler2D noise_tex : filter_linear_mipmap, repeat_enable;
-uniform vec4 deep_color : source_color = vec4(0.03, 0.25, 0.62, 1.0);
-uniform vec4 shallow_color : source_color = vec4(0.15, 0.56, 0.92, 1.0);
+uniform vec4 deep_color : source_color = vec4(0.02, 0.3, 0.62, 1.0);
+uniform vec4 shallow_color : source_color = vec4(0.2, 0.64, 0.93, 1.0);
 uniform vec4 foam_color : source_color = vec4(0.95, 0.99, 1.0, 1.0);
-uniform float opacity = 0.93;
+uniform float opacity = 0.95;
+// Darkening of the hollow under the lip (UV.y band of the crest profile).
+uniform float hollow = 0.3;
 uniform float flow = 1.3;
 uniform float foam = 1.0;
 // Meshes without vertex colours (COLOR = white) use this foam weight instead.
@@ -42,15 +44,14 @@ void fragment() {
 	float veil = smoothstep(0.3, 0.55, f) * 0.35;
 	// Body: deep in the middle, lighter at grazing angles; the inside of the curl is darker.
 	vec3 water = mix(deep_color.rgb, shallow_color.rgb, clamp(fres * 1.1 + n * 0.25, 0.0, 1.0));
-	if (!FRONT_FACING) {
-		water *= 0.8;
-	}
+	// The hollow under the curling lip is darker (profile band UV.y 0.62..0.9).
+	water *= 1.0 - hollow * smoothstep(0.6, 0.7, UV.y) * (1.0 - smoothstep(0.86, 0.95, UV.y));
 	vec3 col = mix(water, foam_color.rgb, max(cap, veil));
 	vec3 ice = mix(vec3(0.6, 0.82, 0.96), vec3(0.92, 0.98, 1.0), clamp(fres + n * 0.35, 0.0, 1.0));
 	ALBEDO = mix(col, ice, freeze);
 	ROUGHNESS = mix(0.12, 0.25, freeze);
 	SPECULAR = 0.5;
 	EMISSION = mix(water * 0.1, vec3(0.18, 0.26, 0.32), freeze) + shallow_color.rgb * glow + foam_color.rgb * cap * 0.06;
-	float a = opacity * (0.82 + 0.18 * max(cap, fres));
+	float a = opacity * (0.88 + 0.12 * max(cap, fres));
 	ALPHA = clamp(mix(a, 0.97, freeze) * COLOR.a * fade, 0.0, 1.0);
 }

@@ -72,7 +72,7 @@ static func defs() -> Array[AbilityDef]:
 			"startup": 0.68, "active": 0.7, "recovery": 0.35, "starter": true, "poise_armor": 25.0,
 			"unlock": {"level": 1, "tier": 1, "branch": &"flow", "column": 1},
 			"hit": {"damage": 18.0, "reaction": R.KNOCKBACK, "force": 9.0, "lift": 2.5, "poise": 35.0, "heavy": true, "status": {"soaked": 6.0}},
-			"params": {"speed": 14.0, "distance": 10.0, "width": 4.0, "height": 1.8, "start_ahead": 1.6, "carry": 0.55},
+			"params": {"speed": 14.0, "distance": 10.0, "width": 4.6, "height": 2.2, "start_ahead": 1.6, "carry": 0.55},
 			"fx": {"vfx": &"water_wave", "sfx": &"surge"}, "script_path": DIR + "water_surge.gd"}),
 		AbilityDef.make({"id": &"ice_wall", "element": E, "slot": AbilityDef.Slot.TECHNIQUE, "display_name": "Ice Wall",
 			"description": "Lift a sheet of water and freeze it into a wall of ice that blocks attacks and movement. Broken by enemies, it shatters into flying shards. On water it stands on a fresh ice floe.",

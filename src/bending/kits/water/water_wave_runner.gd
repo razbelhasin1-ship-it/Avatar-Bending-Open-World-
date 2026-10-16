@@ -76,7 +76,7 @@ static func ring(p_ctx: BendingContext, center: Vector3, opts: Dictionary) -> Wa
 	r.distance = r.r1 - r.r0
 	FxLib.root(p_ctx.caster).add_child(r)
 	# Unit ring scaled by the radius: the profile depth (0.18 of the radius) widens as it spreads.
-	r.fx = WaterWaveFx.spawn(p_ctx.caster, TAU, 1.0, r.height, 0.1, {"rise_time": 0.1})
+	r.fx = WaterWaveFx.spawn(p_ctx.caster, TAU, 1.0, r.height, 0.2, {"rise_time": 0.1})
 	r._place_fx()
 	live.append(r)
 	return r
@@ -99,6 +99,8 @@ func _place_fx() -> void:
 		return
 	if is_ring:
 		fx.place(Transform3D(Basis.IDENTITY.scaled(Vector3(radius, 1.0, radius)), pos))
+		# The ring loses height as it spreads (the same water over a longer front).
+		fx.set_height_scale(lerpf(1.0, 0.4, clampf(traveled / maxf(distance, 0.1), 0.0, 1.0)))
 		return
 	var b := Basis.looking_at(dir, Vector3.UP)
 	# The crest arc's centre sits behind the crest by the mesh radius.
