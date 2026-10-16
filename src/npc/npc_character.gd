@@ -144,6 +144,16 @@ func move_to(p: Vector3, speed: float = WALK) -> void:
 	_stuck_t = 0.0
 
 
+## Instantly moves the NPC (escort catch-up): drops any move target and snaps to the floor.
+func warp(p: Vector3) -> void:
+	_target = Vector3.INF
+	velocity = Vector3.ZERO
+	global_position = p + Vector3(0, 0.3, 0)
+	_last_pos = global_position
+	_stuck_t = 0.0
+	_snap_to_ground(true)
+
+
 func stop_moving() -> void:
 	_target = Vector3.INF
 	velocity.x = 0.0
@@ -169,6 +179,7 @@ func _physics_process(delta: float) -> void:
 	if _fade >= 0.0:
 		_tick_fade(delta)
 		return
+	_camera_fade()
 	if brain:
 		brain.tick(delta)
 	var desired := Vector3.ZERO
@@ -372,6 +383,22 @@ func vanish(t: float = 0.6) -> void:
 
 func is_vanishing() -> bool:
 	return _fade >= 0.0
+
+
+## Turns see-through while the camera is inside / right behind the NPC (crowded streets, a master
+## standing between the camera and the player), like the player's own camera fade.
+func _camera_fade() -> void:
+	if rig == null or rig.mesh_instance == null:
+		return
+	var k := 0.0
+	var cam := get_viewport().get_camera_3d()
+	if cam != null:
+		var c := cam.global_position
+		var dy := c.y - global_position.y
+		if dy > -0.4 and dy < 2.3:
+			k = clampf((1.9 - Vector2(c.x - global_position.x, c.z - global_position.z).length()) / 0.8, 0.0, 0.75)
+	if absf(rig.mesh_instance.transparency - k) > 0.01:
+		rig.mesh_instance.transparency = k
 
 
 func _tick_fade(delta: float) -> void:

@@ -347,17 +347,18 @@ func _alive(ed: EncounterDirector, site_id: StringName) -> Array[EnemyBase]:
 
 ## Walks to every live quest prop and interacts with it.
 func _take_props(shot: String) -> void:
-	var props := w.get_tree().get_first_node_in_group(&"quest_prop")
 	await p.wait_until(func() -> bool: return w.get_tree().get_nodes_in_group(&"quest_prop").size() > 0, 8.0)
+	var props := w.get_tree().get_first_node_in_group(&"quest_prop")
 	var first := true
 	for n in w.get_tree().get_nodes_in_group(&"quest_prop"):
 		var prop := n as Node3D
 		if prop == null or not is_instance_valid(prop):
 			continue
-		if pl.global_position.distance_to(prop.global_position) > 30.0:
-			var d := prop.global_position + Vector3(2.0, 0, 0)
+		p.note("prop %s at %s, player %.1f m away" % [prop.name, prop.global_position, pl.global_position.distance_to(prop.global_position)])
+		if pl.global_position.distance_to(prop.global_position) > 14.0:
+			var d := prop.global_position + Vector3(2.5, 0, 0)
 			await _travel(d, "", prop.global_position)
-		await _walk_to(prop.global_position, 1.3, 6.0)
+		await _walk_to(prop.global_position, 1.3, 10.0)
 		if first:
 			first = false
 			await p.screenshot("%s_%s" % [prefix, shot])
@@ -403,6 +404,7 @@ func _trainer_lesson() -> void:
 			var labels: Array = box.choices.map(func(b: Button) -> String: return b.text)
 			if not menu_shot and String(labels[0]).contains("Teach me"):
 				menu_shot = true
+				await p.wait_game(0.6)
 				await p.screenshot("%s_15_trainer_menu" % prefix)
 			# pick "Train me" / "Teach me ..." when offered, else the first option
 			var pick := 0

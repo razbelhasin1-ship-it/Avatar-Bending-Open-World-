@@ -16,7 +16,7 @@ training grounds.
 | Merchants | `src/npc/shop/trade_goods.gd` (`TradeGoods`: the item catalog), `merchant_stock.gd` (`MerchantStock`), `shop_panel.gd` (`ShopPanel`), `item_icon.gd` (`ItemIcon`) |
 | Wildlife | `src/wildlife/wildlife_director.gd` (`WildlifeDirector`), `wildlife_provider.gd` (`WildlifeProvider`), `wildlife_animal.gd` (`WildlifeAnimal`) |
 | Data | `data/quests/quests_{water,earth,fire,air,travel}.gd` (`const QUESTS`), `data/dialogue/npcs_{water,earth,fire,air,travel}.gd` (`const NPCS`, `const TREES`), `data/dialogue/ambient.gd` (`BARKS`, `SMALL_TALK`) |
-| Tests | `tests/unit/test_quests_npcs.gd` (24), `tests/integration/test_quests_npcs_world.gd`; playtests `quests_npcs_city` (`ELEMENT=`, `HOUR=`), `quests_npcs_water_chain` |
+| Tests | `tests/unit/test_quests_npcs.gd` (24), `tests/integration/test_quests_npcs_world.gd`; playtests `quests_npcs_city` (`ELEMENT=`, `HOUR=`, `TOUR=0`), `quests_npcs_water_chain` (`STOP=`), `quests_npcs_wildlife` (`SPECIES=`) |
 
 Data files are GDScript constants (not JSON) so they export with the project, are parse-checked,
 and can use `Vector3` / `StringName` literals. `QuestDefs.FILES` / `NpcRegistry.FILES` list them.
@@ -216,6 +216,20 @@ player trains: hits on training posts / sparring partners, bending out of combat
 Steering: whisker rays (0.2 s cache) push away from walls, separation from nearby NPCs, a berth
 around the player (sidestep, wait when the player stands in the way). NPC bodies are on
 `Layers.NPC` (the player cannot walk through them); NPCs are not damageable and not lockable.
+An NPC turns see-through while the camera is inside / right behind it, and its marker and name
+plate fade out near the camera.
+
+**Facing.** Settlement plans do not all agree on which way an anchor yaw faces (the Water Tribe
+interiors treat local +Z as forward, the contract says -Z), so a named or indoor NPC whose facing
+runs into a wall within 4 m while its back is open turns around once (home + facing) as soon as
+the ground collision under it exists (`NpcCharacter.ensure_open_facing`). Bending challenges
+likewise raise their posts / partner in the most open of eight directions when the player's
+facing has less than 6.5 m of floor.
+
+**Escorts** follow the player (brisk walk, run when > 8 m behind, wait and call out beyond 45 m);
+a follower that makes no progress for 4 s while 6-45 m behind (a wall, a ledge, a crowd) catches
+up out of the camera's view (`NpcBrain._catch_up`, `NpcCharacter.warp`), so an escort can never
+get stuck.
 
 **Faction awareness** (`NpcBarks.attitude`): own nation `own`, Air Nomads friendly to all, the
 Fire Nation and the other nations `wary` of each other: wary folk watch and mutter when the

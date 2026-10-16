@@ -73,7 +73,15 @@ func _visit(sid: StringName, kind: StringName, shot: String) -> void:
 	var d2 := at - stand
 	var ok: bool = await w.travel.travel_to(Transform3D(Basis(Vector3.UP, atan2(-d2.x, -d2.z)), stand), {"text": "", "autosave": false})
 	p.check(ok, "travelled to a %s" % kind)
-	await p.wait_game(4.0)
+	await p.wait_game(1.0)
+	var q := PhysicsRayQueryParameters3D.create(w.player.global_position + Vector3(0, 1.5, 0), at + Vector3(0, 1.5, 0), Layers.SOLID)
+	if not w.get_world_3d().direct_space_state.intersect_ray(q).is_empty():
+		# planners differ on which way an anchor faces: try the other side
+		stand = at - fwd * 7.0
+		d2 = at - stand
+		await w.travel.travel_to(Transform3D(Basis(Vector3.UP, atan2(-d2.x, -d2.z)), stand), {"text": "", "autosave": false})
+		p.note("%s: viewed from the other side" % kind)
+	await p.wait_game(3.0)
 	var dir := _director()
 	var near := 0
 	for n in dir.live_npcs():

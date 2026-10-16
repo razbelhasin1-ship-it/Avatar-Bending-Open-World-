@@ -26,6 +26,8 @@ var _look := false
 var _clip_t := 0.0
 var _speaking_turn := false
 var _posed: StringName = &""
+var _follow_best := INF
+var _follow_stuck := 0.0
 
 
 func _init(p_npc: NpcCharacter) -> void:
@@ -473,6 +475,22 @@ func _tick_follow() -> void:
 		stop_follow()
 		return
 	var d := npc.global_position.distance_to(follow_target.global_position)
+	# left behind (a wall, a ledge, a crowd: no gain on the leader for 4 s) while trying to keep
+	# up: catch up out of sight
+	if d > 6.0 and d <= 45.0:
+		if d < _follow_best - 0.5:
+			_follow_best = d
+			_follow_stuck = 0.0
+		else:
+			_follow_stuck += THINK
+	else:
+		_follow_best = d
+		_follow_stuck = 0.0
+	if _follow_stuck > 4.0 and not _on_screen():
+		_follow_stuck = 0.0
+		_follow_best = INF
+		_catch_up()
+		return
 	if d > 45.0:
 		npc.stop_moving()
 		_o_t -= THINK
@@ -485,6 +503,28 @@ func _tick_follow() -> void:
 	else:
 		npc.stop_moving()
 		npc.face_point(follow_target.global_position)
+
+
+func _on_screen() -> bool:
+	var cam := npc.get_viewport().get_camera_3d()
+	if cam == null:
+		return false
+	var at := npc.global_position + Vector3(0, 1.0, 0)
+	return cam.global_position.distance_to(at) < 70.0 and cam.is_position_in_frustum(at)
+
+
+## Puts a stuck follower a couple of metres behind (or beside) the one it follows, on floor.
+func _catch_up() -> void:
+	var t := follow_target.global_position
+	var back := follow_target.global_basis.z
+	back.y = 0.0
+	back = back.normalized() if back.length() > 0.1 else Vector3.BACK
+	for dirv: Vector3 in [back, back.rotated(Vector3.UP, 1.2), back.rotated(Vector3.UP, -1.2)]:
+		var p := t + dirv * 2.2
+		if NpcSteering.walkable(npc, t, p, 1.2):
+			npc.warp(p)
+			return
+	npc.warp(t + back * 1.2)
 
 
 func _bark(situation: StringName) -> void:

@@ -588,6 +588,52 @@ func test_npc_reacts_to_combat_and_recovers() -> void:
 	WorldData.height_override = Callable()
 
 
+func test_escort_follows_catches_up_and_reports() -> void:
+	NpcRegistry.register_npc(&"test_escortee", {"name": "Little Tester", "nation": &"earth", "place": {"pos": Vector3(0, 0, 0)},
+		"talk": [{"tree": &"test_escort_tree"}]})
+	NpcRegistry.register_tree(&"test_escort_tree", {"nodes": {"start": {"text": "Lead the way.", "end": true}}})
+	Quests.register_quest({"id": &"test_q_side", "title": "Escort", "stages": [{"objectives": [
+		{"id": &"home", "type": &"escort", "npc": &"test_escortee", "to": {"pos": Vector3(0, 0, -20)}, "radius": 4.0, "text": "e"}]}]})
+	_flat_world()
+	add_child(_floor_node())
+	# a long wall the follower cannot walk round
+	var wall := StaticBody3D.new()
+	wall.collision_layer = Layers.WORLD
+	var cs := CollisionShape3D.new()
+	var bx := BoxShape3D.new()
+	bx.size = Vector3(80, 3, 0.6)
+	cs.shape = bx
+	wall.add_child(cs)
+	add_child(wall)
+	wall.global_position = Vector3(0, 1.5, -6)
+	var pl := Node3D.new()
+	pl.add_to_group(&"player")
+	add_child(pl)
+	pl.global_position = Vector3(0, 0, 3)
+	var d := NpcDirector.new()
+	add_child(d)
+	d.player = pl
+	d.variant_gap = 0.0
+	Quests.start(&"test_q_side", {"silent": true})
+	await seconds(1.0)
+	var n := NpcRegistry.live_npc(&"test_escortee") as NpcCharacter
+	if expect(n != null, "escortee spawned"):
+		expect_eq(n.brain.override, &"follow", "follows the player once the escort is active")
+		pl.global_position = Vector3(0, 0, -12)          # the player crosses where the NPC cannot
+		await seconds(6.5)
+		expect(n.global_position.distance_to(pl.global_position) < 5.0,
+			"caught up after being stuck behind the wall (%.1f m)" % n.global_position.distance_to(pl.global_position))
+		pl.global_position = Vector3(0, 0, -20)
+		await seconds(5.0)
+		expect(Quests.is_completed(&"test_q_side"), "escort reported on arrival (npc %s)" % n.global_position)
+		expect(n.brain.override != &"follow", "stops following at the destination")
+	WorldData.height_override = Callable()
+	NpcRegistry._npcs.erase(&"test_escortee")
+	NpcRegistry._order.erase(&"test_escortee")
+	NpcRegistry._trees.erase(&"test_escort_tree")
+	NpcRegistry.clear_placements()
+
+
 # --- merchants, trainers, dialogue --------------------------------------------------------------------
 
 func test_merchant_buy_sell_and_restock() -> void:
