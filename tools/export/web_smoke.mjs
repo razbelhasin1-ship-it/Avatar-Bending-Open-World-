@@ -57,8 +57,12 @@ function startServer() {
 	});
 }
 
+let srvProc = null;
+let browserRef = null;
+
 async function main() {
 	const srv = await startServer();
+	srvProc = srv;
 	const base = devices[deviceName];
 	if (!base) throw new Error("unknown device " + deviceName);
 	// Landscape: swap the viewport.
@@ -66,6 +70,7 @@ async function main() {
 	const browser = await chromium.launch({
 		args: ["--enable-unsafe-swiftshader", "--use-angle=swiftshader", "--ignore-gpu-blocklist", "--autoplay-policy=no-user-gesture-required"],
 	});
+	browserRef = browser;
 	const context = await browser.newContext({ ...base, viewport: vp, screen: vp, isMobile: true, hasTouch: true });
 	const page = await context.newPage();
 	page.on("console", (m) => {
@@ -126,6 +131,24 @@ async function main() {
 	// Main menu: panorama + options (wait for the Router fade).
 	await sleep(parseInt(opt("menu-wait", "25"), 10) * 1000);
 	await shot("web_01_main_menu");
+	if (steps.includes("settings")) {
+		// 03 SETTINGS by tap, the CONTROLS tab, a drag to scroll its rows, then CANCEL.
+		await tap(400, 801);
+		await sleep(5000);
+		await shot("web_01b_settings");
+		const tabX = parseFloat(opt("controls-tab-x", "1677"));
+		const tabY = parseFloat(opt("controls-tab-y", "135"));
+		await tap(tabX, tabY);
+		await sleep(3000);
+		await shot("web_01c_settings_controls");
+		await drag(5, [520, 740], [520, 330], 12, 300);
+		await touch("touchEnd", []);
+		await sleep(2500);
+		await shot("web_01d_settings_scrolled");
+		await tap(parseFloat(opt("cancel-x", "1700")), parseFloat(opt("cancel-y", "985")));
+		await sleep(3000);
+		await shot("web_01e_back_to_menu");
+	}
 	if (steps.includes("select")) {
 		// 01 ENTER THE WORLD (first option; design ~ (440, 602)).
 		await tap(440, 602);
@@ -186,8 +209,12 @@ async function main() {
 	process.exit(scriptErrors.length ? 1 : 0);
 }
 
-main().catch((e) => {
+main().catch(async (e) => {
 	console.error(e);
+	try {
+		if (browserRef) await browserRef.close();
+	} catch (_) {}
+	if (srvProc) srvProc.kill();
 	try {
 		fs.writeFileSync(path.join(outDir, "console.log"), log.join("\n"));
 	} catch (_) {}

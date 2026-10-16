@@ -77,5 +77,6 @@ lights_and_shadows/directional_shadow/size=4096
 lights_and_shadows/directional_shadow/soft_shadow_filter_quality=2
 anti_aliasing/quality/msaa_3d=0
 anti_aliasing/quality/screen_space_aa=1
+anti_aliasing/quality/screen_space_aa.web=0
 environment/defaults/default_clear_color=Color(0.039, 0.035, 0.035, 1)
 textures/default_filters/anisotropic_filtering_level=3

@@ -22,12 +22,19 @@ var wrap := true
 var _flash := 0.0
 var _dir := 0
 var _hover_arrow := 0
+## Touch: where the finger went down (global), so a drag that scrolls the list is not a tap.
+var _touch_from := Vector2.INF
+
+## A finger that travels farther than this (px) between down and up scrolled, not tapped.
+const TAP_SLOP := 24.0
 
 
 func _init() -> void:
 	focus_mode = Control.FOCUS_ALL
 	custom_minimum_size = Vector2(380, 64)
-	mouse_filter = Control.MOUSE_FILTER_STOP
+	# PASS (events are accepted explicitly below) so a touch drag that starts on the selector
+	# still reaches the ScrollContainer above and scrolls the page.
+	mouse_filter = Control.MOUSE_FILTER_PASS
 
 
 func _ready() -> void:
@@ -99,6 +106,18 @@ func _gui_input(event: InputEvent) -> void:
 	elif event.is_action_pressed(&"ui_accept"):
 		step(1)
 		accept_event()
+	elif event is InputEventMouseButton and (event as InputEventMouseButton).device == InputEvent.DEVICE_ID_EMULATION \
+			and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
+		# Mouse emulated from a touch: act on lift, and only for a tap (a drag scrolls the
+		# settings page instead of changing the value). Not accepted: the scroll sees it too.
+		var tb := event as InputEventMouseButton
+		if tb.pressed:
+			_touch_from = tb.global_position
+		elif _touch_from.is_finite() and _touch_from.distance_to(tb.global_position) <= TAP_SLOP:
+			_touch_from = Vector2.INF
+			step(-1 if tb.position.x < size.x * 0.5 else 1)
+		else:
+			_touch_from = Vector2.INF
 	elif event is InputEventMouseButton and (event as InputEventMouseButton).pressed:
 		var mb := event as InputEventMouseButton
 		if mb.button_index == MOUSE_BUTTON_LEFT:

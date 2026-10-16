@@ -69,6 +69,13 @@ func _ready() -> void:
 	_panel.offset_top = -270
 	_panel.offset_bottom = -44
 	_panel.mouse_filter = Control.MOUSE_FILTER_STOP
+	# The panel stops mouse / touch input, so a click or tap ON it never reached
+	# _unhandled_input: advance from here too (the natural place to tap on a phone).
+	_panel.gui_input.connect(func(ev: InputEvent) -> void:
+		if is_open and not (_asking and not _revealing) and ev is InputEventMouseButton and (ev as InputEventMouseButton).pressed \
+				and (ev as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
+			_panel.accept_event()
+			advance())
 	add_child(_panel)
 	var m := MarginContainer.new()
 	m.add_theme_constant_override(&"margin_top", 22)

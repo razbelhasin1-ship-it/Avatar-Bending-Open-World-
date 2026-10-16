@@ -5,6 +5,8 @@ extends Button
 
 var _knob := 0.0
 var _tween: Tween
+## Touch: finger-down position (global); a drag (list scroll) must not flip the switch.
+var _touch_from := Vector2.INF
 
 
 func _init() -> void:
@@ -35,6 +37,18 @@ func set_on(on: bool) -> void:
 func _gui_input(event: InputEvent) -> void:
 	if disabled:
 		return
+	if event is InputEventMouseButton and (event as InputEventMouseButton).device == InputEvent.DEVICE_ID_EMULATION \
+			and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
+		var tb := event as InputEventMouseButton
+		if tb.pressed:
+			_touch_from = tb.global_position
+		elif _touch_from.is_finite() and _touch_from.distance_to(tb.global_position) > UiChoice.TAP_SLOP:
+			# The finger travelled: that was a scroll, not a tap. Swallow the lift.
+			_touch_from = Vector2.INF
+			accept_event()
+			return
+		else:
+			_touch_from = Vector2.INF
 	if event.is_action_pressed(&"ui_left") and button_pressed:
 		button_pressed = false
 		accept_event()
