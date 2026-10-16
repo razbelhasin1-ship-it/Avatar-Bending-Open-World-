@@ -19,6 +19,7 @@ MODE="${1:-debug}"
 case "$MODE" in debug|release) ;; *) echo "mode must be debug or release" >&2; exit 2 ;; esac
 OUT=build/android
 mkdir -p "$OUT"
+touch build/.gdignore   # keep Godot from importing exported files back into the project
 
 # --- Java -------------------------------------------------------------------------------------
 if [ -z "${JAVA_HOME:-}" ]; then

@@ -68,7 +68,7 @@ func build_cell(cell: ContentCell) -> void:
 	r0.add_to_payload(p, Transform3D.IDENTITY, {"vis_end": float(cfg["lod0_end"]), "margin": 0.0, "shadow": shadows,
 		"collision": false, "lights": false, "tag": StringName(tag + "_lod0")})
 	r1.add_to_payload(p, Transform3D.IDENTITY, {"vis_begin": float(cfg["lod0_end"]), "vis_end": float(cfg["lod1_end"]),
-		"margin": 0.0, "shadow": shadows, "collision": false, "lights": false, "tag": StringName(tag + "_lod1")})
+		"margin": 0.0, "shadow": shadows and bool(cfg.get("lod1_shadows", true)), "collision": false, "lights": false, "tag": StringName(tag + "_lod1")})
 	p.data["collision"] = {"boxes": r0.boxes, "faces": r0.faces}
 	# night glow sprites sit exactly on the LOD0 lamps and lit windows (light records)
 	SettlementFx.add_glows(p, SettlementFx.glows_from_lights(r0.lights, origin), origin, plan.cell_aabb(cell.coord, origin),

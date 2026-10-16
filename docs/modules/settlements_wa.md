@@ -115,7 +115,8 @@ slightly with distance — exactly on the LOD0 lamps and lit windows up to `lod1
   the focus.
 * Lights: ≤ `cell_lights` (6–18) per cell, of which LightBudget enables the nearest 4–22.
   Night glows are one MultiMesh per cell (no lights, no shadows).
-* Mobile (`PRESET=low`, Mobile renderer): LOD0 to 110 m, LOD1 to 420 m, 6 lights per cell —
+* Mobile (`PRESET=low`, Mobile renderer): LOD0 to 100 m, LOD1 to 300 m without shadows (mobile
+  perf pass, docs/modules/mobile.md), 6 lights per cell —
   checked with `RENDERER=mobile MOBILE=1 PRESET=low` and `RENDERER=gl_compatibility` tours.
 
 ## Decisions

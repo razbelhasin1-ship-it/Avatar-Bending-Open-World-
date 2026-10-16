@@ -528,6 +528,31 @@ func test_mobile_renderer_feature_flags() -> void:
 		expect(Settings.is_feature_supported("fsr1"), "FSR on Forward+")
 
 
+## Mobile perf pass budgets: one shadow cascade, no LOD1 settlement shadows, shorter settlement
+## LODs, while full detail still covers the camera's own settlement cell.
+func test_mobile_preset_budgets() -> void:
+	var saved := {}
+	for key: String in Settings.PRESETS["mobile"]:
+		saved[key] = Settings.get_value("graphics", key)
+	var saved_preset: Variant = Settings.get_value("graphics", "preset")
+	Settings.apply_preset("mobile")
+	var sun := DirectionalLight3D.new()
+	Settings.configure_sun(sun)
+	expect(sun.shadow_enabled, "mobile keeps sun shadows")
+	expect_eq(sun.directional_shadow_mode, DirectionalLight3D.SHADOW_ORTHOGONAL, "one shadow cascade on mobile")
+	sun.free()
+	var c := SettlementSettings.current()
+	expect(not bool(c["lod1_shadows"]), "LOD1 settlement cells cast no shadows on mobile")
+	expect(float(c["lod1_end"]) <= 300.0, "LOD1 settlement range trimmed on mobile")
+	# 128 m cells: visibility ranges measure to the cell AABB centre (half diagonal 90.5 m).
+	expect(float(c["lod0_end"]) >= 96.0, "full detail covers the camera's own cell")
+	Settings.apply_preset("high")
+	expect(bool(SettlementSettings.current()["lod1_shadows"]), "LOD1 shadows above low detail")
+	for key: String in saved:
+		Settings.set_value("graphics", key, saved[key])
+	Settings.set_value("graphics", "preset", saved_preset)
+
+
 # --- Export presets / CI ---------------------------------------------------------------------------
 
 func test_export_presets() -> void:

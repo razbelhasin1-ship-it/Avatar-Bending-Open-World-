@@ -116,6 +116,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p build/linux build/windows
+          touch build/.gdignore
           godot --headless --path . --export-release "Linux" build/linux/avatar-four-nations.x86_64
           godot --headless --path . --export-release "Windows Desktop" build/windows/AvatarFourNations.exe
           ls -la build/linux build/windows

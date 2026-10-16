@@ -383,6 +383,10 @@ func configure_sun(light: DirectionalLight3D) -> void:
 	light.shadow_enabled = level > 0
 	light.directional_shadow_max_distance = [0.0, 60.0, 120.0, 220.0, 400.0][clampi(level, 0, 4)]
 	light.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS if level <= 2 else DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
+	if level == 1:
+		# Low / mobile: one cascade. Every shadow caster is drawn once instead of per split
+		# (mobile perf pass: halves the shadow pass on phones).
+		light.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
 
 
 ## Terrain/scene view distance in meters.

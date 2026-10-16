@@ -6,7 +6,8 @@ extends RefCounted
 ## Run: MOBILE=1 RENDERER=mobile tools/playtest.sh mobile_perf .playtest/mobile_perf 1280x720
 ##      MOBILE=1 RENDERER=gl_compatibility tools/playtest.sh mobile_perf ...
 ## ELEMENT=water|earth|fire|air picks the home region (default water: snow city, heaviest).
-## PRESET=low|medium|high overrides the preset (before/after comparisons).
+## PRESET=low|medium|high overrides the preset (before/after comparisons); SHADOWS=0..4
+## overrides the shadow level; SKIP_WORLD=1 / SKIP_ARENA=1 measure one scene only.
 
 var p: Playtest
 var report := {}
@@ -21,6 +22,8 @@ func run(pt: Playtest) -> void:
 	if preset == "mobile":
 		Settings.set_value("display", "render_scale", 0.75)
 		Settings.set_value("display", "upscaler", "fsr1")
+	if OS.get_environment("SHADOWS") != "":
+		Settings.set_value("graphics", "shadows", int(OS.get_environment("SHADOWS")))
 	Settings.apply()
 	report["renderer"] = Settings.rendering_method()
 	report["preset"] = preset
@@ -68,6 +71,9 @@ func _world(e: int) -> void:
 			for row: Dictionary in (c["by_owner"] as Array).slice(0, 12):
 				p.note("   %-48s inst %5d  tris %7dk  skinned %d  particles %d  lights %d" % [row["owner"], row["instances"], int(row["triangles"]) / 1000, row["skinned"], row["particles"], row["lights"]])
 	report["world"] = dirs
+	cam.set_yaw(float(dirs[0]["yaw_deg"]) * PI / 180.0)
+	await p.wait_game(1.0)
+	report["world_breakdown"] = await _breakdown(w)
 	# Run through the region for a few seconds (streaming while moving).
 	pl.camera_rig.snap_behind(pl)
 	Input.action_press(&"move_forward")
@@ -78,6 +84,67 @@ func _world(e: int) -> void:
 	p.note("world sprinting: %s" % PerfProbe.describe(run_s))
 	report["world_run"] = run_s
 	await p.screenshot("perf_world_%s_run" % report["renderer"])
+
+
+## What each part of the world costs: hides one group at a time and measures the drop in
+## draw calls / primitives (visible + shadow pass) on the same static view.
+func _breakdown(w: Node) -> Array:
+	var groups: Dictionary = {}
+	var renderer := w.get("renderer") as WorldRenderer
+	if renderer:
+		groups["terrain"] = [renderer.clipmap]
+		groups["water"] = [renderer.water]
+		groups["weather/sky fx"] = [renderer.precipitation, renderer.cloud_sea, renderer.volcano_smoke]
+	var content := w.get("content") as Node
+	if content:
+		for c in content.get_children():
+			var parts := String(c.name).split("_")
+			if parts.size() < 3:
+				continue
+			var key := "content/" + "_".join(parts.slice(0, parts.size() - 2))
+			if not groups.has(key):
+				groups[key] = []
+			(groups[key] as Array).append(c)
+	var pl := p.player()
+	if pl:
+		groups["player"] = [pl]
+	var comp := w.get("companion_root") as Node
+	if comp:
+		groups["companion"] = [comp]
+	var base := await _frame_snapshot()
+	var out: Array = []
+	for key: String in groups:
+		var nodes: Array = []
+		for n: Variant in groups[key]:
+			if n is Node3D and (n as Node3D).visible:
+				nodes.append(n)
+		if nodes.is_empty():
+			continue
+		for n: Node3D in nodes:
+			n.visible = false
+		var s := await _frame_snapshot()
+		for n: Node3D in nodes:
+			n.visible = true
+		var row := {"group": key, "nodes": nodes.size(),
+				"draw_calls": int(base["draw_calls"]) - int(s["draw_calls"]),
+				"shadow_draw_calls": int(base["shadow_draw_calls"]) - int(s["shadow_draw_calls"]),
+				"primitives": int(base["primitives"]) - int(s["primitives"]),
+				"shadow_primitives": int(base["shadow_primitives"]) - int(s["shadow_primitives"])}
+		out.append(row)
+	out.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		return int(a["primitives"]) + int(a["shadow_primitives"]) > int(b["primitives"]) + int(b["shadow_primitives"]))
+	p.note("world breakdown (total %d draws +%d shadow, %dk prims +%dk shadow):" % [base["draw_calls"], base["shadow_draw_calls"],
+			int(base["primitives"]) / 1000, int(base["shadow_primitives"]) / 1000])
+	for r: Dictionary in out:
+		p.note("   %-34s draws %4d +%3d shadow   prims %6dk +%6dk shadow" % [r["group"], r["draw_calls"], r["shadow_draw_calls"],
+				int(r["primitives"]) / 1000, int(r["shadow_primitives"]) / 1000])
+	return out
+
+
+func _frame_snapshot() -> Dictionary:
+	for i in 3:
+		await RenderingServer.frame_post_draw
+	return PerfProbe.frame_stats(p.get_viewport())
 
 
 func _arena(e: int) -> void:
@@ -106,12 +173,14 @@ func _arena(e: int) -> void:
 			k += 1
 	spam.call()
 	var fight: Dictionary = await PerfProbe.sample(p.get_tree(), p.get_viewport(), 5.0)
+	p.note("arena fight (first casts, shaders compiling): %s" % PerfProbe.describe(fight))
+	var warm: Dictionary = await PerfProbe.sample(p.get_tree(), p.get_viewport(), 5.0)
 	fighting = false
 	await p.wait_game(0.5)
-	p.note("arena fight: %s" % PerfProbe.describe(fight))
+	p.note("arena fight (warm): %s" % PerfProbe.describe(warm))
 	await p.screenshot("perf_arena_%s" % report["renderer"])
 	var c := PerfProbe.census(p.get_tree().current_scene, pl.camera_rig.get_camera())
-	report["arena"] = {"idle": idle, "fight": fight, "census": _trim_census(c)}
+	report["arena"] = {"idle": idle, "fight": fight, "fight_warm": warm, "census": _trim_census(c)}
 	p.note("arena census: %d instances, %dk tris, %d skinned, %d particle systems (%d particles), %d lights" % [
 			c["instances"], int(c["triangles"]) / 1000, c["skinned"], c["particles"], c["particle_amount"], c["lights"]])
 

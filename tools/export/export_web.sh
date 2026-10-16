@@ -11,6 +11,8 @@ case "$MODE" in release|debug) ;; *) echo "mode must be release or debug" >&2; e
 OUT=build/web
 rm -rf "$OUT"
 mkdir -p "$OUT"
+# Godot must not import the exported files (index.png ...) back into the project.
+touch build/.gdignore
 "$GODOT" --headless --path . --import >/dev/null 2>&1 || true
 LOG=$(mktemp)
 "$GODOT" --headless --path . "--export-$MODE" "Web" "$OUT/index.html" 2>&1 | tee "$LOG" | grep -v -E "^ALSA|audio_driver_alsa|All audio drivers failed|servers/audio_server|init_output_device" || true

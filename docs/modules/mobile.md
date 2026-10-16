@@ -8,7 +8,7 @@ keyboard or controller, and camera look goes through `Events.look_input`.
 ```
 src/ui/touch/       TouchOverlay (+ TouchStick, TouchButton, TouchActions, TouchLayout, TouchHaptics)
 src/ui/touch/icons/ touch_*.svg glyphs + make_touch_icons.py (same brush kit as assets/ui)
-src/platform/       PlatformInfo, MobilePlatform (back button / background), PerfProbe
+src/platform/       PlatformInfo, MobilePlatform (back button / background), PerfProbe, RenderCompat
 export_presets.cfg  Web, Android, iOS, Linux, Windows Desktop
 tools/export/       export_web.sh, export_android.sh, serve_web.py, web_smoke.mjs
 .github/workflows/  build.yml (tests + exports + artifacts + Pages)
@@ -132,6 +132,25 @@ PlatformInfo.describe()            # "Android (mobile app) · Mobile · Adreno .
 MobilePlatform.ensure(get_tree())  # installed by UiInput.ensure (every menu + HUD)
 ```
 
+### Compatibility renderer: MultiMesh colours — `RenderCompat`
+
+On the Compatibility renderer (Web, and desktop OpenGL) a MultiMesh that has per-instance
+custom data but **no** per-instance colours read garbage into the mesh's vertex `COLOR` in
+the world scene: grass, trees, rocks and bird flocks came out in neon noise on the Web build
+(isolated test scenes were fine, so it is an engine-side state issue we could not pin down
+further). Giving those MultiMeshes white instance colours fixes it:
+
+```gdscript
+RenderCompat.configure(mm, use_custom)        # before instance_count: use_custom_data (+ use_colors on Compatibility)
+mm.buffer = RenderCompat.buffer_for(mm, buf)  # 16-float stride -> 20 with white colours when needed
+RenderCompat.whiten(mm)                        # MultiMeshes filled with set_instance_* calls
+```
+
+Applied in `WorldContent.spawn_multimesh`, `VegetationProvider`, `SettlementFx` and
+`BirdFlock`; Forward+ / Mobile keep their 16-float buffers. `mobile_compat_probe` (pixel
+read-back of INSTANCE_CUSTOM rows) and `mobile_veg_probe` (library vegetation in a test stage)
+are the renderer regression probes.
+
 ## Exports
 
 | Preset | Renderer | Notes |
@@ -142,11 +161,18 @@ MobilePlatform.ensure(get_tree())  # installed by UiInput.ensure (every menu + H
 | Linux / Windows Desktop | Forward+ | x86_64, PCK embedded |
 
 ```bash
-tools/export/export_web.sh [release|debug]     # -> build/web (≈ 38 MB wasm + 33 MB pck; 9.7 + 31 MB gzipped)
+tools/export/export_web.sh [release|debug]     # -> build/web (≈ 40 MB wasm + 55 MB pck; 10 + 53 MB gzipped)
 python3 tools/export/serve_web.py --host 0.0.0.0   # http://<pc-ip>:8060 from a phone on the same Wi-Fi
 NODE_PATH=/opt/node-tools/node_modules node tools/export/web_smoke.mjs --out .playtest/web
 tools/export/export_android.sh [debug|release] # -> build/android/avatar-four-nations-debug.apk
 ```
+
+**World data.** Every preset has `include_filter="assets/world/*"`: the heightmap
+(`heightmap.r16.zlib`, importer *keep*) is not a resource type, so the default
+"all resources" export silently left it out and every exported build ran on the flat
+fallback world ("The Wilds"). `test_export_presets` guards the filter and `web_smoke.mjs`
+fails when the world turns out flat. `build/` carries a `.gdignore` (created by the export
+scripts) so Godot never imports exported files back into the project.
 
 `export_android.sh` needs a JDK 17+ and Android build-tools with `apksigner`
 (`ANDROID_HOME`); on Debian / Ubuntu `apt install apksigner zipalign adb` is enough — the
@@ -165,7 +191,8 @@ editor settings. Release builds read Godot's `GODOT_ANDROID_KEYSTORE_RELEASE_*` 
 
 ### Web on a phone
 Open the GitHub Pages URL (or `serve_web.py` on the LAN), tap once (fullscreen + landscape),
-play. The first launch downloads ~41 MB (gzipped) and is cached by the browser.
+play. The first launch downloads ~63 MB (gzipped; the world heightmap and textures are most
+of the pck) and is cached by the browser.
 
 ## CI — `.github/workflows/build.yml`
 
@@ -200,9 +227,34 @@ PERFORMANCE_SECTION
   run, look, strike, call + ride + fly + land + dismount the companion by touch),
   `mobile_perf` (measurements below; also `RENDERER=gl_compatibility`).
 * `tools/export/web_smoke.mjs` — the exported Web build in headless Chromium as a Pixel 7
-  (landscape, touch, DPR 2.625): boot, main menu, settings by tap + drag-scroll, element
-  select by tap, world, touch overlay gameplay.
+  (landscape, touch, device DPR 2.625; `--dpr 1` keeps SwiftShader fast): boot, main menu,
+  settings by tap + drag-scroll, element select by tap, world (fails on the flat fallback
+  world), stick run, strike, heavy, pause by touch, resume.
+* `tools/test.sh test_mobile` also checks the mobile budgets (one shadow cascade, no LOD1
+  settlement shadows, LOD ranges) — see Performance.
 
 ## Known limitations
 
-KNOWN_LIMITS
+* **No real device was tested.** Everything above ran in this container: Godot under Xvfb
+  (llvmpipe for Vulkan / OpenGL) with simulated `InputEventScreenTouch` / `ScreenDrag` events,
+  and the Web build in headless Chromium (SwiftShader WebGL 2) with CDP touch events. Frame
+  times are software-rendering numbers; the draw-call / primitive budgets are what transfers.
+* **Android APK built, never launched.** `export_android.sh debug` produces a signed,
+  verified arm64-v8a APK (landscape, immersive, VIBRATE, world data inside); there is no
+  emulator / device here, so install, Vulkan start-up and real haptics are unverified.
+* **iOS** exports an Xcode project only; it needs an App Store Team ID and a Mac to build.
+* **Web** is single-threaded (no SharedArrayBuffer needed): world streaming runs one content
+  build per frame on the main thread, so first arrival in a region takes noticeably longer
+  than on desktop (≈ 5 min under SwiftShader). First download ≈ 63 MB gzipped.
+* **First-use shader hitches**: the first casts of each technique compile pipelines
+  (arena p95 ≈ 0.5–0.7 s under llvmpipe on the first round, normal once warm). Not addressed
+  (would need a per-element warm-up pass owned by the bending / fx modules).
+* **Settlements stay the heaviest thing on screen** in the Water Tribe / Ba Sing Se style
+  cities even after the trims (≈ 0.5–0.6 M visible triangles at the Water Tribe spawn on the
+  Mobile renderer); a lighter LOD1 mesh for phones would be the next step (settlement modules).
+* The Compatibility-renderer MultiMesh colour workaround (`RenderCompat`) costs 4 extra floats
+  per instance on Web; the root cause in the engine was not isolated.
+* Chromium logs GL "ReadPixels / GPU stall" performance warnings during the smoke test; they
+  come from the screenshot capture, not from the game.
+* Haptics in mobile browsers rely on `navigator.vibrate` (Android Chrome yes, iOS Safari no).
+* Touch remapping of buttons (drag to rearrange) is not offered; size, opacity and hand are.

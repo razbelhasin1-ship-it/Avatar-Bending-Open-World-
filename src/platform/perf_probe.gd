@@ -167,10 +167,20 @@ static func _mesh_tris(mesh: Mesh, cache: Dictionary) -> int:
 ## e.g. "world/content/world_content" or "characters/humanoid_rig".
 static func _owner_key(n: Node, root: Node) -> String:
 	var cur := n
+	var prev: Node = null
 	while cur != null and cur != root:
 		var s: Script = cur.get_script()
 		if s != null and not s.resource_path.is_empty():
-			return s.resource_path.trim_prefix("res://src/").trim_suffix(".gd")
+			var key := s.resource_path.trim_prefix("res://src/").trim_suffix(".gd")
+			# Streamed content: name the provider (cell roots are "<provider>_<x>_<y>") and the
+			# payload tag of the drawn node.
+			if cur is WorldContent and prev != null:
+				var parts := String(prev.name).split("_")
+				var provider := "_".join(parts.slice(0, maxi(1, parts.size() - 2)))
+				var tag := String(n.name).rstrip("@_") if n != prev else ""
+				return "content/%s%s" % [provider, ("/" + tag) if not tag.is_empty() else ""]
+			return key
+		prev = cur
 		cur = cur.get_parent()
 	return "(unscripted)"
 

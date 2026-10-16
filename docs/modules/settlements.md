@@ -124,8 +124,8 @@ WorldData city record ──> Planner (per settlement) ──> SettlementPlan (p
 
 | key | low (mobile) | medium | high | ultra |
 | --- | --- | --- | --- | --- |
-| `lod0_end` (full detail, props, lights, shadows) | 110 m | 160 m | 220 m | 300 m |
-| `lod1_end` (simplified buildings) | 420 m | 600 m | 800 m | 1100 m |
+| `lod0_end` (full detail, props, lights, shadows) | 100 m | 160 m | 220 m | 300 m |
+| `lod1_end` (simplified buildings; casts shadows from medium up) | 300 m | 600 m | 800 m | 1100 m |
 | `far_end` (silhouettes) | view distance, clamped 1.5–6 km | | | |
 | `collision_range` (+40 m hysteresis) | 90 m | 110 m | 120 m | 140 m |
 | `cell_lights` | 6 | 10 | 14 | 18 |
