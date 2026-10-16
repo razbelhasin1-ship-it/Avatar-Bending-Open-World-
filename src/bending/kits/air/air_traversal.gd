@@ -55,6 +55,7 @@ static func _on_landed(actor: Node3D, position: Vector3, impact: float, _surface
 
 func _ready() -> void:
 	process_physics_priority = 10
+	_connect_motor()
 
 
 func _physics_process(delta: float) -> void:
@@ -110,6 +111,15 @@ func _connect_motor() -> void:
 		return
 	_motor_connected = motor
 	(motor as Object).connect(&"jumped", _on_jumped)
+	if (motor as Object).has_signal(&"landed"):
+		(motor as Object).connect(&"landed", _on_motor_landed)
+
+
+## Touching down refills the aerial budgets (air dashes, hang time).
+func _on_motor_landed(_impact: float, _fall: float) -> void:
+	if player != null and is_instance_valid(player):
+		player.set_meta(&"air_dashes_used", 0)
+		player.set_meta(&"air_hang", AirCommon.HANG_BUDGET)
 
 
 func _on_jumped(kind: StringName) -> void:

@@ -192,7 +192,8 @@ func _jump_off() -> void:
 		ctx.body.velocity = Vector3(v.x, float(param("jump_off", 8.5)), v.z)
 	AirFx.swirl(ctx.caster, ctx.origin() + Vector3.UP * 0.3, 0.6, 0.35, {"grow": 2.2, "spin": 20.0, "height": 0.1, "opacity": 0.7})
 	sound(&"jump", ctx.origin(), 0.0)
-	_dismount(&"jump", 0.0)
+	# A short launch phase: the jump button's release must not cut the leap.
+	_dismount(&"jump", 0.25)
 
 
 ## Ends the ride (the ball bursts). `recover` s of stepping-off before the ability ends.

@@ -57,7 +57,7 @@ static func add(from: Node, pos: Vector3, radius: float, strength: float, mode: 
 	var f := instance(from)
 	if f == null:
 		return 0
-	return f._add(pos, radius, strength, mode, dir, hold)
+	return f._add(pos, radius, strength, mode, dir, hold, from)
 
 
 static func move(id: int, pos: Vector3, dir: Vector3 = Vector3.ZERO) -> void:
@@ -112,7 +112,7 @@ func _ready() -> void:
 	process_priority = 100
 
 
-func _add(pos: Vector3, radius: float, strength: float, mode: int, dir: Vector3, hold: float) -> int:
+func _add(pos: Vector3, radius: float, strength: float, mode: int, dir: Vector3, hold: float, owner_node: Node = null) -> int:
 	if slots.size() < SLOTS:
 		_ready()
 	var best := -1
@@ -130,7 +130,8 @@ func _add(pos: Vector3, radius: float, strength: float, mode: int, dir: Vector3,
 	started += 1
 	var d2 := Vector2(dir.x, dir.z)
 	slots[best] = {"id": id, "pos": pos, "radius": maxf(radius, 0.3), "dir": d2.normalized() if d2.length() > 0.01 else Vector2.ZERO,
-		"mode": mode, "peak": strength, "t": 0.0, "hold": hold, "spin": signf(dir.x) if mode == VORTEX and dir.x != 0.0 else 1.0}
+		"mode": mode, "peak": strength, "t": 0.0, "hold": hold, "spin": signf(dir.x) if mode == VORTEX and dir.x != 0.0 else 1.0,
+		"owner": weakref(owner_node) if owner_node != null else null}
 	_write()
 	return id
 
@@ -156,9 +157,11 @@ func _process(delta: float) -> void:
 			continue
 		s["t"] = float(s["t"]) + delta
 		var hold := float(s["hold"])
-		if hold == INF and float(s["t"]) > MAX_HOLD:
+		var own: Variant = s.get("owner")
+		var gone: bool = own != null and not is_instance_valid((own as WeakRef).get_ref())
+		if hold == INF and (float(s["t"]) > MAX_HOLD or gone):
 			# Its owner never released it (freed mid-gust): let it go.
-			hold = MAX_HOLD - RISE
+			hold = maxf(0.0, float(s["t"]) - RISE)
 			s["hold"] = hold
 		if hold != INF and float(s["t"]) > RISE + hold + LIFE_AFTER:
 			slots[i] = {}

@@ -49,19 +49,22 @@ func begin() -> void:
 func _target_ground() -> Vector3:
 	var o := ctx.origin()
 	var t := ctx.aim_target()
-	var p: Vector3
+	var maxd := float(param("max_distance", 14.0))
+	var p := o + ctx.aim_flat() * float(param("distance", 6.0))
 	if t != null:
 		p = t.global_position
 	else:
-		var a: Dictionary = ctx.aim()
-		var pt: Vector3 = a.get("point", Vector3.INF)
-		p = pt if pt.is_finite() and Vector2(pt.x - o.x, pt.z - o.z).length() > 2.5 else o + ctx.aim_flat() * float(param("distance", 6.0))
+		# Aiming at the ground within reach: there; otherwise the default distance.
+		var pt: Vector3 = ctx.aim().get("point", Vector3.INF)
+		if pt.is_finite():
+			var d := Vector2(pt.x - o.x, pt.z - o.z).length()
+			if d >= 2.5 and d <= maxd and absf(pt.y - ctx.ground_y(pt, 1.0, 3.0)) < 0.6:
+				p = pt
 	var flat := p - o
 	flat.y = 0.0
-	var maxd := float(param("max_distance", 14.0))
 	if flat.length() > maxd:
 		p = o + flat.normalized() * maxd
-	if flat.length() < 2.5:
+	elif flat.length() < 2.5:
 		p = o + ctx.aim_flat() * 3.0
 	return ctx.ground_point(p)
 

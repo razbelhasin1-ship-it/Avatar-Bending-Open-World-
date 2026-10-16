@@ -58,13 +58,18 @@ static func aim_dir(ctx: BendingContext, from: Vector3, speed: float) -> Vector3
 	return d.normalized()
 
 
+## In the air: not on the floor AND more than 0.3 m above the ground below (a body
+## that never moved yet - spawned casters, tests - reads as grounded).
 static func airborne(ctx: BendingContext) -> bool:
-	return ctx.body != null and not ctx.body.is_on_floor()
+	if ctx.body == null or ctx.body.is_on_floor():
+		return false
+	var o := ctx.origin()
+	return o.y - ctx.ground_y(o, 0.3, 40.0) > 0.3
 
 
 ## Height of the caster's feet above the ground below (0 on the ground).
 static func height(ctx: BendingContext) -> float:
-	if not airborne(ctx):
+	if ctx.body == null or ctx.body.is_on_floor():
 		return 0.0
 	var o := ctx.origin()
 	return maxf(0.0, o.y - ctx.ground_y(o, 0.3, 40.0))

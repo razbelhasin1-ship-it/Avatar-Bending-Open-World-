@@ -6,7 +6,7 @@ extends ChargeAbility
 ## back. Enemy projectiles the front passes are flung outward (they turn on their
 ## owners). Grass flattens, dust / snow / spray rings, props fly, fires go out.
 ## Works in the air too (a sphere of wind, the bender hangs for a moment).
-## Non-player casters push at once (tap).
+## Non-player casters hold for params.ai_hold s (0 = tap), then push.
 
 var _ball: AirFx.AirSwirl = null
 var _ring_t := 0.0
@@ -31,8 +31,6 @@ func begin() -> void:
 	ctx.brake_rate = 26.0
 	ctx.poise_armor = def.poise_armor
 	_airborne = AirCommon.airborne(ctx)
-	if not ctx.is_player():
-		input_held = false
 
 
 func on_windup() -> void:
@@ -57,8 +55,11 @@ func on_charging(c: float, delta: float) -> void:
 
 
 func update(delta: float) -> void:
-	if AirCommon.airborne(ctx):
+	if _airborne:
 		AirCommon.hang(ctx, delta, 0.4)
+	# Non-player casters (EnemyActions never releases a technique): push after ai_hold s.
+	if charging and input_held and not ctx.is_player() and hold_time >= float(param("ai_hold", 0.0)):
+		input_held = false
 	if charging:
 		if _ball and is_instance_valid(_ball):
 			_ball.global_position = ctx.hands_pos() + ctx.forward() * 0.05
