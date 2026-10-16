@@ -209,7 +209,109 @@ configure-pages@v5, deploy-pages@v4.
 
 ## Performance
 
-PERFORMANCE_SECTION
+Measured with `tests/playtest/scenarios/mobile_perf.gd` (`MOBILE=1`, mobile preset, render
+scale 0.75, 1280×720, new Water-Tribe game at the Northern Water Tribe spawn — the heaviest
+home region — four view directions, a sprint through the city, then a fight in the combat
+arena) on the Mobile renderer and on Compatibility (the Web renderer). `PerfProbe` reads the
+renderer's own counters; `census` lists what is drawn by owner (streamed content by provider
+and payload tag) and `_breakdown` hides one group at a time to measure its cost.
+Frame times are llvmpipe software rendering in this container (4 shared cores): they rank
+costs, they do not predict a phone. Draw calls and primitives are the device-independent
+budget.
+
+**What was expensive** (Mobile renderer, Water Tribe spawn, before):
+
+| group | draws (+shadow) | primitives (+shadow) |
+| --- | --- | --- |
+| Northern Water Tribe near cells (LOD0 + LOD1) | 40 (+9) | 874k (+1286k) |
+| settlement silhouettes (LOD2) | 47 | 142k |
+| terrain clipmap | 85 (+64) | 36k (+41k) |
+| player / companion rigs | 1 + 1 (+2) | 21k + 12k (+68k) |
+| water | 17 | 24k |
+
+The merged LOD1 city meshes (100k+ triangles per draw, up to 420 m) casting sun shadows were
+almost the whole shadow pass. Elsewhere the world is light: the Earth Kingdom home spawn draws
+109 (+62) calls, 165k (+53k) primitives; the arena 60 (+52), 71k (+71k).
+
+**Changes** (every one outside this module is listed under "Changes outside the module"):
+
+1. `SettlementSettings`: new budget `lod1_shadows` (false at detail 0 = low / mobile);
+   `SettlementProvider` casts LOD1 shadows only when it is set. LOD0 (the 100 m around you)
+   still casts shadows.
+2. `SettlementSettings`: low / mobile LOD ranges 110 → 100 m (full detail) and 420 → 300 m
+   (simplified buildings; silhouettes beyond). 100 m still covers the half diagonal (90.5 m)
+   of the camera's own 128 m cell, so props never drop out next to the player
+   (`test_mobile_preset_budgets`).
+3. `Settings.configure_sun`: shadow level 1 (mobile / low) renders one orthogonal shadow map
+   (60 m) instead of two PSSM splits — one shadow pass instead of two on tile-based GPUs;
+   caster counts barely change (arena 47 → 52 shadow draws, 78k → 71k shadow primitives), so
+   this is a pass-count saving, not a geometry one.
+4. Earlier in the module: no FSR 1 on the Mobile renderer (Forward+ only in 4.7: it warned and
+   fell back every frame), bilinear scaling instead; Compatibility maps FXAA / SMAA / TAA to
+   MSAA 2× and `project.godot` sets `screen_space_aa.web=0` (no screen-space AA in WebGL);
+   `WorldContent` builds one cell per frame when there are no threads (Web); `RenderCompat`.
+
+**Before → after** (world: Water Tribe spawn, view 0, mean of 3 s; arena: idle / warm fight):
+
+| | Mobile renderer before | Mobile renderer after | Compatibility before | Compatibility after |
+| --- | --- | --- | --- | --- |
+| world draw calls | 195 (+75 shadow) | 195 (+67) | 586 | 440 |
+| world primitives | 1117k (+1396k shadow) | 838k (+245k) | 1117k (+1396k) | 838k (+245k) |
+| world, 4 views: prims (+shadow) | 652–1117k (+1042–1396k) | 529–838k (+245–256k) | same | same |
+| world frame (llvmpipe) | 552 ms | 430 ms | 1292 ms | 1051 ms |
+| world census | 167 instances, 837k tris | 171 instances, 667k tris | | |
+| arena draw calls | 61 (+47) | 60 (+52) | — | 183 |
+| arena frame idle / warm fight | 130 / 113 ms | 109 / 107 ms | — | 650* / 187 ms |
+
+Visible primitives −25 %, shadow primitives −82 %, Compatibility draw calls −25 % (it draws
+shadowed geometry in an extra light pass, so the shadow saving shows up as draw calls).
+Both renderers draw the same geometry; Compatibility reports more draw calls for it (one per
+surface and light pass). *The Compatibility arena idle sample includes pipeline compilation
+(p95 2.3 s); first casts of each technique hitch on every renderer (p95 0.5–0.7 s under
+llvmpipe on the Mobile renderer) and run normally once warm.
+
+World census after (Mobile, view 0): 171 visible instances, 2617 MultiMesh instances, 2 skinned
+rigs (player + companion), 3 particle systems (18 particles), no dynamic lights by day; arena:
+82 instances, 3 skinned rigs, 1 light. Shadows off entirely on Compatibility would save
+another 82 draw calls (440 → 358) for no measurable frame-time change here, so the mobile
+preset keeps its sun shadows.
+
+**Left as they are / next candidates:** the terrain clipmap (85 draws, 36k primitives — the
+draw count is the clipmap's fixed tile layout); settlement silhouettes (one mesh per 128 m
+sub-cell so LOD1 → LOD2 hands over exactly: 56 draws on Mobile, 159 on Compatibility) plus one
+night-glow MultiMesh per sub-cell that is still submitted by day (collapsed in the vertex
+shader); a lighter phone LOD1 for the big cities; a shader warm-up for the first casts.
+
+```bash
+MOBILE=1 RENDERER=mobile tools/playtest.sh mobile_perf .playtest/perf 1280x720            # + perf_mobile_mobile.json
+MOBILE=1 RENDERER=gl_compatibility tools/playtest.sh mobile_perf .playtest/perf_gl 1280x720
+# ELEMENT=earth|fire|air (home region), PRESET=low|medium, SHADOWS=0..4, SKIP_WORLD=1, SKIP_ARENA=1
+```
+
+## Changes outside the module
+
+All minimal and additive; desktop behaviour is unchanged unless noted.
+
+| File | Change |
+| --- | --- |
+| `src/ui/hud/hud.gd` | creates the `TouchOverlay`; `apply_touch_layout(on, left_handed)` hides the ability bar / prompt panel and moves toasts, quest tracker, companion plate; interaction prompt suppressed while touch is active |
+| `src/ui/hud/hud_ability_slot.gd` | `show_prompt` (false: no key glyph; used inside touch buttons) |
+| `src/ui/theme/ui_input.gd` | `ensure()` also installs `MobilePlatform` |
+| `src/ui/widgets/prompt_glyph.gd` | collapses on touch; `tap_on_touch` draws a tap mark instead |
+| `src/ui/widgets/input_hint_bar.gd` | hidden while the device is touch |
+| `src/ui/widgets/ui_choice.gd` | on touch acts on lift and only for a tap (≤ 24 px), lets drags reach the ScrollContainer |
+| `src/ui/widgets/ui_toggle.gd` | ignores the lift that ends a scroll drag |
+| `src/ui/common/dialogue_box.gd` | tapping the panel advances; advance prompt shows a tap mark |
+| `src/ui/menu/main_menu.gd`, `src/ui/pause/pause_menu.gd` | EXIT / QUIT TO DESKTOP hidden where quitting is impossible (Web, iOS); focus neighbours over visible options |
+| `src/ui/settings/settings_schema.gd` | Controls tab: TOUCH CONTROLS section first on touch devices |
+| `src/autoload/settings.gd` | FSR 1 Forward+ only; bilinear scaling on Mobile / Compatibility; Compatibility AA fallback to MSAA 2×; shadow level 1 = one orthogonal cascade |
+| `project.godot` | `rendering/anti_aliasing/quality/screen_space_aa.web=0` |
+| `.gitignore` | `export_presets.cfg` is versioned now |
+| `src/world/content/world_content.gd` | one build job without threads (Web); MultiMeshes through `RenderCompat` |
+| `src/world/vegetation/vegetation_provider.gd`, `src/world/settlements/common/settlement_fx.gd`, `src/creatures/birds/bird_flock.gd` | MultiMesh buffers / colours through `RenderCompat` (Compatibility only) |
+| `src/world/settlements/common/settlement_settings.gd` | `lod1_shadows` budget; low LOD ranges 100 / 300 m |
+| `src/world/settlements/common/settlement_provider.gd` | LOD1 shadow casting follows `lod1_shadows` |
+| `docs/modules/settlements.md`, `docs/modules/settlements_wa.md` | budget tables updated |
 
 ## Testing
 
