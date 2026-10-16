@@ -89,9 +89,24 @@ func _visit(sid: StringName, kind: StringName, shot: String) -> void:
 			near += 1
 	p.note("%s: %d NPCs within 25 m, %d live" % [kind, near, dir.live_count()])
 	p.check(near >= 1, "people at the %s (%d)" % [kind, near])
-	w.player.camera_rig.snap_behind(w.player)
-	await p.wait_game(0.4)
+	# an elevated observer view of the spot from the player's side (pulled in before walls)
+	var cam := Camera3D.new()
+	w.add_child(cam)
+	var side := w.player.global_position - at
+	side.y = 0.0
+	side = side.normalized() if side.length() > 0.5 else -fwd
+	var focus := at + Vector3(0, 1.2, 0)
+	var eye := at + side * 11.0 + Vector3(0, 6.5, 0)
+	var hit := w.get_world_3d().direct_space_state.intersect_ray(PhysicsRayQueryParameters3D.create(focus, eye, Layers.CAMERA_BLOCKERS))
+	if not hit.is_empty():
+		eye = focus.lerp(hit["position"], 0.85)
+	cam.global_transform = Transform3D(Basis.looking_at(focus - eye, Vector3.UP), eye)
+	cam.fov = 60.0
+	cam.make_current()
+	await p.wait_game(0.5)
 	await p.screenshot(shot)
+	w.player.camera_rig.make_current()
+	cam.queue_free()
 
 
 func _director() -> NpcDirector:

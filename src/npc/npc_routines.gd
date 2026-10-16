@@ -17,6 +17,7 @@ const SCHEDULES := {
 	&"idler": [[0.0, &"home"], [7.0, &"talk"], [11.5, &"sit"], [14.0, &"talk"], [21.4, &"home"]],
 	&"sitter": [[0.0, &"home"], [7.5, &"sit"], [21.0, &"home"]],
 	&"resident": [[0.0, &"home"], [6.0, &"wander"], [9.0, &"stroll"], [12.0, &"wander"], [14.0, &"stroll"], [18.5, &"wander"], [20.6, &"home"]],
+	&"shopper": [[0.0, &"home"], [7.6, &"wander"], [12.0, &"stroll"], [13.0, &"wander"], [18.8, &"home"]],
 	&"elder": [[0.0, &"home"], [7.5, &"stand"], [10.0, &"sit"], [16.0, &"stand"], [19.5, &"home"]],
 	&"student": [[0.0, &"home"], [6.0, &"train"], [12.0, &"wander"], [13.0, &"train"], [18.0, &"wander"], [20.0, &"home"]],
 	&"gardener": [[0.0, &"home"], [6.0, &"work"], [11.5, &"wander"], [12.5, &"work"], [18.0, &"home"]],

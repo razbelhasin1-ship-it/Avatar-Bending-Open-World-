@@ -110,6 +110,18 @@ static func records_for(anchors: Array, density: float, claimed: Dictionary) -> 
 				p2["pair"] = p1["key"]
 				out.append(p1)
 				out.append(p2)
+			&"merchant":
+				out.append(base)
+				# a customer browsing beside the stall in market hours (mills about the stall)
+				var ck := aid + "_c"
+				var hc := mix(ck)
+				if kind == &"market_stall" and float(absi(hc) % 10007) / 10007.0 < 0.65 * density:
+					var right3 := Basis(Vector3.UP, float(a["yaw"])) * Vector3.RIGHT
+					var cust := _record(a, ck, &"shopper", &"monk" if sid == &"southern_air_temple" else &"resident", nation, hc)
+					cust["pos"] = (a["position"] as Vector3) + right3 * (2.1 if hc % 2 == 0 else -2.1)
+					cust["home"] = cust["pos"]
+					cust["goods"] = ""
+					out.append(cust)
 			_:
 				out.append(base)
 	return out
@@ -143,6 +155,8 @@ static func _record(a: Dictionary, aid: String, role: StringName, look_role: Str
 			r["wander"] = 5.0
 		&"elder":
 			r["wander"] = 2.0
+		&"shopper":
+			r["wander"] = 4.0
 	if a.has("points"):
 		r["route"] = a["points"]
 		r["loop"] = bool(a.get("loop", false))

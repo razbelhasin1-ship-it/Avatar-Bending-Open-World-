@@ -453,6 +453,11 @@ func test_crowd_records_are_deterministic_and_respect_claims() -> void:
 		expect_eq(str(a[i]["look"]), str(b[i]["look"]), "deterministic looks")
 	var merchants := a.filter(func(r: Dictionary) -> bool: return r["role"] == &"merchant").size()
 	expect(merchants > 8 and merchants < 35, "about half the stalls are staffed (%d)" % merchants)
+	var shoppers := a.filter(func(r: Dictionary) -> bool: return r["role"] == &"shopper")
+	expect(shoppers.size() > 2 and shoppers.size() <= merchants, "some staffed stalls draw a customer (%d)" % shoppers.size())
+	for s: Dictionary in shoppers:
+		expect(float(s["wander"]) > 0.0 and NpcRoutines.is_present(&"shopper", 10.0) and not NpcRoutines.is_present(&"shopper", 22.0),
+			"customers mill about in market hours only")
 	var low := NpcCrowd.records_for(anchors, 0.5, {})
 	expect(low.size() < a.size(), "lower density spawns fewer")
 	var claims := {}

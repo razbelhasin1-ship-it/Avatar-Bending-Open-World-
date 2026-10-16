@@ -191,7 +191,7 @@ NpcDirector (4 Hz): present by schedule / `present` condition, ranked by distanc
 | anchor kind | role | look (per nation) |
 | --- | --- | --- |
 | `home` (each resident of `capacity`) | resident: wander / stroll near the door, home at night | villager / nation preset; Air: monks |
-| `market_stall` | merchant behind the counter, calls out goods | water_tribe / merchant (Fire: red robe) |
+| `market_stall` | merchant behind the counter, calls out goods; often a customer (`shopper`) milling about the stall in market hours | water_tribe / merchant (Fire: red robe); customers as residents |
 | `guard_post`, `patrol`, gatekeepers | guard (post, stance, lantern at night) / patrol (route) | water_warrior, earth_soldier, fire_soldier; Air: monks with staffs |
 | `worker`, `fisher`, `gardener` | work clips with props: hammer, carry + basket (docks, tea), sweep (salt pans, gardens), fish + rod | villagers |
 | `child_play` | two kids running and cheering | children |
