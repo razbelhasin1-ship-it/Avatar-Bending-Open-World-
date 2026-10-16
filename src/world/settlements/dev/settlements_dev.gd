@@ -17,11 +17,14 @@ const VIEWS := {
 	"nwt_hall": {"pos": Vector3(-21.9, 34.2, -3072.1), "look": Vector3(-28.1, 33.0, -3082.8), "hour": 12.0, "fov": 72.0},
 	"nwt_night": {"pos": Vector3(-300, 9, -2860), "look": Vector3(-300, 45, -3240), "hour": 22.5, "fov": 62.0},
 	"nwt_harbor": {"pos": Vector3(-250, 12, -2860), "look": Vector3(-150, 6, -2880), "hour": 9.0, "fov": 66.0},
-	"sat_far": {"pos": Vector3(2200, 900, 2600), "look": Vector3(2500, 820, 3350), "hour": 9.0, "fov": 55.0},
-	"sat_terrace": {"pos": Vector3(2470, 784, 3225), "look": Vector3(2500, 810, 3350), "hour": 10.0, "fov": 66.0},
-	"sat_bridge": {"pos": Vector3(2340, 784.5, 3366), "look": Vector3(2200, 785, 3382), "hour": 11.0, "fov": 66.0},
-	"sat_door": {"pos": Vector3(2500, 803.8, 3448), "look": Vector3(2500, 808, 3415), "hour": 14.0, "fov": 66.0},
-	"sat_sunset": {"pos": Vector3(2760, 860, 3150), "look": Vector3(2500, 815, 3350), "hour": 18.6, "fov": 58.0},
+	"sat_far": {"pos": Vector3(2120, 960, 2560), "look": Vector3(2500, 840, 3350), "hour": 9.0, "fov": 50.0},
+	"sat_courtyard": {"pos": Vector3(2521, 805.5, 3246), "look": Vector3(2500, 845, 3350), "hour": 10.0, "fov": 66.0},
+	"sat_terrace": {"pos": Vector3(2370, 784.2, 3275), "look": Vector3(2500, 835, 3350), "hour": 10.5, "fov": 66.0},
+	"sat_bridge": {"pos": Vector3(2338, 784.3, 3367), "look": Vector3(2200, 788, 3381), "hour": 11.0, "fov": 66.0},
+	"sat_door": {"pos": Vector3(2500, 804.6, 3456), "look": Vector3(2500, 808.5, 3424), "hour": 14.0, "fov": 66.0},
+	"sat_landing": {"pos": Vector3(2536, 765.5, 3146), "look": Vector3(2500, 800, 3330), "hour": 8.5, "fov": 66.0},
+	"sat_pinnacle": {"pos": Vector3(2800, 785.5, 3436), "look": Vector3(2500, 835, 3350), "hour": 16.0, "fov": 62.0},
+	"sat_sunset": {"pos": Vector3(2820, 880, 3120), "look": Vector3(2500, 830, 3350), "hour": 18.6, "fov": 56.0},
 }
 
 var world: WorldRenderer
