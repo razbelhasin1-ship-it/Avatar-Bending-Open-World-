@@ -254,7 +254,8 @@ func _process(delta: float) -> void:
 		_distance = lerpf(_distance, want, 1.0 - exp(-delta * 4.0))
 	var cam_pos := pivot + offset_dir * _distance
 	var ground := WorldData.get_height(cam_pos.x, cam_pos.z) + 0.3
-	if cam_pos.y < ground and WorldData.is_loaded():
+	# (not while the player itself is underground - cave tunnels; the collision cast handles those)
+	if cam_pos.y < ground and WorldData.is_loaded() and _pivot.y > WorldData.get_height(_pivot.x, _pivot.z):
 		cam_pos.y = ground
 	# Impulse spring: exact critically damped solution (stable at any frame
 	# time), in real time so hitstop never freezes it.
