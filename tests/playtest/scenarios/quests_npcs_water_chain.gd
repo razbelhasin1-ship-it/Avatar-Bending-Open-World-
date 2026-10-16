@@ -131,16 +131,60 @@ func _travel(pos: Vector3, text: String, look_at: Vector3 = Vector3.INF) -> void
 	await p.wait_game(1.5)
 
 
-## Travels to 2 m in front of a named NPC (their placement), then walks the last steps.
+## Travels to 2 m in front of a named NPC (their placement), then walks the last steps. Master
+## Siku's hall is entered on foot through its gate (fast travel to the door anchor outside).
 func _go_near(id: StringName, text: String) -> void:
+	if id == &"wt_siku":
+		await _enter_hall(text)
+		return
 	var xf := NpcRegistry.placement(id)
 	var front := xf.origin + (-xf.basis.z) * 2.2
 	await _travel(front, text, xf.origin)
 	await p.wait_until(func() -> bool: return NpcRegistry.live_npc(id) != null, 15.0)
 	var n := NpcRegistry.live_npc(id)
 	p.check(n != null, "%s is there" % id)
+	if n == null:
+		return
+	if not _clear_line(pl.global_position, n.global_position):
+		# a wall between us (the placement's facing ran into it): go round to the side the NPC faces
+		await p.wait_game(0.5)
+		var f := -n.global_basis.z
+		await _travel(n.global_position + f * 2.2, "", n.global_position)
+		p.note("%s: re-approached from the side it faces" % id)
+	await _walk_to(n.global_position, 1.6, 6.0)
+
+
+func _clear_line(a: Vector3, b: Vector3) -> bool:
+	var q := PhysicsRayQueryParameters3D.create(a + Vector3(0, 1.3, 0), b + Vector3(0, 1.3, 0), Layers.SOLID)
+	return pl.get_world_3d().direct_space_state.intersect_ray(q).is_empty()
+
+
+## The NWT training hall: fast travel to the door anchor outside the gate, then walk in past the
+## practice pillars and the students and up the dais steps to Master Siku (local hall frame).
+func _enter_hall(text: String) -> void:
+	var hall := {}
+	for it: Dictionary in Settlements.plan(Settlements.WATER_TRIBE).data.get("interiors", []):
+		if it["kind"] == &"training_hall":
+			hall = it
+	var n := NpcRegistry.live_npc(&"wt_siku") as NpcCharacter
+	if hall.is_empty():
+		var xf := NpcRegistry.placement(&"wt_siku")
+		await _travel(xf.origin + (-xf.basis.z) * 2.2, text, xf.origin)
+	else:
+		var c: Vector3 = hall["position"]
+		var yaw := float(hall["yaw"])
+		var inside := n != null and pl.global_position.distance_to(n.global_position) < 14.0 and _clear_line(pl.global_position, n.global_position)
+		if not inside:
+			var door := NwtDistricts.world(c, yaw, Vector3(1.0, 0, -15.0))
+			await _travel(door, text, NwtDistricts.world(c, yaw, Vector3.ZERO))
+			for wp: Vector3 in [Vector3(1.0, 0, -10.5), Vector3(1.0, 0, -6.0), Vector3(1.2, 0, 0.8)]:
+				await _walk_to(NwtDistricts.world(c, yaw, wp), 0.8, 8.0)
+	await p.wait_until(func() -> bool: return NpcRegistry.live_npc(&"wt_siku") != null, 15.0)
+	n = NpcRegistry.live_npc(&"wt_siku") as NpcCharacter
+	p.check(n != null, "wt_siku is there")
 	if n != null:
-		await _walk_to(n.global_position, 1.6, 6.0)
+		p.note("in the hall: player %s, Siku %s, facing %.2f" % [pl.global_position, n.global_position, n.rotation.y])
+		await _walk_to(n.global_position, 1.7, 6.0)
 
 
 ## Walks toward `target` with move_forward until within `r` metres (or `max_s` game seconds).

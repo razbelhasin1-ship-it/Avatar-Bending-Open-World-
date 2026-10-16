@@ -132,6 +132,7 @@ func _tick_station(dt: float) -> void:
 			npc.move_to(spot, NpcCharacter.WALK)
 		elif not npc.is_moving():
 			_phase = 1
+			npc.ensure_open_facing()
 			npc.face_yaw(npc.home.basis.get_euler().y)
 			_begin_pose()
 		return

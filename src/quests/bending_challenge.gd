@@ -53,7 +53,7 @@ func _start() -> void:
 	var pl := _player
 	var fwd := -pl.global_basis.z
 	fwd.y = 0.0
-	fwd = fwd.normalized() if fwd.length() > 0.1 else Vector3.FORWARD
+	fwd = _open_direction(fwd.normalized() if fwd.length() > 0.1 else Vector3.FORWARD)
 	center = pl.global_position + fwd * 6.0
 	match StringName(str(spec.get("kind", "targets"))):
 		&"spar":
@@ -69,6 +69,29 @@ func _start() -> void:
 	Events.player_died.connect(_on_player_died)
 	running = true
 	Audio.play_2d(&"gong", -8.0)
+
+
+## The player's facing when there are 6.5 m of open floor that way, else the most open of eight
+## directions (a player who just faced the master on his dais gets the posts behind them, in the
+## room, not in the wall behind the master).
+func _open_direction(facing: Vector3) -> Vector3:
+	var space := get_world_3d().direct_space_state
+	var from := _player.global_position + Vector3.UP * 1.2
+	var best := facing
+	var best_len := -1.0
+	for i in 8:
+		var d := facing.rotated(Vector3.UP, TAU * i / 8.0)
+		var q := PhysicsRayQueryParameters3D.create(from, from + d * 7.0, Layers.SOLID)
+		var r := space.intersect_ray(q)
+		var free := 7.0 if r.is_empty() else from.distance_to(r["position"])
+		if i == 0 and free >= 6.5:
+			return facing
+		# a slight preference for directions near the facing
+		var score := free - 0.15 * float(mini(i, 8 - i))
+		if score > best_len:
+			best_len = score
+			best = d
+	return best
 
 
 ## Spot on the floor near `p` within 1.5 m of the player's height, or INF.

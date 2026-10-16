@@ -40,6 +40,7 @@ var _last_pos := Vector3.ZERO
 var _probe_t := 0.0
 var _ground_y := INF
 var _ground_ok := false
+var _facing_checked := false
 var _avoid := Vector3.ZERO
 var _avoid_t := 0.0
 var _bark: Label3D = null
@@ -101,6 +102,7 @@ func _ready() -> void:
 		marker.position = Vector3(0, rig.get_height() + 0.55, 0)
 		add_child(marker)
 	_snap_to_ground(true)
+	ensure_open_facing()
 	brain = NpcBrain.new(self)
 
 
@@ -252,6 +254,39 @@ func _snap_to_ground(initial: bool) -> void:
 		_ground_ok = false
 		if _ground_y == INF:
 			_ground_y = p.y
+
+
+## Settlement plans do not all agree on which way an anchor yaw faces (some interiors treat +Z as
+## forward), so a named or indoor NPC whose facing runs into a wall within 4 m while its back is
+## open turns around for good (home and facing) instead of staring at the wall. Runs once, as soon
+## as there is ground collision under the NPC (the settlement's collision streams in later).
+func ensure_open_facing() -> void:
+	if _facing_checked or not is_inside_tree():
+		return
+	if npc_id == &"" and not bool(record.get("interior", false)):
+		_facing_checked = true
+		return
+	if not _ground_ok:
+		return
+	_facing_checked = true
+	var f := home.basis * Vector3.FORWARD
+	var ahead := _free_length(f, 6.0)
+	if ahead >= 4.0:
+		return
+	var behind := _free_length(-f, 6.0)
+	if behind >= ahead * 1.8 and behind >= 2.5:
+		var yaw := wrapf(home.basis.get_euler().y + PI, -PI, PI)
+		home = Transform3D(Basis(Vector3.UP, yaw), home.origin)
+		rotation.y = yaw
+		_face_yaw = yaw
+
+
+func _free_length(dir: Vector3, max_d: float) -> float:
+	var from := global_position + Vector3(0, 1.45, 0)
+	var q := PhysicsRayQueryParameters3D.create(from, from + dir * max_d, Layers.SOLID)
+	q.exclude = [get_rid()]
+	var r := get_world_3d().direct_space_state.intersect_ray(q)
+	return max_d if r.is_empty() else from.distance_to(r["position"])
 
 
 # --- presentation -------------------------------------------------------------------------------

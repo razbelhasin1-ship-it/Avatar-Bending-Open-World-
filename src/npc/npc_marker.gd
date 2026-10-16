@@ -14,6 +14,7 @@ var _icon: Sprite3D
 var _name: Label3D
 var _t := 0.0
 var _bob := 0.0
+var _icon_color := Color.WHITE
 
 
 func _ready() -> void:
@@ -53,15 +54,21 @@ func _process(delta: float) -> void:
 	_icon.position.y = 0.2 + sin(_bob * 2.2) * 0.06
 	var pl := Quests.get_player()
 	var a := 0.0
+	# both fade out when the camera is right behind / beside the NPC (no screen-filling plates)
+	var near := 1.0
+	var cam := get_viewport().get_camera_3d()
+	if cam != null:
+		near = clampf((cam.global_position.distance_to(global_position) - 2.6) / 2.0, 0.0, 1.0)
 	if pl != null:
 		var d := pl.global_position.distance_to(global_position)
-		a = clampf((NAME_RANGE - d) / 3.0, 0.0, 1.0)
+		a = clampf((NAME_RANGE - d) / 3.0, 0.0, 1.0) * near
 		if npc != null and npc.in_conversation():
 			a = 0.0
 	_name.modulate.a = a
 	_name.visible = a > 0.01
 	var talking := npc != null and npc.in_conversation()
-	_icon.visible = state != &"" and not talking
+	_icon.modulate = Color(_icon_color, _icon_color.a * near)
+	_icon.visible = state != &"" and not talking and near > 0.01
 
 
 func _refresh() -> void:
@@ -80,20 +87,21 @@ func _refresh() -> void:
 	match s:
 		&"available":
 			_icon.texture = UiTheme.icon("icon_quest")
-			_icon.modulate = UiTheme.GOLD
+			_icon_color = UiTheme.GOLD
 			_icon.pixel_size = 0.0034
 		&"turn_in":
 			_icon.texture = UiTheme.icon("ui_diamond")
-			_icon.modulate = Color(0.62, 0.86, 1.0)
+			_icon_color = Color(0.62, 0.86, 1.0)
 			_icon.pixel_size = 0.0028
 		&"trainer":
 			_icon.texture = UiTheme.emblem(npc.element())
-			_icon.modulate = Color(UiTheme.element_light(npc.element()), 0.95)
+			_icon_color = Color(UiTheme.element_light(npc.element()), 0.95)
 			_icon.pixel_size = 0.00085
 		&"merchant":
 			_icon.texture = UiTheme.icon("icon_marker")
-			_icon.modulate = Color(UiTheme.GOLD_HI, 0.75)
+			_icon_color = Color(UiTheme.GOLD_HI, 0.75)
 			_icon.pixel_size = 0.0024
+	_icon.modulate = _icon_color
 	_icon.visible = s != &"" and not npc.in_conversation()
 
 
