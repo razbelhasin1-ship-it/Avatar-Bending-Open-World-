@@ -29,7 +29,7 @@ static func build(poi: Dictionary) -> Dictionary:
 	var entrance0: Vector3 = poi.get("entrance", poi["position"])
 	var yaw := float(poi.get("yaw", 0.0))
 	var out_dir := Vector3(-sin(yaw), 0.0, -cos(yaw))
-	var tunnel := anchor(poi.get("tunnel", PackedVector3Array([entrance0, entrance0 - out_dir * 40.0])), out_dir)
+	var tunnel := dig(anchor(poi.get("tunnel", PackedVector3Array([entrance0, entrance0 - out_dir * 40.0])), out_dir))
 	var entrance := tunnel[0]
 	var region: StringName = poi.get("region", &"wilds")
 	var rng := ContentHash.rng(ContentHash.hash_name(String(poi.get("id", "cave"))))
@@ -139,7 +139,7 @@ static func build(poi: Dictionary) -> Dictionary:
 				continue
 			var outw := (p - center).normalized()
 			var r := rng.randf_range(1.4, 2.3)
-			var q := p + outw * (r * 1.05)
+			var q := p + outw * (r * 1.4)
 			if WorldData.get_height(q.x, q.z) > q.y + r * 0.9:
 				continue
 			_rock(kit, q, r, shell_rock * rng.randf_range(0.85, 1.08), cap_c, rng, Vector3(1.1, 0.85, 1.1), slot)
@@ -156,7 +156,7 @@ static func build(poi: Dictionary) -> Dictionary:
 		if drop > 0.3:
 			for sx: float in [-0.6, 0.0, 0.6]:
 				var r := clampf(drop * 0.6 + 1.2, 1.4, 3.0)
-				var q := path[i] + right0 * sx * WIDTH * 0.6 - Vector3(0, r * 0.75, 0)
+				var q := path[i] + right0 * sx * WIDTH * 0.6 - Vector3(0, r * 1.3, 0)
 				_rock(kit, q, r, shell_rock * 0.8, cap_c, rng, Vector3(1.1, 0.8, 1.1), slot)
 				if drop > 3.5:
 					# a ledge bulging out of the cliff under a high mouth
@@ -257,6 +257,20 @@ static func _at_dist(path: PackedVector3Array, dist: PackedFloat32Array, d: floa
 		if dist[i] >= d:
 			return path[i - 1].lerp(path[i], (d - dist[i - 1]) / maxf(dist[i] - dist[i - 1], 0.001))
 	return path[path.size() - 1]
+
+
+## Lowers a tunnel (after the entrance) so it runs HEIGHT + 1.5 m under the hill surface as soon
+## as a walkable grade (max 30 %) allows: a shallow recorded tunnel would otherwise run just under
+## the surface and the terrain would cut through the tube. Never raises a point.
+static func dig(tunnel: PackedVector3Array) -> PackedVector3Array:
+	var out := tunnel.duplicate()
+	var d := 0.0
+	for i in range(1, out.size()):
+		d += Vector2(out[i].x - out[i - 1].x, out[i].z - out[i - 1].z).length()
+		var want := WorldData.get_height(out[i].x, out[i].z) - (HEIGHT + 1.5)
+		out[i].y = minf(tunnel[i].y, maxf(want, out[0].y - 0.3 * d))
+		out[i].y = maxf(out[i].y, out[i - 1].y - 0.3 * Vector2(out[i].x - out[i - 1].x, out[i].z - out[i - 1].z).length())
+	return out
 
 
 ## A rock with a darker underside and a moss/snow/ash cap on top (thread-safe).

@@ -53,10 +53,18 @@ static func add_feature_exclusions(content: WorldContent) -> void:
 		var yaw := float(poi.get("yaw", 0.0))
 		var out := Vector2(-sin(yaw), -cos(yaw))
 		var e: Vector3 = poi["position"]
+		var tunnel := PackedVector3Array([e])
 		if poi.has("tunnel"):
-			e = CaveBuilder.anchor(poi["tunnel"], Vector3(out.x, 0.0, out.y))[0]
+			tunnel = CaveBuilder.dig(CaveBuilder.anchor(poi["tunnel"], Vector3(out.x, 0.0, out.y)))
+			e = tunnel[0]
 		var e2 := Vector2(e.x, e.z)
 		content.add_exclusion_capsule(e2 + out * 9.0, e2 - out * 6.0, 7.0, T.TAG_ALL, 4.0)
+		# nothing grows where the hill surface runs through the tube (shallow first metres)
+		for i in range(1, tunnel.size()):
+			var q := tunnel[i]
+			if WorldData.get_height(q.x, q.z) - q.y > CaveBuilder.HEIGHT + 1.0:
+				break
+			content.add_exclusion_capsule(Vector2(tunnel[i - 1].x, tunnel[i - 1].z), Vector2(q.x, q.z), CaveBuilder.WIDTH * 0.6 + 0.5, T.TAG_ALL, 1.0)
 
 
 ## Keep-out areas derived from WorldData: city/village footprints (trees, rocks, props; grass is

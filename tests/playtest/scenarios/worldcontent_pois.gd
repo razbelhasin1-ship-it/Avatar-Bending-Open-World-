@@ -208,13 +208,13 @@ func _cave(p: Playtest) -> void:
 	var poi := WorldData.get_poi(&"ek_two_lanterns_tunnels")
 	var yaw := float(poi["yaw"])
 	var out := Vector3(-sin(yaw), 0, -cos(yaw))
-	var e: Vector3 = CaveBuilder.anchor(poi["tunnel"], out)[0]
+	var e: Vector3 = CaveBuilder.dig(CaveBuilder.anchor(poi["tunnel"], out))[0]
 	if _want("cave_mouth"):
 		await _shoot(p, "cave_mouth", _clear_view(e + Vector3(0, 2.0, 0), out + out.cross(Vector3.UP) * 0.3, 16.0, 3.0), e + Vector3(0, 2.0, 0), 16.0, 66.0)
 		for c in WorldData.get_pois():
 			if c["type"] == &"cave" and c["id"] != poi["id"] and _want("cave_" + String(c["id"])):
 				var co := Vector3(-sin(float(c["yaw"])), 0, -cos(float(c["yaw"])))
-				var ce: Vector3 = CaveBuilder.anchor(c["tunnel"], co)[0]
+				var ce: Vector3 = CaveBuilder.dig(CaveBuilder.anchor(c["tunnel"], co))[0]
 				var cc := _clear_view(ce + Vector3(0, 2.0, 0), co, 20.0, 4.0)
 				if cc.y < ce.y - 4.0:
 					cc = ce + co * 24.0 + co.cross(Vector3.UP) * 6.0 + Vector3(0, 3.0, 0)     # mouth high on a cliff
