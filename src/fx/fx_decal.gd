@@ -28,7 +28,7 @@ static func spawn(from: Node, pos: Vector3, p_mark: StringName, radius: float = 
 	d.global_transform = Transform3D(b, pos + n * 0.02)
 	d.scale = Vector3(radius, 1.0, radius)
 	d.t = 0.0
-	d.life = [3.0, 5.0, 8.0, 12.0][Settings.detail_level()] * (1.4 if p_mark == &"crack" else 1.0)
+	d.life = [2.5, 4.0, 6.0, 9.0][Settings.detail_level()]
 	d._set_alpha(1.0)
 	return d
 
@@ -126,18 +126,19 @@ static func texture(p_mark: StringName) -> Texture2D:
 static func _draw_cracks(img: Image, rng: RandomNumberGenerator, fn: FastNoiseLite) -> void:
 	var size := img.get_width()
 	var c := Vector2(size, size) * 0.5
-	var dark := Color(0.12, 0.09, 0.07, 0.95)
+	# Darkened ground, not black ink: readable on light stone and dark soil alike.
+	var dark := Color(0.3, 0.24, 0.19, 0.78)
 	# Crushed centre.
 	for y in size:
 		for x in size:
 			var d := Vector2(x, y).distance_to(c) / (size * 0.5)
 			var n := fn.get_noise_2d(x * 2.0, y * 2.0) * 0.5 + 0.5
 			if d < 0.22 + n * 0.08:
-				img.set_pixel(x, y, Color(0.2, 0.16, 0.12, 0.75 * (1.0 - d / 0.3)))
+				img.set_pixel(x, y, Color(0.32, 0.26, 0.2, 0.5 * (1.0 - d / 0.3)))
 	# Branching radial cracks.
 	for i in 9:
 		var a := TAU * float(i) / 9.0 + rng.randf_range(-0.25, 0.25)
-		_crack_line(img, c, a, size * rng.randf_range(0.32, 0.47), 3.2, rng, dark, 2)
+		_crack_line(img, c, a, size * rng.randf_range(0.3, 0.45), 2.2, rng, dark, 2)
 
 
 static func _crack_line(img: Image, start: Vector2, angle: float, length: float, width: float, rng: RandomNumberGenerator, col: Color, depth: int) -> void:

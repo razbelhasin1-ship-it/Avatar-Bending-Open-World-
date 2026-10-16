@@ -257,12 +257,14 @@ func _element(e: int) -> void:
 	await _tap(&"ability_1")
 	var started := await _tick_until(func() -> bool: return pl.controller.current != null and pl.controller.current.def.slot == AbilityDef.Slot.TECHNIQUE, 0.5)
 	p.check(started, "%s starter technique starts" % el)
-	var shot := await _tick_until(func() -> bool: return _own_projectile(), 1.5)
-	if not shot:
-		await _tick_until(func() -> bool: return pl.controller.current == null or pl.controller.current.time_to_event(&"release") == INF, 1.5)
-		await p.wait_game(0.15)
+	# Shot as soon as the technique's gameplay exists: a projectile in flight,
+	# or the clip's release event has fired (sweeps, waves, walls).
+	await _tick_until(func() -> bool:
+		var cur := pl.controller.current
+		return _own_projectile() or cur == null or (cur.time_to_event(&"release") == INF and cur.time_to_event(&"impact") == INF), 1.5)
+	await p.wait_game(0.05)
 	await p.screenshot("%s_11_technique" % el)
-	await p.wait_game(0.5)
+	await p.wait_game(0.3)
 	await p.screenshot("%s_12_technique_after" % el)
 	await _tick_until(func() -> bool: return not pl.controller.is_busy(), 3.0)
 	await p.wait_game(0.5)

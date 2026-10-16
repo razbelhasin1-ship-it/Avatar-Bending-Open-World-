@@ -62,9 +62,9 @@ func _update_stream() -> void:
 	var sweep := 1.0 - clampf(u, 0.0, 1.0)
 	var side := _side if _side != 0.0 else 0.6
 	var tip_dir := dir.rotated(Vector3.UP, -deg_to_rad(80.0) * side * sweep)
-	var bend := sweep * 0.6 + 0.3
+	var bend := sweep * 0.6 + 0.4
 	var p2 := hand + tip_dir * length
-	var p1 := hand + dir * length * 0.55 + right * side * bend * length * 0.32 + Vector3.UP * (0.25 + 0.35 * bend)
+	var p1 := hand + dir * length * 0.55 + right * side * bend * length * 0.36 + Vector3.UP * (0.45 + 0.45 * bend) * minf(length, 3.0) / 3.0
 	var pts := PackedVector3Array()
 	for k in 9:
 		var s := float(k) / 8.0
