@@ -462,6 +462,10 @@ func initial_focus() -> Control:
 func handle_input(event: InputEvent) -> bool:
 	if event.is_echo():
 		return false
+	# the map key / View button opens the map on the selected quest (not just the map tab)
+	if InputMap.has_action(&"open_map") and event.is_action_pressed(&"open_map") and selected != &"":
+		show_on_map()
+		return true
 	if event is InputEventJoypadButton and (event as InputEventJoypadButton).pressed:
 		match (event as InputEventJoypadButton).button_index:
 			JOY_BUTTON_Y:
@@ -487,5 +491,5 @@ func hints() -> Array:
 			"pad": [{"type": "joy_button", "button": JOY_BUTTON_LEFT_SHOULDER}, {"type": "joy_button", "button": JOY_BUTTON_RIGHT_SHOULDER}], "text": "Pages"},
 		{"kbm": [{"type": "key", "code": KEY_TAB}], "pad": [], "text": "Active / Completed"},
 		{"action": &"ui_accept", "text": "Track"},
-		{"kbm": [{"type": "key", "code": KEY_M}], "pad": [{"type": "joy_button", "button": JOY_BUTTON_Y}], "text": "Map"},
+		{"action": &"open_map", "text": "Map"},
 	]

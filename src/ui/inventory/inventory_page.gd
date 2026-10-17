@@ -187,6 +187,7 @@ func on_open(_args: Dictionary) -> void:
 func set_view(v: StringName) -> void:
 	view = v
 	refresh()
+	refresh_hints()
 
 
 func set_category(c: StringName) -> void:
@@ -203,7 +204,7 @@ func owned_items() -> Array[StringName]:
 			continue
 		if category != &"all":
 			var cat := TradeGoods.category(id)
-			if cat != category and not (category == &"food" and cat == &"drink" and false):
+			if cat != category:
 				continue
 		out.append(id)
 	out.sort_custom(func(a: StringName, b: StringName) -> bool:
@@ -473,5 +474,4 @@ func hints() -> Array:
 		{"kbm": [{"type": "key", "code": KEY_Q}, {"type": "key", "code": KEY_E}],
 			"pad": [{"type": "joy_button", "button": JOY_BUTTON_LEFT_SHOULDER}, {"type": "joy_button", "button": JOY_BUTTON_RIGHT_SHOULDER}], "text": "Pages"},
 		{"kbm": [{"type": "key", "code": KEY_TAB}], "pad": [{"type": "joy_button", "button": JOY_BUTTON_Y}], "text": "Items / Discoveries"},
-		{"action": &"ui_accept", "text": "Use"},
-	]
+	] + ([{"action": &"ui_accept", "text": "Use"}] if view == &"items" else [])

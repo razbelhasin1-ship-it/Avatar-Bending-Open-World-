@@ -181,6 +181,19 @@ func _build_journey_row() -> void:
 		b.pressed.connect(func() -> void: open_journey(page))
 		_journey_row.add_child(b)
 		journey_buttons.append(b)
+	# same width as the info panel above, five equal buttons: shrink the label size to fit
+	var fs := UiTheme.SIZE_TINY - 2
+	var width := _journey_row.offset_right - _journey_row.offset_left
+	var sep := 8.0 * (JOURNEY_PAGES.size() - 1)
+	while fs > 13:
+		var widest := 0.0
+		for b in journey_buttons:
+			widest = maxf(widest, b.get_combined_minimum_size().x)
+		if widest * JOURNEY_PAGES.size() + sep <= width:
+			break
+		fs -= 1
+		for b in journey_buttons:
+			b.add_theme_font_size_override(&"font_size", fs)
 
 
 func _journey_book() -> Node:

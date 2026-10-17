@@ -33,7 +33,8 @@ func run(pt: Playtest) -> void:
 	var travel_to: Dictionary = {}
 	for i in mini(5, near.size()):
 		GameState.discover_poi(StringName(near[i]["id"]))
-		var pl := MapModel.place_by_id(StringName(near[i]["id"]))
+		# the marker the map shows for it (a village / dock POI is drawn as its settlement record)
+		var pl := MapModel.shown_place(MapModel.place_by_id(StringName(near[i]["id"])))
 		if travel_to.is_empty() and MapModel.is_travel_point(pl) and w.player.global_position.distance_to(pl["position"]) > 200.0:
 			travel_to = pl
 	await p.wait_game(1.5)
