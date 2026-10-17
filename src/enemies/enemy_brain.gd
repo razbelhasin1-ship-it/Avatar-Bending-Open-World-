@@ -842,7 +842,7 @@ func _track_stuck(delta: float, goal: Vector3) -> void:
 ## the player on the rim by running along the pool wall forever).
 func _track_walled(delta: float, goal: Vector3) -> void:
 	_win_t += delta
-	if e.is_on_wall():
+	if e.is_on_wall() or Vector2(e.velocity.x, e.velocity.z).length() < 0.3:
 		_win_wall += delta
 	if _win_t < 1.0:
 		return

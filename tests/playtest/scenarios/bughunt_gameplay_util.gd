@@ -239,8 +239,10 @@ class Watch extends RefCounted:
 	var deaths := 0
 	var mounts := 0
 	var node_samples: Array = []
-	## Physics process time per frame (ms): every sample, for the report (p50 / p99 / max).
+	## Wall time per game frame (ms): every sample, for the report (p50 / p99 / max).
 	var phys_ms: PackedFloat32Array = PackedFloat32Array()
+	var _last_us := 0
+	var _last_frame := -10
 	var _idle_frames := 0
 	var _busy_free_frames := 0
 	var _dead_mismatch := 0
@@ -327,7 +329,15 @@ class Watch extends RefCounted:
 		_companion_checks(dt)
 		_embed_checks(dt)
 		_cd_prev = pl.controller.cooldowns.duplicate()
-		phys_ms.append(float(Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS)) * 1000.0)
+		# Wall time of one whole game frame (headless fast-forward: the frame's real cost - physics,
+		# scripts, this watchdog). Only consecutive frames (events await several in between).
+		# Performance.TIME_PHYSICS_PROCESS is the max over the last real second: useless here.
+		var now := Time.get_ticks_usec()
+		var f := Engine.get_physics_frames()
+		if dt > 0.0 and f == _last_frame + 1 and _last_us > 0:
+			phys_ms.append(float(now - _last_us) / 1000.0)
+		_last_us = now
+		_last_frame = f
 		if clock >= _next_node_sample:
 			_next_node_sample = clock + 20.0
 			node_samples.append([snappedf(clock, 0.1), int(Performance.get_monitor(Performance.OBJECT_NODE_COUNT)),
@@ -500,12 +510,14 @@ class Watch extends RefCounted:
 				flag("enemy_below_ground", "%s y %.2f" % [en.display_name, en.global_position.y])
 			if en.state == EnemyBase.State.ATTACK:
 				attacking += 1
-			# Chasing with a wish to move but not moving for long: stuck on geometry.
+			# Chasing with a wish to move but not moving for long: stuck on geometry. The brain
+			# hops / gives a walled-in chase up after EnemyBrain.CHASE_GIVE_UP 1 s windows, so
+			# only flag what outlasts that (was 6 s, before the walled-in handling existed).
 			var iid := en.get_instance_id()
 			var hs := Vector2(en.velocity.x, en.velocity.z).length()
 			if en.state == EnemyBase.State.CHASE and en.desired_velocity.length() > 1.0 and hs < 0.3:
 				_enemy_stuck[iid] = float(_enemy_stuck.get(iid, 0.0)) + 1.0 / 60.0
-				if float(_enemy_stuck[iid]) > 6.0:
+				if float(_enemy_stuck[iid]) > float(EnemyBrain.CHASE_GIVE_UP) + 3.0:
 					flag("enemy_stuck_chasing", "%s at %s" % [en.display_name, str(en.global_position.snapped(Vector3.ONE * 0.1))])
 					_enemy_stuck[iid] = -60.0
 			elif _enemy_stuck.has(iid) and float(_enemy_stuck[iid]) > 0.0:

@@ -333,8 +333,8 @@ on the player at its range, tell 0.35-0.47 s before the strike) and the
   an enemy that could not see the player in ALERT until the 12 s state safety timeout (an engine
   warning), then RETURN -> ALERT again, forever.
 * Walled in (`EnemyBrain._track_walled`, called from `_track_stuck` in CHASE / RETURN / PATROL):
-  measured in 1 s windows - against a wall for most of the window without getting 0.5 m closer
-  to the goal. Each walled window hops (`EnemyBase.hop_toward(goal)`: from the floor, outside
+  measured in 1 s windows - blocked (against a wall, or barely moving) for most of the window
+  without getting 0.5 m closer to the goal. Each walled window hops (`EnemyBase.hop_toward(goal)`: from the floor, outside
   actions, `HOP_SPEED` 9.5 = ~2.3 m apex) up to `MAX_HOPS` (3) per spell, and a chase walled in
   for `CHASE_GIVE_UP` (7) windows goes home. An enemy knocked into the arena pool (or below a
   quay / into a pit) used to chase the player on the rim by sliding back and forth along the wall

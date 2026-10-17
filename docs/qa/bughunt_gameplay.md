@@ -7,7 +7,7 @@ saves in odd states, time-scale leaks, pooling leaks and per-frame costs; then *
 fuzz sessions** per element in the enemy arena and in the real world with an invariant
 watchdog and an engine-error collector (every error / warning counted as a bug). Every
 suspicion was reproduced (test or fuzz), fixed at its root with the smallest change, and kept
-as a regression test (`tests/unit/test_bughunt_gameplay.gd`, 15 tests; each fails on the old
+as a regression test (`tests/unit/test_bughunt_gameplay.gd`, 16 tests; each fails on the old
 code except `test_interact_with_a_freed_interactable`, a guard kept for a refuted suspicion).
 
 | # | Bug | Verdict | Fix (file) |
@@ -61,6 +61,12 @@ Refuted suspicions and checks that came out clean are listed at the end.
   caps, mounted-but-not-ridden desyncs, double respawns, node / orphan / object counts every 20 s.
 * **ErrorLog** (`util.ErrorLog`, a `Logger` added with `OS.add_logger`): collects every engine
   error and warning with the GDScript backtrace.
+* **Breadcrumbs** (`<out>/crumbs.txt`, flushed every 3 frames: player state, ability + time,
+  position, companion mode / burrow phase, held buttons; every event): the last state before a
+  hang or a crash. A hang of the first final arena session (no output, 100 % CPU) was traced with
+  them to the harness itself: the monkey toggled `pause` blindly, so a close press that landed on
+  an already closed menu reopened it and the game stayed paused for good. The monkey now only
+  closes menus while the tree is paused and makes no play decisions then.
 * Runs headless and fast: `godot --headless --fixed-fps 60 --path . res://tests/playtest/playtest.tscn
   -- --test --scenario=bughunt_gameplay_fuzz` with `ELEMENT`, `MODE=arena|world`, `MINUTES`, `SEED`
   (5 game minutes in the arena take ~1 min of wall time); rendered with `tools/playtest.sh` for
@@ -231,10 +237,16 @@ any pit deeper than the step height.
 away): on the old code it oscillated along the inner wall for the whole 12 s (x between -0.8 and
 -1.8 at z -2.64, CHASE); now it hops out after ~2 s and attacks.
 **Fix.** `src/enemies/enemy_brain.gd:843` `_track_walled()` (from `_track_stuck` in CHASE / RETURN /
-PATROL): 1 s windows; against a wall for most of a window without getting 0.5 m closer = walled.
-Each walled window hops toward the goal (`EnemyBase.hop_toward`, `enemy_base.gd:569`, ~2.3 m apex,
-up to 3 per spell), and a chase walled in for 7 windows is given up (RETURN keeps its own snap
-home / 40 s timeout).
+PATROL): 1 s windows; blocked (against a wall or barely moving) for most of a window without
+getting 0.5 m closer = walled. Each walled window hops toward the goal (`EnemyBase.hop_toward`,
+`enemy_base.gd:569`, ~2.3 m apex, up to 3 per spell), and a chase walled in for 7 windows is
+given up (RETURN keeps its own snap home / 40 s timeout). Behind solid walls the existing
+lost-sight rule already ends a chase after 6 s; the give-up covers blockers sight passes
+(allies, the companion in the way). The final world session flagged one more case (a Renegade
+Airbender at the Fire Navy landing, 6 s without moving while it saw the player) before the
+give-up existed; `test_enemy_gives_up_a_walled_in_chase` (a 2.6 m fence on the enemy layer,
+too high to hop, sight passes) fails without it. The watchdog's stuck-chasing threshold now
+follows the give-up (`CHASE_GIVE_UP` + 3 s).
 
 ---
 
@@ -275,6 +287,15 @@ home / 40 s timeout).
 * Navigation is still steering + whiskers (no navmesh): a cornered enemy can sit in RETURN until
   the 40 s safety timeout, which snaps it home (and prints a warning) - seen only with the fuzz's
   long leash.
+* Enemies still walk on the sea floor when knocked into deep water (no enemy swimming); the
+  walled-in hop gets them out of pools, pits and over quay edges up to ~2 m, deeper water only by
+  giving up the chase / the RETURN snap home.
+* One engine crash (SIGSEGV in a non-main engine thread, right after
+  `/root: The caller thread can't call the function propagate_notification()`) after the harness
+  bug above had held the game paused for ~7 minutes at thousands of headless frames per second.
+  The backtrace has no project frames (engine thread start -> engine code); it did not recur in
+  normal play or in the later sessions. Not attributable to gameplay scripts; noted for the
+  engine / audio owners.
 * The fuzz is a monkey, not a player: rare multi-step sequences (e.g. a burrow ending exactly as a
   cinematic starts) are covered by reasoning and unit tests, not by fuzz statistics.
 * Headless fast-forward (`--fixed-fps`) runs the game clock faster than the wall clock, which makes

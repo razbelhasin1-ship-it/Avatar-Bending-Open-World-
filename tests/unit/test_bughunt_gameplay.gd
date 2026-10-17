@@ -332,6 +332,33 @@ func test_enemy_hops_out_of_a_pit() -> void:
 	expect(out >= 0, "got out over the wall (at %s, %s)" % [e.global_position.snapped(Vector3.ONE * 0.1), e.get_state_name()])
 
 
+## Walled in too high to hop out (2.6 m) by something its sight passes (allies in the way - here
+## bodies on the enemy layer) so it keeps seeing its target: the chase is given up after
+## EnemyBrain.CHASE_GIVE_UP walled windows instead of running in place forever. (Behind solid
+## walls the existing lost-sight rule already ends the chase after 6 s.)
+func test_enemy_gives_up_a_walled_in_chase() -> void:
+	EnemySim.begin()
+	var p := PlayerSim.player(self, E.FIRE, Vector3(0, 0, -9))
+	var e := EnemySim.enemy(self, &"bandit_brawler", Vector3.ZERO, p)
+	for w: Array in [[Vector3(0, 1.3, -3.2), Vector3(6.8, 2.6, 0.4)], [Vector3(0, 1.3, 3.2), Vector3(6.8, 2.6, 0.4)],
+			[Vector3(-3.2, 1.3, 0), Vector3(0.4, 2.6, 6.8)], [Vector3(3.2, 1.3, 0), Vector3(0.4, 2.6, 6.8)]]:
+		PlayerSim.box(self, w[0], w[1]).collision_layer = Layers.ENEMY
+	await EnemySim.settle(self)
+	e.brain.engage(p)
+	var chased := false
+	var gave_up := -1.0
+	for i in 60 * 14:
+		await EnemySim.step([p, e], 1)
+		if e.state == EnemyBase.State.CHASE:
+			chased = true
+		elif chased and e.state == EnemyBase.State.RETURN and gave_up < 0.0:
+			gave_up = float(i) / 60.0
+	EnemySim.end()
+	expect(chased, "chased first")
+	expect(gave_up > 0.0, "gave the walled-in chase up (after %.1f s)" % gave_up)
+	expect(absf(e.global_position.x) < 3.2 and absf(e.global_position.z) < 3.2, "still inside (the wall is too high to hop)")
+
+
 # --- focus / hitstop exploits --------------------------------------------------------------------
 
 func _ring_of_dummies(center: Vector3, n: int, r: float) -> Array[TrainingDummy]:
