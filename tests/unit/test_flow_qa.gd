@@ -290,6 +290,37 @@ func test_confirm_dialog_traps_focus_on_its_answers() -> void:
 	await frames(1)
 
 
+## Enemy AI reads the same release contract as the tutorial: a player charging Earth Boulder
+## never made a rogue earthbender raise its cover wall (the brain only knew ChargeAbility),
+## while a charging Fire Blast did.
+func test_enemies_see_every_element_charge_a_heavy() -> void:
+	var ground := PlayerSim.ground(self)
+	EnemySim.begin()
+	for el: int in [ElementDefs.Element.EARTH, ElementDefs.Element.FIRE]:
+		var tag := String(ElementDefs.id_of(el))
+		var pl := PlayerSim.player(self, el, Vector3(0, 0, -8))
+		pl.health.invulnerable = true
+		var en := EnemySim.enemy(self, &"earth_rogue", Vector3.ZERO, pl)
+		await EnemySim.settle(self)
+		en.perception.alert_to(pl)
+		en.perception.engaged = true
+		en.brain.target = pl
+		expect(pl.controller.request(&"heavy") == &"", "%s: the heavy starts" % tag)
+		await PlayerSim.step(pl, 6)
+		var cur := pl.controller.current
+		expect(cur != null and cur.get(&"charging") == true, "%s: charging (%s)" % [tag, cur])
+		var acted := en.brain._threats()
+		expect(acted and en.actions.is_busy() and en.actions.attack.get("tag", &"") == &"cover",
+				"%s: the rogue raises its earth wall against the charge (%s)" % [tag, en.actions.attack.get("id", &"none")])
+		pl.controller.release(&"heavy")
+		en.queue_free()
+		pl.queue_free()
+		await frames(2)
+	EnemySim.end()
+	ground.queue_free()
+	await frames(1)
+
+
 ## Phone run (flow_qa_mobile): the first quest slid in while the arrival still hid the HUD
 ## (touch overlay off, tracker on the right); the overlay then moved the tracker under the
 ## vitals and the running slide tweened it back to the right, under the touch buttons, for good.
