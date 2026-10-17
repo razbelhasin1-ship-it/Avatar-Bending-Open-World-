@@ -56,7 +56,10 @@ constructs, fire rings, ground zones, camera, bus mute).
 The warm-up's own 17.7 s are llvmpipe compiling 65 pipelines in software (27 rendered frames);
 on a GPU driver that is a fraction of a second, and it is behind the loading screen either way.
 In the world (Mobile renderer, mobile preset) the boot's warm-up compiled 150 pipelines (20 of
-them at draw time — behind the overlay) for 18 abilities.
+them at draw time — behind the overlay) for 18 abilities, overlapping the content streaming:
+the measured loads grew from 7.0-17.9 s to 11.2-21.9 s (warm-up 7.0-13.5 s) on llvmpipe; on
+Compatibility / llvmpipe the Water Tribe warm-up hit the 30 s cap (`MAX_SECONDS`, the boot then
+continues; whatever was not compiled compiles on first use as before).
 
 The playtest now checks that after the warm-up the first casts compile ≤ 3 pipelines in total.
 `test_perf_polish.gd::test_warmup_run_casts_everything_and_cleans_up` forces a full run for each
@@ -70,7 +73,93 @@ pipeline cache already keeps the pipelines between launches.
 
 ## 2. Mobile render budget at the four home spawns
 
-BUDGET_SECTION
+**Checked.** `perf_polish_budget` (MOBILE=1, mobile preset with render scale 0.75, 1280×720):
+a new game at each home spawn in the real world scene, the content allowed to settle, then the
+camera turned to four directions (90° apart), each sampled for 2 s (renderer counters: draw
+calls, primitives, shadow pass) plus a frustum-culled census of what is drawn by provider / LOD
+(`RenderCensus`); `BREAKDOWN=1` hides one group at a time (terrain, water, each content provider,
+each settlement LOD part, NPCs, player, companion) and records the renderer's drop, and measures
+the same frame with mesh LODs off / 4× coarser. Numbers below are the **worst of the four views**
+(main pass; shadow pass in its own column, as in docs/modules/mobile.md).
+
+**Found** (before, Mobile renderer): 972k-1055k primitives and 210-409 draw calls per view.
+Where it went (census + renderer breakdown): settlement LOD1 meshes drew the ink-outline pass
+(invisible beyond 60 m, but every triangle twice), the whole LOD0 band was full detail out to
+100 m, LOD1 used the regular kit, cities had up to four surfaces per merged mesh, night-glow
+MultiMeshes were submitted by day, every garden species/LOD MultiMesh drew at any distance
+(~85 draws at the Fire Nation spawn), far impostor forests ~80k triangles at Ba Sing Se, and no
+procedural mesh had LOD index buffers (characters: 12.7k triangles each at any distance).
+
+**Fixed** (phones only unless noted; `SettlementSettings` keys, table in
+docs/modules/settlements.md):
+
+| Change | Where |
+| --- | --- |
+| LOD1 / LOD2 without the ink outline pass (all presets) | `nation_palette.gd:115`, `kit_result.gd:84-93`, `settlement_provider.gd:70-73`, `settlement_far_provider.gd:56-63` |
+| LOD1 built from the silhouette recipes (`lod1_kit` 2), merged into one surface (`merge_far`, `KitMerger.slot_map`) | `settlement_provider.gd:18, 233-260`, `kit_merger.gd` |
+| LOD0 as quadrant HLOD under LOD1: full detail only in the camera's quadrant (≤ 46.8 m from a quadrant centre), kit LOD 1 elsewhere; collision / lights identical to desktop | `settlement_provider.gd:74-92, 150-227` |
+| LOD0 band ends at the cell half diagonal + 6 m (96.5 m), LOD1 band at 220 m (was 300) | `settlement_settings.gd:29-31, 91-95` |
+| Automatic mesh LODs (`MeshLods`, built on the workers) on settlement meshes; mid quadrants / LOD1 `lod_bias` 0.25, silhouettes 0.15 | `src/perf/mesh_lods.gd`, `world_content.gd:705-714`, `settlement_settings.gd:72-78` |
+| Full-detail ice without the outline pass (`flat_ice`) | `kit_result.gd:87-90`, `settlement_provider.gd:85` |
+| Night-glow MultiMeshes `night_only`: not submitted while the sun is up (all presets) | `settlement_fx.gd:155-157`, `world_content.gd:767-790` |
+| Garden plant MultiMeshes limited to their species/LOD band (all presets), 170 m on phones | `settlement_fx.gd:86-110` |
+| Far impostor forests thinned to 55 % (`far_density`) | `vegetation_settings.gd:38`, `forest_far_provider.gd:49-63` |
+| Character bodies with mesh LODs (all presets; 6.4k / 3.2k / 1.6k / 0.8k levels) | `character_mesh_builder.gd:42-88` |
+| Ocean disc 64 segments (~15k triangles instead of ~24k) | `water_system.gd:52-54` |
+
+**Evidence — Mobile renderer** (`perf_polish_budget`, worst view; frame times are llvmpipe with
+another Godot instance on the same cores):
+
+| spawn | draws before → after | primitives before → after | shadow draws | shadow primitives | frame (llvmpipe) |
+| --- | --- | --- | --- | --- | --- |
+| water | 210 → **170** | 998k → **246k** | 75 → 78 | 399k → 153k | 424 → 356 ms |
+|  load | total 17.9 s → 21.9 s (warm-up 13.5 s) | | | | |
+| earth | 403 → **196** | 1055k → **231k** | 102 → 108 | 445k → 142k | 417 → 568 ms |
+|  load | total 9.4 s → 14.6 s (warm-up 7.0 s) | | | | |
+| fire | 409 → **141** | 1038k → **188k** | 74 → 87 | 288k → 141k | 392 → 376 ms |
+|  load | total 10.1 s → 14.0 s (warm-up 7.2 s) | | | | |
+| air | 265 → **133** | 972k → **169k** | 76 → 73 | 539k → 100k | 415 → 339 ms |
+|  load | total 7.0 s → 11.2 s (warm-up 6.9 s) | | | | |
+
+Renderer breakdown at the Water Tribe spawn (worst view, after): near settlement 130k
+primitives (full-detail quadrants ~84k incl. outline, mid quadrants ~12k, LOD1 ~30k), far
+silhouettes 44k / 33 draws, terrain 36k / 85 draws (the clipmap's fixed tiles), ocean 16k,
+companion 12k, the NPCs 10k (mesh LODs: the census counts 174k of character triangles at LOD 0),
+player 5k. Mesh LODs on vs off in that view: 246k vs 492k primitives.
+
+**Evidence — Compatibility renderer** (same scenario, `RENDERER=gl_compatibility`; before =
+the base commit 35255d9 run with the same scenario):
+
+| spawn | draws before → after | primitives before → after | shadow draws | shadow primitives | frame (llvmpipe) |
+| --- | --- | --- | --- | --- | --- |
+| water | 494 → **318** | 998k → **246k** | 0 → 0 | 399k → 153k | 1120 → 896 ms |
+|  load | total 9.1 s → 35.2 s (warm-up 30.0 s) | | | | |
+| earth | 703 → **366** | 1055k → **231k** | 0 → 0 | 445k → 142k | 1067 → 881 ms |
+|  load | total 12.5 s → 19.6 s (warm-up 11.8 s) | | | | |
+| fire | 683 → **301** | 1038k → **188k** | 0 → 0 | 288k → 141k | 1011 → 806 ms |
+|  load | total 10.9 s → 18.2 s (warm-up 10.1 s) | | | | |
+| air | 483 → **247** | 972k → **169k** | 0 → 0 | 539k → 100k | 1065 → 809 ms |
+|  load | total 7.6 s → 13.2 s (warm-up 8.7 s) | | | | |
+
+Primitives are identical to the Mobile renderer (same geometry, culling and LOD selection).
+Compatibility reports about twice the draw calls: it draws shadowed geometry again in a light
+pass and, on llvmpipe, a depth prepass (phone GPUs — Mali, Adreno, PowerVR, Apple — have the
+prepass disabled by default, `rendering/driver/depth_prepass/disable_for_vendors`), so its draw
+count is not comparable to the 200 budget; the reduction is what transfers.
+
+Screenshots: `budget_water_before_after.png`, `budget_earth_before_after.png` (before above,
+after below; same views).
+
+**Remaining.**
+* Margins are thin: water 246k (4k under), earth 196 draws (4 under). The NPC director can put
+  up to 10 NPCs in view and weather / combat FX add on top; the budget holds for the spawn
+  views measured, not for every corner of every city.
+* On phones the mid-distance buildings use the silhouette recipes (e.g. Ba Sing Se's tiered
+  halls lose their red columns beyond ~100 m) and ice has no ink line near the camera.
+* Shadow pass: 100k-153k primitives remain (LOD0 quadrants cast); not part of the budget.
+* Terrain clipmap (81-85 draws) and the per-sub-cell silhouettes (33-48 draws) are the largest
+  fixed draw costs; merging silhouettes would break the exact LOD1 → LOD2 hand-over.
+* Loading takes 4-5 s longer on llvmpipe because of the warm-up (section 1).
 
 ## 3. Settlement LOD fades
 
@@ -82,10 +171,10 @@ over at 60 m with a 10 m margin, `VISIBILITY_RANGE_FADE_DISABLED` (hysteresis) b
 artefacts on the outlined blocks; the blend runs over [end, end + margin]); the hard switch pops.
 Both LODs draw inside the band (transparent pass), so it costs draw calls there.
 
-**Fixed.** Desktop presets (`fade_margin` 12 m, `src/world/settlements/common/settlement_settings.gd:68`):
-LOD0 → LOD1 (`settlement_provider.gd:96-104`) and LOD1 → silhouette (`settlement_far_provider.gd:56-62`,
+**Fixed.** Desktop presets (`fade_margin` 12 m, `src/world/settlements/common/settlement_settings.gd:72`):
+LOD0 → LOD1 (`settlement_provider.gd:97-105`) and LOD1 → silhouette (`settlement_far_provider.gd:56-63`,
 same AABB and margin as LOD1, so the two fades meet) cross-fade instead of popping. Phones keep
-hard switches (no doubled draws in the band) — their hand-overs sit at 74-97 m / 300 m behind the
+hard switches (no doubled draws in the band) — their hand-overs sit at 74-97 m / 220 m behind the
 quadrant HLOD anyway. `test_perf_polish.gd::test_desktop_lod_handovers_cross_fade` checks the
 modes and bands per preset. Vegetation already used per-instance dithered LOD bands.
 
@@ -164,11 +253,11 @@ owning module's doc.
 
 | File | Change | Module doc |
 | --- | --- | --- |
-| `src/world/content/world_content.gd` | `night_only` MultiMeshes (hidden by day, `is_night()`, `_update_night()` every 0.5 s), `vis_parent` (HLOD) and `fade` from the payload, LOD index buffers passed to `add_surface_from_arrays` | worldcontent.md |
-| `src/world/content/cell_payload.gd` | stores `fade`, `night_only`, `vis_parent` | worldcontent.md |
+| `src/world/content/world_content.gd` | `night_only` MultiMeshes (hidden by day, `is_night()`, `_update_night()` every 0.5 s), `vis_parent` (HLOD), `fade` and `lod_bias` from the payload, LOD index buffers passed to `add_surface_from_arrays` | worldcontent.md |
+| `src/world/content/cell_payload.gd` | stores `fade`, `night_only`, `vis_parent`, `lod_bias` | worldcontent.md |
 | `src/world/buildings/nation_palette.gd` | `material(slot, outline = true)`: outline-less twins of solid / ice | settlements.md |
-| `src/world/buildings/kit_result.gd` | `add_to_payload` opts `outline`, `lods`, `fade`, `vis_parent` | settlements.md |
-| `src/world/settlements/common/settlement_settings.gd` | phone keys `lod1_kit`, `merge_far`, `lod0_tight`, `quad_lod0`, `mesh_lods`; `fade_margin`; `lod0_end_for()` | settlements.md |
+| `src/world/buildings/kit_result.gd` | `add_to_payload` opts `outline`, `flat_slots`, `lods`, `fade`, `vis_parent`, `lod_bias` | settlements.md |
+| `src/world/settlements/common/settlement_settings.gd` | phone keys `lod1_kit`, `merge_far`, `lod0_tight`, `quad_lod0`, `mesh_lods`, `far_lod_bias`, `sil_lod_bias`, `flat_ice`; phone `lod1_end` 300 → 220 m; `fade_margin`; `lod0_end_for()` | settlements.md |
 | `src/world/settlements/common/settlement_provider.gd` | quadrant HLOD LOD0 on phones (`build_quads`), outline-less LOD1, `MERGED_SLOTS`, desktop cross-fades | settlements.md |
 | `src/world/settlements/common/settlement_far_provider.gd` | outline-less, merged on phones, mesh LODs, desktop fades | settlements.md |
 | `src/world/settlements/common/kit_merger.gd` | `slot_map` (fold surfaces into one) | settlements.md |
@@ -179,4 +268,6 @@ owning module's doc.
 | `src/player/player_camera.gd` | close-quarters lock framing (`lock_close`, `lock_side`, `close_framing`), `occluders` child | player.md |
 | `src/world/game/playable_scene.gd` | warm-up during the loading hold, `load_report.warmup` | worldscene.md |
 | `scenes/dev/combat_arena.gd` | `_warm_up()` behind the held fade / cover, params `warmup` / `no_warmup` | bending.md |
+| `src/world/water/water_system.gd` | phone ocean disc 64 segments | worldrender.md |
 | `tests/unit/test_worldcontent.gd` | robust budget-slicing test (section 5) | worldcontent.md |
+| `docs/modules/{settlements,worldcontent,worldrender,characters,creatures,player,worldscene,bending,mobile}.md` | perf_polish notes | — |

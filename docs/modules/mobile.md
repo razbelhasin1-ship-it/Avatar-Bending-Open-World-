@@ -276,7 +276,17 @@ rigs (player + companion), 3 particle systems (18 particles), no dynamic lights 
 another 82 draw calls (440 → 358) for no measurable frame-time change here, so the mobile
 preset keeps its sun shadows.
 
-**Left as they are / next candidates:** the terrain clipmap (85 draws, 36k primitives — the
+**perf_polish (wave 4, docs/qa/perf_polish.md)** took the next candidates below: a phone LOD
+chain for the settlements (quadrant HLOD LOD0, silhouette-kit LOD1 to 220 m, outline-less merged
+LOD1 / LOD2, mesh LODs with a lower `lod_bias` for distant meshes), night glows hidden by day,
+garden and far-forest caps, character mesh LODs, a 64-segment phone ocean and a shader warm-up
+behind the loading screen. Worst of four views at each home spawn, mobile preset, Mobile
+renderer: Water Tribe 998k → 246k primitives / 210 → 170 draws, Ba Sing Se 1055k → 231k /
+403 → 196, Fire Nation 1038k → 188k / 409 → 141, Air Temple 972k → 169k / 265 → 133
+(budget < 250k / < 200; Compatibility: same primitives, 247-366 draws with its light pass and
+depth prepass). Measured with `perf_polish_budget` (see that doc).
+
+**Left as they are / next candidates (before perf_polish):** the terrain clipmap (85 draws, 36k primitives — the
 draw count is the clipmap's fixed tile layout); settlement silhouettes (one mesh per 128 m
 sub-cell so LOD1 → LOD2 hands over exactly: 56 draws on Mobile, 159 on Compatibility) plus one
 night-glow MultiMesh per sub-cell that is still submitted by day (collapsed in the vertex
