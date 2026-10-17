@@ -8,7 +8,8 @@ extends RefCounted
 ##   3 a ferry trip from the home port (dock prompt, number key, sail, destination quay)
 ##   4 fast travel back home from the map (place card, Enter, TRAVEL)
 ##   5 call the companion, mount it (F), take off (jump), fly, climb, descend, land, dismount
-## ELEMENT=fire (default; the dragon) or air (the sky bison) - flying mounts only.
+## ELEMENT=fire (default; the dragon) or air (the sky bison) - flying mounts only. PART=fly runs
+## only step 5.
 
 var p: Playtest
 var w: WorldScene
@@ -40,10 +41,11 @@ func run(pt: Playtest) -> void:
 	pl.camera_rig.require_capture = false
 	Events.notify.connect(func(t: String, _k: StringName) -> void: toasts.append(t))
 	await p.wait_game(1.5)
-	await _journey_book()
-	await _pause_settings()
-	await _ferry()
-	await _map_fast_travel()
+	if OS.get_environment("PART") != "fly":      # PART=fly: only the mount / flight (quick reruns)
+		await _journey_book()
+		await _pause_settings()
+		await _ferry()
+		await _map_fast_travel()
 	await _fly()
 
 
@@ -71,6 +73,31 @@ func _walks() -> float:
 	Input.action_release(&"move_forward")
 	await p.wait_game(0.2)
 	return Vector2(pl.global_position.x - at.x, pl.global_position.z - at.z).length()
+
+
+## A walkable, flat point between r0 and r1 m from `near`, outside settlements, on land.
+func _find_open(near: Vector3, r0: float, r1: float) -> Vector3:
+	for r in range(int(r0), int(r1), 10):
+		var n := 12 + r / 12
+		for k in n:
+			var a := TAU * float(k) / n + float(r) * 0.37
+			var q := near + Vector3(cos(a), 0, sin(a)) * float(r)
+			var h := WorldData.get_height(q.x, q.z)
+			if h < WorldData.SEA_LEVEL + 1.0:
+				continue
+			var g := Vector3(q.x, h, q.z)
+			if Settlements.settlement_at(g) != &"" or WorldData.get_normal(q.x, q.z).y < 0.96:
+				continue
+			var flat := true
+			for j in 8:
+				var b := TAU * float(j) / 8.0
+				for rr: float in [8.0, 18.0]:
+					var o := g + Vector3(cos(b), 0, sin(b)) * rr
+					if absf(WorldData.get_height(o.x, o.z) - h) > 1.6 or WorldData.get_height(o.x, o.z) < WorldData.SEA_LEVEL + 0.5:
+						flat = false
+			if flat:
+				return g
+	return Vector3.INF
 
 
 func _book() -> JourneyBook:
@@ -251,12 +278,18 @@ func _map_fast_travel() -> void:
 # --- 5 mount and fly ----------------------------------------------------------------------------------------
 
 func _fly() -> void:
-	# open ground near home for a clean takeoff
+	# open ground outside the city for a clean landing and takeoff (harness trip)
+	var spot := _find_open(pl.global_position, 120.0, 1500.0)
+	if spot.is_finite():
+		await w.travel.travel_to(Transform3D(Basis(), spot + Vector3.UP * 0.1), {"fade": 0.1, "autosave": false})
+		await p.wait_game(2.0)
 	var c := pl.get_companion() as Companion
 	if not p.check(c != null and c.prof.can_fly, "%s flying companion present" % el):
 		return
 	await p.tap(&"companion_call")
-	await _ticks_until(func() -> bool: return c.global_position.distance_to(pl.global_position) < 14.0, 15.0)
+	# a called flyer arrives by air and lands beside the player
+	var landed := await p.wait_until(func() -> bool: return c.global_position.distance_to(pl.global_position) < 16.0 and not c.is_airborne() and c.mode != Companion.Mode.CALLED, 45.0)
+	p.check(landed, "G calls the %s: it lands beside the player (%s, %.1f m)" % [c.species, c.get_mode_name(), c.global_position.distance_to(pl.global_position)])
 	var side := Vector3(-CompanionNav.dir_of(c.motor.yaw).z, 0.0, CompanionNav.dir_of(c.motor.yaw).x)
 	var stand := c.global_position - side * (c.prof.radius() + 1.3)
 	stand.y = WorldData.get_height(stand.x, stand.z) + 0.1

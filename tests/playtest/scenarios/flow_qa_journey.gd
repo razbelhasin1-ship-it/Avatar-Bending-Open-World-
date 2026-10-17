@@ -372,6 +372,7 @@ func _combat() -> void:
 		if def == null:
 			continue
 		await _ticks_until(func() -> bool: return not pl.controller.is_busy() and pl.get_state() == S.LOCOMOTION, 4.0)
+		await _approach(en)
 		_keep_alive()
 		pl.resources.set_chi(PlayerResources.CHI_MAX)
 		pl.controller.reset_cooldowns()
@@ -437,6 +438,19 @@ func _combat() -> void:
 	p.check(xp_gained > xp0, "%s defeat granted XP (+%d)" % [el, xp_gained - xp0])
 	await p.screenshot("%s_05_defeated" % el)
 	await _block_and_dodge(fwd)
+
+
+## Closes in on the enemy like a player would before a close-range technique (stomp, sweep,
+## burst reach ~4.5-5 m; a launch or knockback leaves the target farther away).
+func _approach(en: EnemyBase, dist: float = 3.2, max_s: float = 3.0) -> void:
+	var t := 0.0
+	if pl.targeting.lock_target != en and is_instance_valid(en) and en.is_alive():
+		await _press(&"lock_on")
+	while is_instance_valid(en) and en.is_alive() and pl.global_position.distance_to(en.global_position) > dist and t < max_s:
+		Input.action_press(&"move_forward")
+		await p.wait_game(0.1)
+		t += 0.1
+	Input.action_release(&"move_forward")
 
 
 func _slot_of(action: StringName) -> StringName:
