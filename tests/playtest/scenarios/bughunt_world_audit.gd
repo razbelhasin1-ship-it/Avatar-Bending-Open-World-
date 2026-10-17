@@ -224,9 +224,10 @@ func _audit_travel_point(place: Dictionary) -> void:
 # --- 2 city walks ----------------------------------------------------------------------------------------
 
 func _audit_walks() -> void:
-	var only := OS.get_environment("CITY")
+	var only := OS.get_environment("CITY")          # comma separated city id parts
+	var what := OS.get_environment("WHAT")          # "ramps" / "gates" (default both)
 	for c: Dictionary in WorldData.get_cities():
-		if only != "" and not String(c["id"]).contains(only):
+		if only != "" and not Array(only.split(",")).any(func(s: String) -> bool: return String(c["id"]) == s or String(c["id"]).contains(s)):
 			continue
 		var L := RingLayout.from_city(c["id"])
 		if not L.is_valid():
@@ -234,7 +235,7 @@ func _audit_walks() -> void:
 		_log("== WALK %s: %d ramps, %d gates" % [c["id"], L.ramps.size(), (c.get("gates", []) as Array).size()])
 		# every ramp bearing from the lowest tier to the highest one (the main streets and ramps)
 		var up_inward := float(L.tiers[0]["height"]) > float(L.tiers[-1]["height"])
-		for rp: Dictionary in L.ramps:
+		for rp: Dictionary in (L.ramps if what != "gates" else []):
 			var b := float(rp["bearing"])
 			var arc_tiers: Array[Dictionary] = []
 			for t in L.tiers:
@@ -250,16 +251,32 @@ func _audit_walks() -> void:
 			else:
 				await _walk_line(c, L, b, float(inner["r_inner"]) + 10.0, float(outer["r_outer"]) - 6.0, "ramp")
 		# every gate: from 30 m outside through the gateway into the city
-		for g: Dictionary in c.get("gates", []):
+		for g: Dictionary in (c.get("gates", []) if what != "ramps" else []):
 			var gp: Variant = g.get("position")
 			if not (gp is Vector3):
 				continue
-			var route := _road_route(L, gp, float(g.get("bearing", 0.0)))
+			var route := _road_route(L, gp, L.polar(gp.x, gp.z).y)
+			var sp := Settlements.plan(c["id"])
+			if sp and sp.data.has("gorge_gate"):
+				# the Dragon's Throat: up the gorge road through the gatehouse, then the stair the
+				# plan put from the road up to the Lower City
+				var gg: Dictionary = sp.data["gorge_gate"]
+				if (gg["position"] as Vector3).distance_to(gp) < 40.0:
+					var top: Vector3 = gg["stair_top"]
+					var foot: Vector3 = gg["stair_foot"]
+					var up := Vector3(top.x - foot.x, 0, top.z - foot.z).normalized()
+					var o: Vector3 = gg["outside"]
+					var into := Vector3(gg["position"].x - o.x, 0, gg["position"].z - o.z).normalized()
+					var s0 := o - into * 20.0
+					s0.y = maxf(WorldData.get_height(s0.x, s0.z), o.y) + 0.3
+					route = PackedVector3Array([s0, o, gg["position"], gg["inside"], foot, top, top + up * 10.0])
 			if route.size() >= 2:
 				# a road runs through the gate (the Dragon's Throat bends off the radial axis): follow it
 				await _walk_path(c, L, "%s gate %s (road)" % [c["id"], g.get("id", "?")], route)
 				continue
-			var ends := _gate_ends(L, gp, float(g.get("bearing", 0.0)), g)
+			# the bearing of the gate's position (the Air Temple's landing gate record says 0 but
+			# stands at -29, on the -30 ramp)
+			var ends := _gate_ends(L, gp, L.polar(gp.x, gp.z).y, g)
 			if ends.is_empty():
 				_log("walk %s gate %s: no inside / outside found around it" % [c["id"], g.get("id", "?")])
 				continue
@@ -281,8 +298,9 @@ func _gate_ends(L: RingLayout, gp: Vector3, bearing: float, g: Dictionary) -> Ar
 			var in_p := gp - axis * sgn * 30.0
 			if L.tier_at(out_p.x, out_p.z).is_empty() and not L.tier_at(in_p.x, in_p.z).is_empty():
 				# never below the gate itself: Omashu's bridge gate opens onto a deck over the chasm
-				# (dropping from the gate height onto ground that falls away outside is harmless)
-				var out_y := maxf(WorldData.get_height(out_p.x, out_p.z), gp.y)
+				# (its top ~1 m over the gate's floor; dropping from above onto ground that falls away
+				# outside is harmless, starting inside the deck slab is not)
+				var out_y := maxf(WorldData.get_height(out_p.x, out_p.z), gp.y + 1.5)
 				return [Vector3(out_p.x, out_y, out_p.z), Vector3(in_p.x, gp.y, in_p.z)]
 	return []
 
