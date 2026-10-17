@@ -337,4 +337,20 @@ Every quest stage with props / go_to targets / named talk and escort NPCs: 55 ch
 
 ## Verification
 
-VERIFICATION_SECTION
+* `tools/check.sh`: OK. `tools/test.sh`: 493 / 493 on the final code (`test_bughunt_world.gd`
+  15 / 15; `test_settlements_wa` 16 / 16, `test_settlements_ef` 19 / 19, quests 25 / 25 after
+  the settlement / quest changes).
+* Every regression test was run against the old code once (temporary revert) and failed there:
+  freed-NPC lookup (SCRIPT ERROR), pool, taken props, land gates, Air Temple stairs, farmhouse
+  anchors; the earlier ones as recorded in their commits.
+* Headless audits on the final code: `PART=walk` all cities (ramps + gates; final gate re-walks
+  for Omashu, the capital, the Air Temple and the Water Tribe), `PART=npc` (0 findings),
+  `PART=quests` (4 findings, all handled above; re-audit of the Whistling Caves: clean),
+  `PART=travel` (0 findings). Flight `LOOPS=2`: PASSED (no orphans besides the pools, pooled
+  MultiMeshes empty, every leg flown).
+* Rendered (960x540, llvmpipe): `bughunt_world_regressions` (canal, gorge, tablet, dao) and the
+  audit tours before / after the fixes - screenshots looked at one by one (the walk blocks above
+  were all judged from them).
+* Screenshots: `shots/bughunt_world/` in the session scratchpad (before / after of the Air
+  Temple stair and the Water Tribe gates, the canal climb, the gorge, Farmer Dao, a plaza
+  fountain block).
