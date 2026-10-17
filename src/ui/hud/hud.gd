@@ -287,7 +287,7 @@ func _poll_player(force: bool = false) -> void:
 		lock_on.set_target(t as Node3D if is_instance_valid(t) else null)
 	if player.has_method("get_companion"):
 		var c: Variant = player.call("get_companion")
-		if c is Node and is_instance_valid(c):
+		if is_instance_valid(c) and c is Node:
 			var ch := HudLockOn.find_health(c)
 			var status := "Following"
 			if (c as Node).has_method("get_status_text"):

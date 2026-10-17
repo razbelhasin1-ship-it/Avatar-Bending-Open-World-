@@ -121,6 +121,9 @@ func test_releasing_a_cell_with_a_vanished_npc() -> void:
 		if not is_instance_valid(first):
 			break
 	expect(not is_instance_valid(first), "the NPC faded out and freed itself")
+	# a chatting partner asks for it by key in that window (NpcBrain._partner); the lookup used to run
+	# `is NpcCharacter` on the freed instance - a script error the test runner's log check catches
+	expect(d.live_npc(&"bw_0") == null, "a vanished NPC is looked up as gone, quietly")
 	d.remove_records(Vector2i(7, 7))      # before the director's next update
 	expect_eq(d.record_count(), 0, "every record of the released cell is gone")
 	await frames(2)

@@ -552,7 +552,7 @@ func _mount_node() -> Node:
 	if player == null or not is_instance_valid(player):
 		return null
 	var m: Variant = player.get("mount_node")
-	return m as Node if m is Node and is_instance_valid(m) else null
+	return m as Node if is_instance_valid(m) and m is Node else null
 
 
 func _mount_flies() -> bool:

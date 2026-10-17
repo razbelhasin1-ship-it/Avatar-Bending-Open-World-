@@ -136,7 +136,8 @@ func live_npcs() -> Array[NpcCharacter]:
 
 func live_npc(key: StringName) -> NpcCharacter:
 	var n: Variant = _live.get(key)
-	return n if n is NpcCharacter and is_instance_valid(n) else null
+	# validity first: `is` on a freed (vanished) instance is itself a script error
+	return n if is_instance_valid(n) and n is NpcCharacter else null
 
 
 func neighbors(npc: NpcCharacter) -> Array:

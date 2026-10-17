@@ -254,6 +254,11 @@ func _audit_walks() -> void:
 			var gp: Variant = g.get("position")
 			if not (gp is Vector3):
 				continue
+			var route := _road_route(L, gp, float(g.get("bearing", 0.0)))
+			if route.size() >= 2:
+				# a road runs through the gate (the Dragon's Throat bends off the radial axis): follow it
+				await _walk_path(c, L, "%s gate %s (road)" % [c["id"], g.get("id", "?")], route)
+				continue
 			var ends := _gate_ends(L, gp, float(g.get("bearing", 0.0)), g)
 			if ends.is_empty():
 				_log("walk %s gate %s: no inside / outside found around it" % [c["id"], g.get("id", "?")])
@@ -275,7 +280,10 @@ func _gate_ends(L: RingLayout, gp: Vector3, bearing: float, g: Dictionary) -> Ar
 			var out_p := gp + axis * sgn * 30.0
 			var in_p := gp - axis * sgn * 30.0
 			if L.tier_at(out_p.x, out_p.z).is_empty() and not L.tier_at(in_p.x, in_p.z).is_empty():
-				return [Vector3(out_p.x, WorldData.get_height(out_p.x, out_p.z), out_p.z), Vector3(in_p.x, gp.y, in_p.z)]
+				# never below the gate itself: Omashu's bridge gate opens onto a deck over the chasm
+				# (dropping from the gate height onto ground that falls away outside is harmless)
+				var out_y := maxf(WorldData.get_height(out_p.x, out_p.z), gp.y)
+				return [Vector3(out_p.x, out_y, out_p.z), Vector3(in_p.x, gp.y, in_p.z)]
 	return []
 
 
@@ -287,6 +295,68 @@ func _walk_line(c: Dictionary, L: RingLayout, bearing: float, r0: float, r1: flo
 		func(pos: Vector3) -> Vector3: return L.point(maxf(L.polar(pos.x, pos.z).x + sgn * 12.0, 0.0), bearing),
 		func(pos: Vector3) -> float: return (r1 - L.polar(pos.x, pos.z).x) * sgn,
 		absf(r1 - r0))
+
+
+## The road through a gate (a WorldData road passing within 15 m of it), as a path from 40 m
+## outside along the road, through the gate, to 40 m inside along the gate's bearing (the city
+## streets / stairs past the road's end). Empty when no road passes through.
+func _road_route(L: RingLayout, gp: Vector3, bearing: float) -> PackedVector3Array:
+	var gr := L.polar(gp.x, gp.z).x
+	var g2 := Vector2(gp.x, gp.z)
+	for rd: Dictionary in WorldData.get_roads():
+		var pts: PackedVector3Array = rd.get("points", PackedVector3Array())
+		var near := false
+		for i in pts.size() - 1:
+			var q := Geometry2D.get_closest_point_to_segment(g2, Vector2(pts[i].x, pts[i].z), Vector2(pts[i + 1].x, pts[i + 1].z))
+			near = near or q.distance_to(g2) < 15.0
+		if not near:
+			continue
+		var by_r: Array = []
+		for pt in pts:
+			var r := L.polar(pt.x, pt.z).x
+			if r <= gr + 40.0 and r >= gr - 20.0 and Vector2(pt.x, pt.z).distance_to(g2) < 60.0:
+				by_r.append([r, pt])
+		by_r.sort_custom(func(a: Array, b: Array) -> bool: return float(a[0]) > float(b[0]))
+		var out := PackedVector3Array()
+		for e: Array in by_r:
+			var pt: Vector3 = e[1]
+			out.append(Vector3(pt.x, maxf(pt.y, WorldData.get_height(pt.x, pt.z)), pt.z))
+		if out.is_empty() or float(by_r[0][0]) < gr + 10.0:
+			continue          # no road outside the gate (Omashu's bridge is not a road)
+		out.append(L.point(gr - 40.0, bearing))
+		return out
+	return PackedVector3Array()
+
+
+## Walks a polyline (aims 12 m ahead of the closest point along it).
+func _walk_path(c: Dictionary, L: RingLayout, label: String, path: PackedVector3Array) -> void:
+	var cum := PackedFloat32Array([0.0])
+	for i in range(1, path.size()):
+		cum.append(cum[i - 1] + Vector2(path[i].x - path[i - 1].x, path[i].z - path[i - 1].z).length())
+	var total := cum[cum.size() - 1]
+	var along := func(pos: Vector3) -> float:
+		var best := INF
+		var s := 0.0
+		for i in path.size() - 1:
+			var a2 := Vector2(path[i].x, path[i].z)
+			var b2 := Vector2(path[i + 1].x, path[i + 1].z)
+			var q := Geometry2D.get_closest_point_to_segment(Vector2(pos.x, pos.z), a2, b2)
+			var d := q.distance_to(Vector2(pos.x, pos.z))
+			if d < best:
+				best = d
+				s = cum[i] + q.distance_to(a2)
+		return s
+	var at := func(s: float) -> Vector3:
+		s = clampf(s, 0.0, total)
+		for i in path.size() - 1:
+			if s <= cum[i + 1] or i == path.size() - 2:
+				var seg := maxf(cum[i + 1] - cum[i], 0.001)
+				return path[i].lerp(path[i + 1], clampf((s - cum[i]) / seg, 0.0, 1.0))
+		return path[path.size() - 1]
+	await _walk(c, L, label, path[0],
+		func(pos: Vector3) -> Vector3: return at.call(float(along.call(pos)) + 12.0),
+		func(pos: Vector3) -> float: return total - float(along.call(pos)),
+		total)
 
 
 func _walk_straight(c: Dictionary, L: RingLayout, a: Vector3, b: Vector3, label: String) -> void:
