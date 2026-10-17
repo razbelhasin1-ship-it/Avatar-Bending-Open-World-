@@ -305,15 +305,22 @@ func _fly() -> void:
 	ok = await _ticks_until(func() -> bool: return c.flight.phase == CompanionFlight.Phase.FLY, 8.0)
 	p.check(ok, "jump takes off (%s)" % c.flight.phase_name())
 	var y0 := c.global_position.y
+	var take_off := c.global_position
 	Input.action_press(&"move_forward")
 	Input.action_press(&"jump")
-	await p.wait_game(2.5)
+	await p.wait_game(1.2)
+	# A short hop forward, then climb and come back down over the open ground the flight left
+	# from (forward from the Air Temple's terraces is the cloud sea: nowhere to land for 300 m).
+	Input.action_release(&"move_forward")
+	await p.wait_game(1.3)
 	Input.action_release(&"jump")
-	await p.wait_game(1.5)
+	await p.wait_game(1.0)
 	await p.screenshot("travel_12_flying")
 	var climbed := c.global_position.y - y0
 	p.check(climbed > 3.0, "climbs while holding jump (+%.1f m)" % climbed)
-	Input.action_release(&"move_forward")
+	p.note("%s flight: %.0f m from the take-off point, %.0f m above the ground" % [c.species,
+			Vector2(c.global_position.x - take_off.x, c.global_position.z - take_off.z).length(),
+			c.global_position.y - WorldData.get_height(c.global_position.x, c.global_position.z)])
 	Input.action_press(&"descend")
 	ok = await _ticks_until(func() -> bool: return c.flight.phase != CompanionFlight.Phase.FLY, 25.0)
 	Input.action_release(&"descend")

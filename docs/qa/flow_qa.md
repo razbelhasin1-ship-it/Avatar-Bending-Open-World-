@@ -68,9 +68,57 @@ folder; the best shots are listed at the end). "Journey" = `flow_qa_journey ELEM
 | Opening quest giver → first objective, every element | PASS | Journey: Anaaya (water) / Lin (earth) / Kaida (fire) / Pasang (air) stand by the spawn; `interact` opens the conversation, the lines advance by key, the opening quest's first objective completes (stage 0 → 1), control comes back (`*_03b_quest_giver.png`, `*_03c_objective.png`) |
 | Fast travel from the map | PASS | `flow_qa_travel` + `flow_qa_confirms`: M opens the map, the reticle (pad / keys) rests on the home city, Enter asks FAST TRAVEL with TRAVEL focused, Enter travels; the book closes, arrival toast, 0.0 m from the travel point |
 | Ferry trip | PASS | `flow_qa_travel ELEMENT=fire`: at Crimson Harbor's landing the ferry prompt shows, the ferry master offers destinations, the ferry casts off, the trip ends on the Full Moon Bay quay with the player in control |
-| Mounting and flying (dragon, bison) | TBD | `flow_qa_travel PART=fly` (fire = dragon, air = bison) |
+| Mounting and flying (dragon, bison) | PASS (dragon); bison TBD | `flow_qa_travel PART=fly`, fire: G calls the dragon, it lands beside the player (8 m), F mounts from the prompt, jump takes off, holding jump climbs +29.9 m, descend lands, F dismounts, the player walks on (`travel_12_flying.png`, `travel_13_landed.png`) |
 | Journey Book open / close | PASS | K opens skills (pauses), J journal, M map, Esc closes and resumes; movement answers after |
 | Pause → settings → back | PASS (bug #6 fixed) | Back with a change asks UNSAVED CHANGES, right cycles APPLY → DISCARD → KEEP EDITING inside the dialog, DISCARD restores; back on the pause menu, RESUME, movement answers |
 | Phone pass (`MOBILE=1 RENDERER=mobile`, 1600×720, water) | PASS (bug #8 fixed) | Touch only: tap ENTER THE WORLD, tap the card, tap BEGIN, tap to skip the arrival, the stick runs 11 m, a drag turns the camera, Strike / first technique by tap, top-bar pause → RESUME → the stick still drives → pause → RETURN TO MAIN MENU → the menu answers taps; mobile preset, 32 s load on llvmpipe |
 
-<!-- PER-ELEMENT -->
+## Per element (journey + training grounds)
+
+Journey = menu → element card → BEGIN → arrival (skipped by a key) → home → quest giver →
+open ground → `bandit_brawler` → every slot → fight to the defeat → block / dodge a second
+bandit → companion follow → (water: footprints) → save → menu → CONTINUE → compare.
+
+| Element | Home / companion / quest | Slot pass (cast → result on the bandit) | Fight | Save → continue | Training grounds |
+| --- | --- | --- | --- | --- | --- |
+| Water | `water_tribe`, polar bear dog, *Born of the Tide* (Anaaya, stage 0 → 1) | Water Whip 3 hits / 33 dmg; Water Blast hit (push); Ice Shards 2 hits; Ice Wall wall + hit; Water Surge hit (push) | defeated (killed) in 12 s, +22 XP | all fields equal, one of each, moves + bends | all 14 lessons |
+| Earth | `earth_kingdom`, badgermole, *Stone Beneath the Sky* (Lin) | Earth Punch 4 hits / 46 dmg; Earth Boulder dodged by the bandit (enemies now read the earth heavy, #9); Earth Pillar pillar + launch 14 dmg; Earth Stomp TBD; Earth Wall wall | defeated (killed) in 10 s, +22 XP | all fields equal, one of each, moves + bends | all 14 lessons (was: heavy + charge never completed, #1) |
+| Fire | `fire_nation`, dragon, *A Spark Returns* (Kaida) | Fire Jabs 3 hits / 25 dmg; Fire Blast hit 17; Fire Burst hit 18; Flame Sweep hit | defeated (killed) TBD | TBD | all 14 lessons |
+| Air | `air_temple`, sky bison, *The First Breath* (Pasang) | TBD (Air Combo was 1 hit for 3 presses before #7) | TBD | TBD | all 16 lessons (was: Strike Combo never completed, #7) |
+
+## Log scan
+
+TBD
+
+## Found, not fixed (owners)
+
+| Issue | Evidence | Owner / why not here |
+| --- | --- | --- |
+| **The camera enters tree canopies**: near trees the screen fills with dark green foliage (the camera collides with `WORLD | CONSTRUCT`, canopies have no collider) | `journey_water2/water_05_defeated.png`, `water_06_block.png` (pine woods by the Water Tribe), bamboo groves in the fire runs | player camera / worldcontent: a near-camera dither fade in `assets/shaders/content/vegetation.gdshader` (+ its outline pass). Not done here: a `discard` in the opaque vegetation shader costs early-z on tiled mobile GPUs, which perf_polish budgets — it needs their measurement |
+| Big companions can stand between the lens and the player in the first frames after a spawn / continue (badgermole, dragon fill a third of the view) | `journey_earth3/earth_03_home.png`, `journey_fire3/fire_10_continued.png` | companions (`Companion.teleport_near_player` picks a spot from the view direction; the perf_polish `OccluderFader` fades it once it scans) |
+| A flying companion that escorted during a fight needs 7–10 s to land back beside the player (the bison returned to 16.9 m in 8 s) | `journey_air2` note, `journey_fire3` note (mode `escort`, 11.9 m after 7.1 s) | companions (by design: flyers take off to follow and land when the player is still) |
+| Load hold: `content_settled` false at the 25 s limit on llvmpipe under load (the world still opens; collision is ready in < 2 s) | every world load in the logs | perf / software rendering on a shared 4-core container |
+| Exit: "N resources still in use at exit", ObjectDB leak lines when the game quits | every log's last lines | engine-level at quit (unchanged baseline, no gameplay effect) |
+| Swimming refuses bending (a bender in a lake cannot cast) | `journey_fire2` (open-ground finder picked a lake: every cast refused) | bending design (not a stuck state: leaving the water restores it) |
+
+## Files changed
+
+flow_qa's own: `tests/unit/test_flow_qa.gd`, `tests/playtest/scenarios/flow_qa_*.gd`,
+`docs/qa/flow_qa.md`. Outside the focus (each documented in its module doc, "Wave 4 (flow_qa)"):
+
+* foundation: `src/autoload/router.gd` (#3), `src/autoload/game_state.gd` (#4),
+  `tests/playtest/playtest.gd` (#12), `docs/ARCHITECTURE.md` (Router queue, integer records)
+* bending: `src/bending/bending_projectile.gd` (#7 `world_radius`, #11),
+  `src/bending/dev/training_dummy.gd` (#10), `docs/modules/bending.md`
+* bending_air: `src/bending/kits/air/air_common.gd` (#7), `docs/modules/bending_air.md`
+* bending_earth: `src/bending/kits/earth/earth_boulder.gd` (#1), `docs/modules/bending_earth.md`
+* enemies: `src/enemies/enemy_brain.gd` (#9), `docs/modules/enemies.md`
+* worldscene / tutorial: `src/tutorial/tutorial_director.gd` (#1),
+  `src/tutorial/tutorial_complete_screen.gd` (#5), `tests/playtest/scenarios/worldscene_tutorial.gd`
+  (#2, #5 check), `docs/modules/worldscene.md`
+* ui: `src/ui/widgets/confirm_dialog.gd` (#6), `src/ui/hud/hud.gd`,
+  `src/ui/hud/hud_quest_tracker.gd` (#8), `docs/modules/ui.md`
+
+## Verification
+
+TBD
