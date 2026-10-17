@@ -25,7 +25,8 @@ runner's SCRIPT ERROR log check - except the settings / dialogue guards for refu
 | 9 | NPC that faded out (vanish) freed itself before the director pruned it; releasing its settlement cell read it into a typed variable: "Trying to assign invalid previously freed instance" on fast travel, the loop aborted and the rest of the cell's crowd records stayed registered | confirmed (audit) | untyped read + validity check, freed entries erased (`src/npc/npc_director.gd:98`) |
 | 10 | The same vanished NPC looked up by a chatting partner (`NpcBrain._partner`): `live_npc` ran `is NpcCharacter` on the freed instance - "Left operand of 'is' is a previously freed instance" (twice in the Ba Sing Se walk) | confirmed (walk audit) | validity before `is` (`src/npc/npc_director.gd:140`); same order where a mount / companion can be freed: `src/ui/touch/touch_overlay.gd:555`, `src/ui/hud/hud.gd:290` |
 | 11 | Released content cells left their instance buffer, mesh and material in the pooled MultiMeshInstance3D until reuse (up to 26 732 instances of long-gone cells held after one flight) | confirmed (flight) | emptied before pooling (`src/world/content/world_content.gd:619-627`) |
-| 12 | Merge conflict found by the full suite: flow_qa ended a projectile whose caster was freed, bughunt_gameplay let it fly on and land sourceless - `test_projectile_outlives_its_caster` failed after the merge | confirmed (integration) | the shot flies on and lands sourceless; only a missing context ends it (`src/bending/bending_projectile.gd:158`); flow_qa's test asserts only that it ends quietly (`tests/unit/test_flow_qa.gd`) |
+| 12 | Farmer Dao (giver and turn-in of Lost in the Millet) could not be found: every Agrarian Zone hamlet put its elder's anchor 3 m off the hamlet centre, where the first farmhouse stands - he spawned inside its collision and was pushed out 2 m under the ground (crowd workers / children likewise inside other farmhouses) | confirmed (quest audit) | the elder stands in front of the first farmhouse, crowd anchors inside a farmhouse are dropped (`src/world/settlements/earth_kingdom/bss_farmland.gd:43-70, 207, 250`) |
+| 13 | Merge conflict found by the full suite: flow_qa ended a projectile whose caster was freed, bughunt_gameplay let it fly on and land sourceless - `test_projectile_outlives_its_caster` failed after the merge | confirmed (integration) | the shot flies on and lands sourceless; only a missing context ends it (`src/bending/bending_projectile.gd:158`); flow_qa's test asserts only that it ends quietly (`tests/unit/test_flow_qa.gd`) |
 
 Refuted suspicions and checks that came out clean are listed under **Checked, clean**; what is
 left open is under **Remains**.
@@ -73,8 +74,12 @@ nodes besides the content pools (< 60), pooled MultiMeshes hold nothing, every l
 
 ### Regressions — `tests/playtest/scenarios/bughunt_world_regressions.gd`
 
-Rendered: `PART=canal` (into the Water Tribe ring canal, jump out onto the walkway) and
-`PART=gorge` (down the gorge below the Thundering Steps pool: no swimming, standing, walking).
+Rendered (`tools/playtest.sh bughunt_world_regressions <out> 960x540`, `PART=` a comma list):
+`canal` (swim to the Water Tribe ring canal's wall, jump: out onto the walkway; it notes what
+both climb-out lifts see - the 1.8 m one is blocked by the wall, the 2.3 m-over-the-water one is
+free), `gorge` (down the gorge below the Thundering Steps pool: no swimming, standing, walking),
+`tablet` (the Whistling Caves tablet read from above the pool), `dao` (Farmer Dao on the ground
+in front of his house, talking).
 
 ---
 
@@ -192,7 +197,20 @@ each city was the same within 2 MB in the before / after flights) - it is about 
 released cells' meshes / materials.
 Test: `test_released_cells_leave_nothing_in_the_pool`; the flight checks it on every visit.
 
-### 12. Merge conflict between flow_qa and bughunt_gameplay
+### 12. Farmer Dao inside his farmhouse
+
+The quest audit stands at every named NPC of a talk / escort objective: Farmer Dao (giver and
+turn-in of Lost in the Millet) was "there" at (1524, 55.8, 142) - 2 m under the ground - with no
+floor to talk from. `BssFarmland._hamlet` builds the first farmhouse on the hamlet centre and put
+the elder's anchor 3 m off that centre, inside the house; the NPC spawned in its collision and
+was depenetrated downward, under the heightfield (an NPC fully below a heightfield overlaps
+nothing, so the director's 3 m fall net never fired). The elder now stands 2.5 m in front of the
+first farmhouse, facing out, on the ground; a post pass drops crowd anchors that ended up inside
+a farmhouse (a worker's spot 5 m in front of one house falling inside the next, the children's
+spot near the centre) - quest-giver anchors keep their indices.
+Test: `test_no_one_stands_inside_a_farmhouse`; playtest `regressions PART=dao`.
+
+### 13. Merge conflict between flow_qa and bughunt_gameplay
 
 Not a world bug, but it broke the integrated build: flow_qa made `BendingProjectile.step` end a
 shot whose caster was freed; bughunt_gameplay made the shot fly on and land without a source.
@@ -220,7 +238,19 @@ No hole, drop through geometry or fall-net rescue anywhere in 25 ramp lines and 
 
 ## Quest audit (`PART=quests`)
 
-QUESTS_SECTION
+Every quest stage with props / go_to targets / named talk and escort NPCs: 55 checks.
+
+* All `go_to` objectives complete from safe ground inside their radius; all props spawn and are
+  taken by interact, every collect / interact objective completes from its props.
+* **Farmer Dao**: 2 m under the ground inside his farmhouse - **fix 12**.
+* **Whistling Caves tablet** (`at_whistling_caves`): the cave mouth POI lies on the floor of the
+  Hundred Winds falls pool, so the tablet "at the cave mouth" is 3 m under the surface between
+  the landmark's boulders; the audit found no dry spot within 2 m. Not a soft-lock: the
+  interaction range is horizontal, a player wading on the boulders above it or swimming over it
+  reads it (`regressions PART=tablet`: read from 2.5 m above, 2.0 m away). Odd placement, left
+  (see Remains).
+* **Novice's Glider** prop overlaps a terrace wall's collision a little; it spawns, shows and is
+  taken normally.
 
 ## Long flight (headless, `LOOPS=2`, ~36 km, 965 samples)
 
@@ -287,6 +317,9 @@ QUESTS_SECTION
 * **Air Temple landing gate record**: `bearing` 0 while the gate stands at -29 (on the -30 ramp).
   Nothing in gameplay reads it (the map uses the position).
 * **Sunflare Isle Pier** arrival faces an obstacle (walks fine sideways) - cosmetic.
+* **The Whistling Caves' tablet** lies 3 m under the falls pool at the cave mouth (the cave POI
+  sits on the pool floor). Readable from the boulders above or swimming; moving the POI or the
+  prop onto the shore is a world-data / quest-content decision.
 
 ---
 

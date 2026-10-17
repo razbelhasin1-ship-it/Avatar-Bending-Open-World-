@@ -67,9 +67,27 @@ func _canal() -> void:
 	await p.wait_game(1.5)
 	p.check(pl.motor.swimming, "swimming in the canal (y %.2f, depth %.2f)" % [pl.global_position.y, pl.motor.water_depth])
 	await p.screenshot("regress_01_canal_swimming")
+	# swim to the wall (like a player: until it stops us)
 	Input.action_press(&"move_forward")
-	await p.wait_game(1.4)
+	var reach_fwd := -pl.global_basis.z
+	reach_fwd.y = 0.0
+	for i in 40:
+		await p.wait_game(0.1)
+		if pl.test_move(pl.global_transform, reach_fwd.normalized() * 0.5):
+			break
+	await p.wait_game(0.2)
 	var before := pl.global_position
+	# what the climb-out sees from here (PlayerMotor.try_swim_exit): wall ahead, head room, ledge
+	var xf := pl.global_transform
+	var fwd := -pl.global_basis.z
+	fwd.y = 0.0
+	fwd = fwd.normalized()
+	var lifts: Array[String] = []
+	for hgt: float in [1.8, pl.motor.water_height + PlayerMotor.CLIMB_OUT_MAX - before.y]:
+		lifts.append("%.2f: up %s, ahead %s" % [hgt, "blocked" if pl.test_move(xf, Vector3.UP * hgt) else "free",
+			"blocked" if pl.test_move(xf.translated(Vector3.UP * hgt), fwd * 0.8) else "free"])
+	p.note("canal: water %.2f, swimmer feet %.2f, wall ahead %s; lifts %s" % [pl.motor.water_height, before.y,
+		pl.test_move(xf, fwd * 0.6), "; ".join(lifts)])
 	await p.tap(&"jump", 0.08)
 	await p.wait_game(1.6)
 	Input.action_release(&"move_forward")
@@ -121,7 +139,7 @@ func _tablet() -> void:
 	if props:
 		props.refresh()
 	await p.wait_game(0.5)
-	p.check(pl.motor.swimming, "swimming in the pool over the cave mouth (y %.1f, level %.1f)" % [pl.global_position.y, level])
+	p.note("at the pool over the cave mouth: y %.1f, level %.1f, %s" % [pl.global_position.y, level, "swimming" if pl.motor.swimming else "wading on the rocks"])
 	pl.camera_rig.set_yaw(0.0)
 	Input.action_press(&"move_forward")
 	await p.wait_game(0.8)
@@ -155,5 +173,6 @@ func _dao() -> void:
 	await p.screenshot("regress_06_farmer_dao")
 	await p.tap(&"interact")
 	await p.wait_game(1.5)
-	p.check(pl.get_state() == PlayerCharacter.State.INTERACTING, "interact talks to him (%s)" % pl.get_state_name())
+	# a conversation frames the camera: the player is in CINEMATIC while the dialogue box is up
+	p.check(pl.get_state() in [PlayerCharacter.State.INTERACTING, PlayerCharacter.State.CINEMATIC], "interact talks to him (%s)" % pl.get_state_name())
 	await p.screenshot("regress_07_farmer_dao_talks")
