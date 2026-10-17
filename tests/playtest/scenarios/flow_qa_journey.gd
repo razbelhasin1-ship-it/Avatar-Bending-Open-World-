@@ -494,9 +494,10 @@ func _block_and_dodge(fwd: Vector3) -> void:
 	p.check(used.has(pl.controller.get_slot_def(&"dodge").id) and moved > 1.5, "%s dodge moved %.1f m (states %s)" % [el, moved, str(states)])
 	p.check(pl.get_state() == S.LOCOMOTION, "%s back in control after the dodge (%s)" % [el, pl.get_state_name()])
 	# camera: mouse look turns, lock-on keeps framing the target
-	var yaw0 := pl.camera_rig.yaw
-	await _press(&"lock_on")       # unlock
+	if pl.targeting.lock_target != null:
+		await _press(&"lock_on")   # unlock (lock-on frames the target and owns the camera)
 	await p.wait_game(0.2)
+	var yaw0 := pl.camera_rig.yaw
 	for i in 10:
 		p.look(30.0, 0.0)
 		await p.frames(1)
