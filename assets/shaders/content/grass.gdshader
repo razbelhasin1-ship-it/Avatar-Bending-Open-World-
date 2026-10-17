@@ -37,6 +37,11 @@ void vertex() {
 		vec3 off = vec3(wind_direction.x, 0.0, wind_direction.y) * sway * h * h;
 		float fl = sin(wind_time * 3.3 + rnd * 23.0 + VERTEX.x * 2.1) * 0.5 + sin(wind_time * 4.1 + VERTEX.z * 2.7) * 0.5;
 		off.xz += vec2(fl, -fl * 0.7) * 0.035 * h * h * (0.4 + ws * 0.12) * sway_amount;
+		// Airbending gusts flatten the blades (clamped so they lie down, never stretch).
+		vec3 aoff = air_impulse_at(origin) * 0.032 * h * h * sway_amount;
+		float al = length(aoff.xz);
+		float amax = max(rel.y, 0.05) * 0.95;
+		off += al > amax ? aoff * (amax / al) : aoff;
 		off.y -= length(off.xz) * 0.35 * h;
 		VERTEX += off;
 	}

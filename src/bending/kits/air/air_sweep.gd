@@ -1,6 +1,13 @@
 extends BendingAbility
 ## Air Sweep (starter technique): a low 360° sweep kick; on the clip's release
-## a ring of wind bursts outward and knocks back every enemy around.
+## a ring of wind bursts outward and knocks back every enemy around. The ground
+## answers: dust / leaves / snow ring, grass flattened in a circle, props shoved,
+## small fires blown out.
+
+
+func can_use() -> StringName:
+	AirCommon.prepare()
+	return &""
 
 
 func begin() -> void:
@@ -11,6 +18,12 @@ func begin() -> void:
 	AirFx.swirl(ctx.caster, ctx.origin() + Vector3.UP * 0.4, 0.6, 0.4, {"grow": 1.4, "spin": 12.0, "height": 0.2, "opacity": 0.5})
 
 
+func update(delta: float) -> void:
+	if AirCommon.airborne(ctx):
+		AirCommon.hang(ctx, delta, 0.0)
+	super.update(delta)
+
+
 func on_event(event: StringName) -> void:
 	if event != &"release":
 		return
@@ -18,17 +31,11 @@ func on_event(event: StringName) -> void:
 	var center := ctx.origin() + Vector3.UP * 0.6
 	BendingHits.sphere(ctx, center, radius, hit_data(), attack_id, def.id, {"push": &"radial"})
 	var g := ctx.ground_point(ctx.origin())
-	var surf := ctx.surface_at(ctx.origin())
 	AirFx.swirl(ctx.caster, g + Vector3.UP * 0.35, radius * 0.55, 0.5, {"grow": 1.9, "spin": 13.0, "height": 0.35, "tilt": 0.08, "opacity": 0.9})
 	AirFx.swirl(ctx.caster, g + Vector3.UP * 0.9, radius * 0.35, 0.45, {"grow": 2.4, "spin": -10.0, "height": 0.2, "tilt": 0.12, "opacity": 0.6})
 	FxRing.spawn(ctx.caster, g, radius, Color(0.92, 0.97, 1.0), 0.5, {"opacity": 0.6, "width": 0.14, "fill": 0.15})
-	var col := FxLib.surface_color(surf)
-	if surf == &"snow" or surf == &"ice":
-		FxBurst.spawn(ctx.caster, &"snow", g, {"count": 2.0, "radius": 3.0, "size": 0.9})
-	else:
-		FxBurst.spawn(ctx.caster, &"dust_ring", g, {"color": col, "radius": 1.8, "count": 1.4})
-		if surf == &"grass":
-			FxBurst.spawn(ctx.caster, &"leaves", g, {"count": 1.5, "radius": 2.0})
+	AirEnv.blow(ctx, g, radius, 1.0, {"mode": &"vortex", "dir": Vector3(-1, 0, 0), "by": ctx.caster})
 	sound(&"cast_heavy", center, 1.0)
+	AirEnv.practiced(ctx, def.id)
 	if ctx.is_player():
 		BendingFeedback.shake(0.22, 0.2)

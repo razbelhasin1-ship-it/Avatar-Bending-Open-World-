@@ -15,6 +15,9 @@ global uniform float wind_time;
 global uniform float world_snow_cover;
 global uniform float world_wetness;
 
+// Airbending gusts (bending_air): air_impulse_at(p) = extra wind from bending (src/fx/air).
+#include "res://src/fx/air/air_wind.gdshaderinc"
+
 // Per-instance distance band (metres from the MAIN camera, also in shadow passes).
 // Hidden beyond fade_out_end (dithered over fade_band before it) ...
 uniform float fade_out_end = 100000.0;
@@ -58,6 +61,12 @@ vec3 veg_wind_offset(vec3 origin, vec3 wpos, float sway, float leaf, float rnd, 
 	// flutter (leaves): small high-frequency motion per vertex position
 	float f = sin(wind_time * 5.3 + dot(wpos, vec3(1.7, 2.3, 1.9)) + rnd * 13.0);
 	off += vec3(f, f * 0.6, -f * 0.8) * leaf * flutter_amt * (0.3 + ws * 0.08) * sway;
+	// Airbending gusts bend the whole plant over (and back as they spring) and shake the leaves.
+	vec3 air = air_impulse_at(origin);
+	float ka = sway * sway * amount * 0.045;
+	off += air * ka;
+	off.y -= length(air) * ka * 0.3;
+	off += vec3(f, f * 0.6, -f * 0.8) * leaf * flutter_amt * length(air) * 0.1 * sway;
 	return off;
 }
 

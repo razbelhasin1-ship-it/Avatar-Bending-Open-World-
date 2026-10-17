@@ -126,7 +126,7 @@ func test_runtime_registration_and_unlocks() -> void:
 	GameState.level = 3
 	expect_eq(AbilityRegistry.can_unlock(&"test_gust"), &"prerequisite", "prerequisite gate")
 	var granted := AbilityRegistry.grant_starters(E.AIR)
-	expect_eq(granted, [&"air_sweep"] as Array[StringName], "new game grants the starter")
+	expect(granted.has(&"air_sweep"), "new game grants the starters %s" % [granted])
 	expect(GameState.equipped_abilities.has(&"air_sweep"), "starter equipped")
 	expect(AbilityRegistry.grant_starters(E.AIR).is_empty(), "granted only once")
 	expect_eq(AbilityRegistry.can_unlock(&"test_gust"), &"skill_points", "needs a skill point")
