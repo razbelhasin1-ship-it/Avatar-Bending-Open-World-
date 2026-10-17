@@ -114,7 +114,14 @@ func _place(at: Transform3D, revive: bool) -> void:
 		return
 	var x := scene.ground_transform(at)
 	last_respawn = x
-	if revive:
+	if revive and player.is_alive() and player.get_state() != PlayerCharacter.State.DEAD:
+		# The player's own backstop (auto respawn) already revived them while the respawn point
+		# streamed in: finish the move under the fade without a second respawn (it re-emitted
+		# player_respawned and reset health / chi a second time) (bughunt_gameplay).
+		player.teleport(x)
+		player.velocity = Vector3.ZERO
+		respawned.emit(x)
+	elif revive:
 		player.respawn_at(x, health_ratio)
 		# respawn_at only revives a depleted HealthComponent; a scripted death keeps full health.
 		var h := player.health

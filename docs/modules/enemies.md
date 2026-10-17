@@ -325,3 +325,10 @@ on the player at its range, tell 0.35-0.47 s before the strike) and the
   (hunters, wardens). The other encounters are authored outposts, patrols and dens.
 * Navigation is steering + whiskers (no navmesh): enemies can get stuck behind large concave
   obstacles; they flip direction and, when going home with the player far away, snap home.
+
+## Wave 4 bug hunt (docs/qa/bughunt_gameplay.md)
+
+* `EnemyBrain.investigate()`: a new noise while already suspicious (ALERT) only moves the point of
+  interest; it no longer restarts the 7 s give-up clock. Continuous combat noise beyond a wall kept
+  an enemy that could not see the player in ALERT until the 12 s state safety timeout (an engine
+  warning), then RETURN -> ALERT again, forever.

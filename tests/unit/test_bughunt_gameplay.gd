@@ -159,6 +159,51 @@ func test_dismount_at_sea_stays_beside_the_mount() -> void:
 	WorldData.use_flat_world(true)
 
 
+# --- death / respawn -------------------------------------------------------------------------------
+
+## The world's respawn sequence (death beat, fade, wait for the respawn point's ground) can be
+## overtaken by the player's own auto-respawn backstop; the sequence then respawned the player a
+## second time (player_respawned twice, health / chi reset twice). Found by the world fuzz.
+func test_world_respawn_never_doubles_with_the_backstop() -> void:
+	WorldData.use_flat_world(false)
+	WorldData.load_world()
+	GameState.new_game(E.WATER)
+	var w := (load("res://scenes/world/world.tscn") as PackedScene).instantiate() as PlayableScene
+	w.options = {"new_game": true, "skip_intro": true, "no_content": true}
+	add_child(w)
+	var t0 := Time.get_ticks_msec()
+	while not w.is_ready and Time.get_ticks_msec() - t0 < 90000:
+		await frames(1)
+	if not expect(w.is_ready, "world ready"):
+		w.queue_free()
+		return
+	var p: PlayerCharacter = w.player
+	var home := WorldData.get_spawn(E.WATER)
+	p.teleport(Transform3D(Basis(), home.origin + Vector3(20, 0, 30)))
+	await physics_frames(5)
+	var respawns := [0]
+	var cb := func() -> void: respawns[0] += 1
+	Events.player_respawned.connect(cb)
+	# The backstop fires inside the world's sequence (after its 2.2 s beat, during the fade).
+	p.auto_respawn_time = RespawnSystem.DEATH_DELAY + 0.3
+	var hit := HitInfo.make(9999.0, null, E.FIRE, HitInfo.Reaction.KNOCKDOWN, Vector3.FORWARD, 2.0)
+	hit.team = Combat.Team.ENEMY
+	Combat.deal(p, hit)
+	await physics_frames(2)
+	expect(p.get_state() == S.DEAD, "dead")
+	t0 = Time.get_ticks_msec()
+	while Time.get_ticks_msec() - t0 < 15000 and (w.respawn.busy or not p.is_alive()):
+		await frames(1)
+	await physics_frames(5)
+	Events.player_respawned.disconnect(cb)
+	expect(p.is_alive() and not w.respawn.busy, "respawned")
+	expect(respawns[0] == 1, "one respawn for one death (%d)" % respawns[0])
+	expect(p.global_position.distance_to(home.origin) < 2.5, "ends at the respawn point (%.1f m)" % p.global_position.distance_to(home.origin))
+	w.queue_free()
+	await frames(3)
+	WorldData.use_flat_world(true)
+
+
 # --- enemies ---------------------------------------------------------------------------------------
 
 ## A suspicious enemy that hears a fight it cannot see: every new noise restarted its 7 s
@@ -297,8 +342,9 @@ func test_projectile_outlives_its_caster() -> void:
 	expect(taken.is_empty() or taken[0][1] == null, "no freed source on the hit")
 
 
-## The picked interactable freed between two 10 Hz picks (a despawned NPC, a picked-up prop)
-## and interact pressed: the freed instance went into a typed local -> script error.
+## Suspected, refuted: the picked interactable freed between two 10 Hz picks (a despawned NPC,
+## a picked-up prop) and interact pressed. A freed instance read from a typed member compares
+## equal to null, so try_interact() simply refuses - kept as a guard.
 func test_interact_with_a_freed_interactable() -> void:
 	var p := PlayerSim.player(self, E.EARTH, Vector3.ZERO)
 	await PlayerSim.step(p, 3)

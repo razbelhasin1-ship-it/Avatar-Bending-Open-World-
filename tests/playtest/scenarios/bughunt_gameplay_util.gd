@@ -236,11 +236,18 @@ class Watch extends RefCounted:
 	var _hits: Dictionary = {}          # "attack_id:target_id" -> clock
 	var _hit_order: Array[String] = []
 	var _cd_last: Dictionary = {}       # ability id -> clock of the last start
+	var _cd_prev: Dictionary = {}       # the controller's cooldowns as of the previous frame
 	var _loops_first: Dictionary = {}   # loop id -> clock first seen
 	var _mount_desync := 0.0
 	var _ride_desync := 0.0
 	var _next_node_sample := 0.0
 	var companion: Companion = null
+	var _respawns_since_death := 0
+	var _embed_t := 0.0
+	var _embed_check := 0
+	var _enemy_stuck: Dictionary = {}   # instance id -> seconds chasing without moving
+	var _embed_shape: CapsuleShape3D = null
+	var _embed_params: PhysicsShapeQueryParameters3D = null
 
 	func _init(t: SceneTree, player: PlayerCharacter) -> void:
 		tree = t
@@ -250,17 +257,24 @@ class Watch extends RefCounted:
 		Events.player_died.connect(_on_died)
 		Events.mounted.connect(_on_mounted)
 		Events.player_damaged.connect(_on_damaged)
+		Events.player_respawned.connect(_on_respawned)
 
 	## Disconnects from the event bus (call before the player goes away).
 	func stop() -> void:
 		for pair: Array in [[Events.hit_landed, _on_hit], [Events.ability_used, _on_ability_used], [Events.player_died, _on_died],
-				[Events.mounted, _on_mounted], [Events.player_damaged, _on_damaged]]:
+				[Events.mounted, _on_mounted], [Events.player_damaged, _on_damaged], [Events.player_respawned, _on_respawned]]:
 			if (pair[0] as Signal).is_connected(pair[1]):
 				(pair[0] as Signal).disconnect(pair[1])
 		pl = null
 
 	func _on_died() -> void:
 		deaths += 1
+		_respawns_since_death = 0
+
+	func _on_respawned() -> void:
+		_respawns_since_death += 1
+		if _respawns_since_death > 1:
+			flag("double_respawn", "respawned %d times for one death" % _respawns_since_death)
 
 	func _on_mounted(_m: Node3D) -> void:
 		mounts += 1
@@ -299,6 +313,8 @@ class Watch extends RefCounted:
 		_pool_checks()
 		_enemy_checks()
 		_companion_checks(dt)
+		_embed_checks(dt)
+		_cd_prev = pl.controller.cooldowns.duplicate()
 		if clock >= _next_node_sample:
 			_next_node_sample = clock + 20.0
 			node_samples.append([snappedf(clock, 0.1), int(Performance.get_monitor(Performance.OBJECT_NODE_COUNT)),
@@ -316,7 +332,7 @@ class Watch extends RefCounted:
 			S.KNOCKED_DOWN: cap = 4.15
 			S.GETUP: cap = 1.35
 			S.INTERACTING: cap = 10.2
-			S.DEAD: cap = 12.0
+			S.DEAD: cap = to + 0.25   # the auto-respawn backstop (the scene usually respawns first)
 			S.AIRBORNE: cap = 45.0
 			S.DODGE, S.ACTION, S.DEFEND, S.CINEMATIC: cap = to + 0.25
 		if t > cap:
@@ -430,16 +446,25 @@ class Watch extends RefCounted:
 			flag("constructs_unbounded", "%d live constructs" % BendingConstruct.live.size())
 		var fx := FxLib.total_alive()
 		max_fx_alive = maxi(max_fx_alive, fx)
-		# Loops: a bending loop alive for over 40 s of game time is stuck (shield / charge / tornado loops are short).
+		# Loops: a bending loop that follows the player for over 40 s of game time is stuck (shield /
+		# charge / tornado loops are short). World loops (braziers, campfires) stay where they are.
+		var seen := {}
 		for v: Dictionary in Audio.voices.snapshot():
 			var id := int(v.get("loop", 0))
 			if id == 0 or String(v.get("sound", "")).begins_with("amb_") or String(v.get("sound", "")).begins_with("music"):
 				continue
+			seen[id] = true
+			var near: bool = v.has("position") and (v["position"] as Vector3).distance_to(pl.global_position) < 3.5
 			if not _loops_first.has(id):
-				_loops_first[id] = clock
-			elif clock - float(_loops_first[id]) > 40.0:
-				flag("audio_loop_stuck", "loop %s alive %.0f s" % [v.get("sound", ""), clock - float(_loops_first[id])])
-				_loops_first[id] = clock
+				_loops_first[id] = clock if near else -1.0
+			elif float(_loops_first[id]) >= 0.0 and not near:
+				_loops_first[id] = -1.0   # not following the player: a world loop
+			elif float(_loops_first[id]) >= 0.0 and clock - float(_loops_first[id]) > 40.0:
+				flag("audio_loop_stuck", "loop %s follows the player for %.0f s" % [v.get("sound", ""), clock - float(_loops_first[id])])
+				_loops_first[id] = -1.0
+		for id: int in _loops_first.keys():
+			if not seen.has(id):
+				_loops_first.erase(id)
 
 	func _enemy_checks() -> void:
 		var n := 0
@@ -462,11 +487,60 @@ class Watch extends RefCounted:
 				flag("enemy_below_ground", "%s y %.2f" % [en.display_name, en.global_position.y])
 			if en.state == EnemyBase.State.ATTACK:
 				attacking += 1
+			# Chasing with a wish to move but not moving for long: stuck on geometry.
+			var iid := en.get_instance_id()
+			var hs := Vector2(en.velocity.x, en.velocity.z).length()
+			if en.state == EnemyBase.State.CHASE and en.desired_velocity.length() > 1.0 and hs < 0.3:
+				_enemy_stuck[iid] = float(_enemy_stuck.get(iid, 0.0)) + 1.0 / 60.0
+				if float(_enemy_stuck[iid]) > 6.0:
+					flag("enemy_stuck_chasing", "%s at %s" % [en.display_name, str(en.global_position.snapped(Vector3.ONE * 0.1))])
+					_enemy_stuck[iid] = -60.0
+			elif _enemy_stuck.has(iid) and float(_enemy_stuck[iid]) > 0.0:
+				_enemy_stuck[iid] = 0.0
 			if en.controller and en.controller.current != null and en.controller.current.time > en.controller.current.max_time + 0.05:
 				flag("enemy_ability_overrun", "%s %s" % [en.display_name, en.controller.current.def.id])
 		max_enemies = maxi(max_enemies, n)
 		if attacking > AttackTokens.max_tokens() + 1:
 			flag("too_many_attackers", "%d attacking (tokens %d)" % [attacking, AttackTokens.max_tokens()])
+
+	## The player's capsule (shrunk) overlapping world geometry / a construct for over a second:
+	## embedded (a wall rose around them, pushed into a cliff, teleported into a building).
+	func _embed_checks(dt: float) -> void:
+		_embed_check += 1
+		if _embed_check % 6 != 0:
+			return
+		if pl.get_state() == S.MOUNTED or pl.collision_layer == 0:
+			_embed_t = 0.0
+			return
+		if _embed_shape == null:
+			_embed_shape = CapsuleShape3D.new()
+			_embed_shape.radius = PlayerCharacter.CAPSULE_RADIUS * 0.6
+			_embed_shape.height = PlayerCharacter.CAPSULE_HEIGHT * 0.6
+			_embed_params = PhysicsShapeQueryParameters3D.new()
+			_embed_params.shape = _embed_shape
+			_embed_params.collision_mask = Layers.SOLID
+		_embed_params.transform = Transform3D(Basis.IDENTITY, pl.global_position + Vector3.UP * PlayerCharacter.CAPSULE_HEIGHT * 0.5)
+		var ex: Array[RID] = [pl.get_rid()]
+		_embed_params.exclude = ex
+		var res := pl.get_world_3d().direct_space_state.intersect_shape(_embed_params, 4)
+		# The player's own walls / pillars never collide with them (by design, so an eruption at
+		# their feet cannot trap them): standing inside one is not an embedding.
+		res = res.filter(func(r: Dictionary) -> bool:
+			var c: Object = r.get("collider")
+			return not (c is BendingConstruct and (c as BendingConstruct).team == Combat.Team.PLAYER))
+		var inside := not res.is_empty()
+		_embed_t = _embed_t + dt * 6.0 if inside else 0.0
+		if _embed_t > 1.0:
+			var col: Object = res[0].get("collider")
+			var what := "?"
+			if col is Node:
+				var n := col as Node
+				what = "%s (%s, layer %d, parent %s)" % [n.name, n.get_class(), (n as CollisionObject3D).collision_layer if n is CollisionObject3D else 0,
+						n.get_parent().name if n.get_parent() else "-"]
+				if n is BendingConstruct:
+					what += " construct of %s" % ("the player" if (n as BendingConstruct).team == Combat.Team.PLAYER else "an enemy")
+			flag("player_embedded", "capsule inside %s for %.1f s" % [what, _embed_t])
+			_embed_t = -30.0
 
 	func _companion_checks(dt: float) -> void:
 		var c := companion
@@ -522,11 +596,12 @@ class Watch extends RefCounted:
 			flag("ability_started_in_" + pl.get_state_name(), String(id))
 		if tree.paused:
 			flag("ability_started_while_paused", String(id))
-		var d := AbilityRegistry.get_def(id)
-		if d != null and d.cooldown > 0.0 and _cd_last.has(id):
-			var since := clock - float(_cd_last[id])
-			if since < d.cooldown * 0.97:
-				flag("cooldown_bypass", "%s again after %.2f s (cooldown %.1f)" % [id, since, d.cooldown])
+		# Started while the controller still had it on cooldown (as of the last frame): a bypass.
+		# (Toggles like Earth Armor clear their own cooldown when donned: not flagged.)
+		var left := float(_cd_prev.get(id, 0.0))
+		if left > 0.05:
+			var d := AbilityRegistry.get_def(id)
+			flag("cooldown_bypass", "%s started with %.2f s of cooldown left (cooldown %.1f)" % [id, left, d.cooldown if d else 0.0])
 		_cd_last[id] = clock
 
 	func report() -> String:

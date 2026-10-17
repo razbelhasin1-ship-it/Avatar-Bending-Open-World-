@@ -149,6 +149,8 @@ func _build() -> void:
 
 ## Switches element: profile, rig (preset/style), core kit, techniques, health/poise.
 func set_element(e: int) -> void:
+	if states != null and states.state == State.MOUNTED:
+		dismount()
 	element = e if ElementDefs.is_valid(e) else ElementDefs.Element.WATER
 	profile = LocomotionProfile.for_element(element)
 	if motor == null:
@@ -475,14 +477,8 @@ func apply_saved_state() -> bool:
 # --- interaction / cinematic / mount hooks --------------------------------------------------------
 
 func try_interact() -> bool:
-	# Untyped first: the picked interactable may have been freed since the last 10 Hz pick
-	# (a despawned NPC / picked-up prop) and a freed instance in a typed variable is an error.
-	var cur: Variant = interaction.current
-	if cur == null or not is_instance_valid(cur):
-		interaction.current = null
-		return false
-	var it := cur as Interactable
-	if not it.is_inside_tree() or not it.can_interact(self):
+	var it := interaction.current
+	if it == null or not it.can_interact(self):
 		return false
 	var to := it.focus_point() - global_position
 	to.y = 0.0

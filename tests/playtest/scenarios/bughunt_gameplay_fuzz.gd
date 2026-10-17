@@ -123,6 +123,9 @@ func _finish_element(tag: String, pl: PlayerCharacter, watch: Object, monkey: Ob
 		if pl.get_state() == PlayerCharacter.State.LOCOMOTION and not pl.controller.is_busy() and i > 120:
 			back = true
 			break
+		# Still riding (the mount was burrowing / landing when asked): ask again.
+		if i % 60 == 30 and pl.get_state() == PlayerCharacter.State.MOUNTED and pl.mount_node != null and pl.mount_node.has_method("request_dismount"):
+			pl.mount_node.call("request_dismount")
 	var live_proj := 0
 	for pr in BendingProjectile.live:
 		if is_instance_valid(pr) and pr.alive:
@@ -384,7 +387,7 @@ func _world(e: int) -> void:
 				for i in rng.randi_range(1, 3):
 					var a := rng.randf() * TAU
 					var q := WorldData.get_safe_ground(pl.global_position + Vector3(cos(a), 0.0, sin(a)) * rng.randf_range(9.0, 15.0))
-					var en := director.spawn_enemy(archs[rng.randi() % archs.size()], Transform3D(Basis(Vector3.UP, a), q), {"leash": 60.0})
+					var en := director.spawn_enemy(archs[rng.randi() % archs.size()], Transform3D(Basis(Vector3.UP, a), q))
 					if en != null:
 						spawned.append(en)
 		if t >= next_rotate:
