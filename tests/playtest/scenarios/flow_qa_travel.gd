@@ -88,12 +88,14 @@ func _find_open(near: Vector3, r0: float, r1: float) -> Vector3:
 			var g := Vector3(q.x, h, q.z)
 			if Settlements.settlement_at(g) != &"" or WorldData.get_normal(q.x, q.z).y < 0.96:
 				continue
+			if WorldData.get_water_height(q.x, q.z) > -INF:      # lakes / canals / sea (a lake floor is "flat" too)
+				continue
 			var flat := true
 			for j in 8:
 				var b := TAU * float(j) / 8.0
 				for rr: float in [8.0, 18.0]:
 					var o := g + Vector3(cos(b), 0, sin(b)) * rr
-					if absf(WorldData.get_height(o.x, o.z) - h) > 1.6 or WorldData.get_height(o.x, o.z) < WorldData.SEA_LEVEL + 0.5:
+					if absf(WorldData.get_height(o.x, o.z) - h) > 1.6 or WorldData.get_water_height(o.x, o.z) > -INF:
 						flat = false
 			if flat:
 				return g
