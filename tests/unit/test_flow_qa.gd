@@ -103,7 +103,9 @@ func _place(t: TutorialScene, local: Vector3, facing: Vector3 = Vector3.FORWARD)
 ## The heavy and charged-heavy lessons count the element's real heavy strike: Earth Boulder is
 ## not a ChargeAbility, so Earth's lessons 'heavy' and 'charge' never completed by play.
 ## Sprint is measured above run speed for every element (Earth: slowest acceleration).
-func test_tutorial_heavy_charge_sprint_lessons_complete_for_every_element() -> void:
+## The light chain lands every strike on the dummy: Air's hook-kick gust (low and wide) died
+## on the floor half a metre out, so an airbender could never chain 3 strikes into a dummy.
+func test_tutorial_light_heavy_charge_sprint_lessons_complete_for_every_element() -> void:
 	for e in ElementDefs.ALL:
 		var el := String(ElementDefs.id_of(e))
 		GameState.new_game(e, true)
@@ -122,6 +124,18 @@ func test_tutorial_heavy_charge_sprint_lessons_complete_for_every_element() -> v
 		var ok := await _ticks_until(func() -> bool: return d.completed.has(&"sprint"), 3.0)
 		_release_all()
 		expect(ok, "%s sprint lesson completes by sprinting (progress %.2f s, speed %.1f)" % [el, d.progress, Vector2(pl.velocity.x, pl.velocity.z).length()])
+		# light: one chain, each press as the previous strike lands (the dummy 2.6 m ahead)
+		expect(await _skip_to(d, &"light"), "%s reached the light lesson" % el)
+		await _place(t, Vector3(0, 0, 0.2))
+		var n := int(d.target())
+		for k in n:
+			await _hold_for(&"attack_light", 0.05)
+			await _ticks_until(func() -> bool:
+				var c := pl.controller.current as ComboAbility
+				return c == null or (c.struck and c.step >= k and (c.can_chain() or c.is_last_step())), 1.5)
+		ok = await _ticks_until(func() -> bool: return d.completed.has(&"light"), 1.5)
+		expect(ok, "%s light lesson: %d strikes of one chain land on the dummy (%.0f / %d)" % [el, n, d.progress, n])
+		await _ticks_until(func() -> bool: return not pl.controller.is_busy(), 2.0)
 		# heavy: a tapped heavy strike
 		expect(await _skip_to(d, &"heavy"), "%s reached the heavy lesson" % el)
 		await _place(t, Vector3(0, 0, 1.0))
@@ -288,6 +302,62 @@ func test_confirm_dialog_traps_focus_on_its_answers() -> void:
 	expect(go.get_node_or_null(go.focus_neighbor_right) == d.buttons[&"stay"], "rebuilt row keeps the trap")
 	holder.queue_free()
 	await frames(1)
+
+
+## A wide, growing gust skims the floor: bodies meet its full radius, terrain only its core
+## (`world_radius`). Air Combo's hook-kick gust (0.75 m growing to 3.15 m, launched 0.5 m
+## above the floor) used to stop on the ground after half a metre.
+func test_wide_gust_skims_the_floor_and_reaches_its_target() -> void:
+	var ground := PlayerSim.ground(self)
+	var pl := PlayerSim.player(self, ElementDefs.Element.AIR, Vector3.ZERO)
+	var d := TrainingDummy.new()
+	d.max_health = 5000.0
+	add_child(d)
+	d.global_position = Vector3(0, 0, -4.5)
+	await physics_frames(3)
+	var travel := 6.5 / 32.0
+	var g := BendingProjectile.launch(pl.controller.ctx, Vector3(0, 0.48, -0.6), Vector3.FORWARD, 32.0, {"damage": 8.0},
+			{"radius": 0.75, "radius_growth": 2.4 / travel, "max_radius": 3.15, "range": 6.5, "pierce": true, "world_radius": 0.25})
+	var f := 0
+	while g.alive and f < 90:
+		await physics_frames(1)
+		f += 1
+	expect(g.traveled > 6.0, "the gust flew its range over the floor (%.2f m)" % g.traveled)
+	expect(d.hits_taken == 1, "and hit the dummy 3.9 m out (%d hits)" % d.hits_taken)
+	# a core still stops on a wall
+	var wall := PlayerSim.box(self, Vector3(0, 1.5, -12.0), Vector3(6, 3, 0.3))
+	await physics_frames(2)
+	var w := BendingProjectile.launch(pl.controller.ctx, Vector3(0, 1.2, -8.0), Vector3.FORWARD, 32.0, {"damage": 1.0},
+			{"radius": 0.6, "radius_growth": 8.0, "max_radius": 2.5, "range": 9.0, "pierce": true, "world_radius": 0.25})
+	f = 0
+	while w.alive and f < 90:
+		await physics_frames(1)
+		f += 1
+	expect(not w.alive and w.global_position.z > -12.0 and w.global_position.z < -11.0, "the gust flies on to the wall and its core stops there (z %.2f)" % w.global_position.z)
+	for n: Node in [d, pl, wall, ground]:
+		n.queue_free()
+	await frames(2)
+
+
+## A projectile whose caster is freed mid-flight (a despawned enemy, a scene torn down while a
+## gust still flies) ends quietly: its hits are built from the caster, and a freed one raised
+## script errors in BendingContext.make_hit.
+func test_projectile_outliving_its_caster_ends_quietly() -> void:
+	var ground := PlayerSim.ground(self)
+	var pl := PlayerSim.player(self, ElementDefs.Element.AIR, Vector3.ZERO)
+	var d := TrainingDummy.new()
+	add_child(d)
+	d.global_position = Vector3(0, 0, -8.0)
+	await physics_frames(3)
+	var g := BendingProjectile.launch(pl.controller.ctx, Vector3(0, 1.2, -1.0), Vector3.FORWARD, 10.0, {"damage": 5.0}, {"radius": 0.3, "range": 12.0})
+	await physics_frames(2)
+	expect(g.alive, "in flight")
+	pl.queue_free()
+	await physics_frames(60)
+	expect(not g.alive and d.hits_taken == 0, "ended with its caster, no hit built from a freed caster (alive %s, hits %d)" % [g.alive, d.hits_taken])
+	d.queue_free()
+	ground.queue_free()
+	await frames(2)
 
 
 ## The training grounds' dummies named the reaction of a damage-only hit: "2  None".

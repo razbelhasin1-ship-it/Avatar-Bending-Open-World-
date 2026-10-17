@@ -256,3 +256,10 @@ should be added to `ShaderWarmup._common_fx()`.
 * The release contract (`charging`, `released`, `charge`; heavies also `tapped`) is shared by
   `ChargeAbility`, Earth Boulder and Lightning; the tutorial lessons and the enemy brain read
   it by duck typing instead of `is ChargeAbility` (docs/modules/bending_earth.md, enemies.md).
+* `BendingProjectile` option `world_radius` (default -1 = `radius`): the sphere used against
+  terrain / constructs (SOLID) when smaller than the hit radius; bodies are cast with the full
+  radius and the nearer contact wins (`_cast` -> `_cast_sphere`). Used by air gusts.
+* A `BendingProjectile` whose caster is freed mid-flight ends at its next step (`step()`):
+  hits are built from the caster (`BendingContext.make_hit`), and a freed one raised script
+  errors (seen when a scene was torn down while a gust still flew; also a despawned enemy's
+  bolt). Regression: `tests/unit/test_flow_qa.gd::test_projectile_outliving_its_caster_ends_quietly`.

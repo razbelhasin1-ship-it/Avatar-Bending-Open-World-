@@ -265,5 +265,5 @@ practice never counts for them; armor on an AI caster times out after 25 s.
   (thrown with less than `TAP_CHARGE` = 0.15 charge) next to its existing `charge`. Readers
   use them by duck typing (`TutorialDirector.heavy_strike_of(ability)`; the enemy brain's
   evade / cover reactions read `charging` / `released`, docs/modules/enemies.md).
-  Regression: `tests/unit/test_flow_qa.gd::test_tutorial_heavy_charge_sprint_lessons_complete_for_every_element`,
+  Regression: `tests/unit/test_flow_qa.gd::test_tutorial_light_heavy_charge_sprint_lessons_complete_for_every_element`,
   `test_heavy_strike_report_for_charge_abilities_and_earth_boulder`. See `docs/qa/flow_qa.md`.

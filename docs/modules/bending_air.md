@@ -282,6 +282,19 @@ All additive and minimal:
   through `WorldFires` stand-ins: strong gusts (`AirEnv.extinguish`, heavy or force >= 4 hits)
   blow them out; they relight after 30-60 s.
 
+## Wave 4 (flow_qa, docs/qa/flow_qa.md)
+
+* **Gusts skim the floor** (`AirCommon.gust` passes `world_radius` = cfg `core`, default
+  0.25 m, to `BendingProjectile`). A gust's sphere grows over its range (the hook kick: 0.75 m
+  -> 3.15 m) and the projectile stopped on the first SOLID contact, so the low kick gust
+  launched 0.5 m above the floor died after ~0.5 m: the second strike of every Air Combo hit
+  nothing beyond arm's reach (the training grounds' *Strike Combo* lesson could not be
+  completed by an airbender; in the world 3 presses landed 1 hit), and the palm / Air Blast
+  gusts ended early wherever their grown radius met the ground. Bodies still meet the full
+  radius; terrain, walls and constructs stop the core. Regression:
+  `tests/unit/test_flow_qa.gd::test_wide_gust_skims_the_floor_and_reaches_its_target`,
+  `test_tutorial_light_heavy_charge_sprint_lessons_complete_for_every_element` (light chain).
+
 ## Known limitations
 
 * World props other than fires are static meshes: only vegetation, grass, cloth,
