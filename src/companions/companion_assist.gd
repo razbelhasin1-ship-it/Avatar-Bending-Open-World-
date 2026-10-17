@@ -400,8 +400,13 @@ func _finish(cooldown: float) -> void:
 		c.set_mode(Companion.Mode.FOLLOW)
 
 
-func _valid_enemy(e: Node3D) -> bool:
-	if e == null or not is_instance_valid(e) or not e.is_inside_tree() or not Combat.is_alive(e):
+## Untyped: the assist target can be freed while held (a fled enemy vanishing, a despawn) and a
+## freed instance passed to a typed argument is a script error every tick (bughunt_gameplay).
+func _valid_enemy(v: Variant) -> bool:
+	if v == null or not is_instance_valid(v) or not (v is Node3D):
+		return false
+	var e := v as Node3D
+	if not e.is_inside_tree() or not Combat.is_alive(e):
 		return false
 	if e.get("dormant") == true or e.get("surrendered") == true:
 		return false
