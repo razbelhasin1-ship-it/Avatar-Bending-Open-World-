@@ -83,7 +83,9 @@ radius, height`.
 | `dai_li_agent` | bender | Dai Li | Dai Li robes | Rock Glove (chained stone glove, roots the target 1.1 s), rock punches, agile sidesteps |
 | `pirate_cutlass` | skirmisher | pirates | cutlass | slash / backslash, lunge |
 | `pirate_archer` | ranged | pirates | crossbow-style bow | arrows, push kick |
-| `water_pirate` | bender | pirates | rogue waterbender | Water Whip, Water Blast, Ice Shards, Water Shield (no redirect), Flow Slide |
+| `water_pirate` | bender | pirates | rogue waterbender | Water Whip, Water Blast, Ice Shards, Water Surge, Ice Trap, Ice Wall (cover), Water Shield (no redirect), Flow Slide |
+| `air_renegade` | bender | bandits | renegade airbender (bandit clothes) | Air jabs, Air Blast, Air Push (space), Air Sweep (ring), Wind Blade, Air Shield, Air Dash; leads the north road bandits |
+| `air_sparring_monk` | bender | air_acolytes | Air Nomad | `AirKit.enemy_archetype()`: jabs, blast, Air Push, Wind Blade (the air trainer's spar partner) |
 | `komodo_rhino` | beast | wild | CreatureRig `komodo_rhino` | bite, tail swipe (ring), roaring charge that stops on walls |
 
 ### Attack dictionary (`EnemyActions`)
@@ -278,6 +280,32 @@ cuts the animation share; the mobile budget is 7 enemies.
 * Fair play beats difficulty: enemies wait for the player to see them, never pile on a downed
   player and never get a reflex parry; difficulty changes telegraph length, cooldowns, attacker
   count and projectile lead, not reaction-time cheats.
+
+## Element techniques (wave 4, docs/qa/integration_fixes.md)
+
+Bender archetypes cast the element techniques of the kits, not only the core kit:
+`EnemyAbilities.LOADOUTS` fills `technique_1..4` per element (Fire: Flame Sweep, Fire Burst,
+Fire Ring, Fire Whip; Earth: Earth Wall, Earth Pillar, Earth Stomp, Earth Spikes; Water: Ice
+Shards, Water Surge, Ice Trap, Ice Wall; Air: Air Push, Air Sweep, Wind Blade - plus an Air core
+kit) with enemy-tuned copies (`VARIANTS`: ~20-30 % less damage, longer cooldowns, Ice Trap
+freezes 1.1 s, Burst / Whip / Ring burn 2.5 s). The archetype attack entries come from the kits'
+`enemy_attacks()` (`EnemyArchetypes._kit(...)` with per-archetype weight / cooldown):
+
+| Archetype | Techniques added | Range window | Glint -> strike (measured) |
+| --- | --- | --- | --- |
+| `fire_soldier` | Fire Burst (point-blank, ring 3.8 m) | 0-3.4 m | 0.42 s + ring |
+| `fire_captain` | Fire Whip; phase 2: Fire Ring (ring 6.5 m) | 2.5-7 m / 0-6 m | 0.40 s (overhead wind-up) |
+| `earth_rogue` | Earth Pillar, Earth Stomp (ring 5 m) | 3-14 m / 0-4.5 m | 0.35 s / 0.47 s |
+| `earth_chief` | Earth Pillar | 3-14 m | 0.35 s |
+| `dai_li_agent` | Earth Spikes | 3-11 m | 0.40 s |
+| `water_pirate` | Water Surge, Ice Trap, Ice Wall (cover) | 3-10 m / 3.5-12 m | 0.46 s / 0.40 s |
+| `air_renegade` | Air Push (space, ring 4.4 m), Air Sweep (ring 4.6 m), Wind Blade | 0-3.6 / 0-4 / 3-16 m | 0.42 / 0.45 / 0.45 s |
+
+Every technique still goes through the normal attack flow (attack tokens, telegraph hold +
+glint + wind-up sound, recovery punish window); a technique is used at most every 6 s.
+Measured in `test_integration_fixes.gd::test_enemy_techniques_cast_and_land` (each cast lands
+on the player at its range, tell 0.35-0.47 s before the strike) and the
+`integration_fixes_enemies` playtest (variety per duel + group, token cap).
 
 ## Changes outside the module
 

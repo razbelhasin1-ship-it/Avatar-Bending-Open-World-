@@ -391,6 +391,20 @@ Settings-driven ranges and densities, and lights through `LightBudget`.
 * `src/player/player_camera.gd`: the keep-above-terrain clamp is skipped while the player is
   underground (cave tunnels); the collision cast keeps the camera inside the tube.
 
+### Wave 4: open fires answer to bending (docs/qa/integration_fixes.md)
+
+* `BuildingKit.fires` / `add_fire(pos, kind, radius)`: `brazier()` and flame-lit `lantern()`
+  styles (paper, post, stone, wall torch; not ice) record their flame base at LOD0; fire-pit
+  recipes (Water Tribe / arctic, outposts, POI camps, the family-home hearth) call `add_fire`.
+  `KitResult.fires` merges / instantiates / `add_to_payload`s like the lights (option `fires`,
+  default = `lights`) and registers them with `WorldFires` on the cell root;
+  `SettlementProvider` registers its LOD0 cell's fires itself.
+* `kit_glow.gdshader` and the settlements' `night_glow.gdshader` take a `fire_mask` (vec4[32])
+  + `fire_mask_count`: a fire that is out collapses its flame into a dark coal bed (lanterns go
+  dark) and loses its night glow. `LightBudget.suppress` (a filter callable) keeps its light off;
+  `LightBudget.refresh()` re-picks at once. `PropFx.particles` puts smoke / embers in group
+  `fire_fx` (stopped while their fire is out).
+
 ## Known issues
 
 KNOWN_ISSUES

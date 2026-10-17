@@ -172,8 +172,18 @@ budgets of `SettlementSettings`.
 * **Fire colours.** The kit's glow shader brightens emission ×2.6 at night; FN flames use deep
   red-orange vertex colours so they stay fiery instead of washing to white.
 
+## Wave 4 integration fixes (docs/qa/integration_fixes.md)
+
+* Interior anchors (Ba Sing Se tea shop / training hall, Fire Nation dojo / noble house) and the
+  Flame Kata Grounds master + students follow the -Z anchor contract (they faced the wall /
+  away from each other).
+* Braziers and lanterns built with `BuildingKit.brazier` / `lantern` record LOD0 fire spots, so
+  `WorldFires` makes the ones near the player light / douse / relight with bending.
+
 ## Known issues / next steps
 
+* Door-front anchors (homes, shops, workers at doors) face their building rather than out
+  (see docs/qa/integration_fixes.md).
 * Brazier flames still read pale yellow at night close up (the shared glow shader's night
   energy); far glows are fine.
 * The Fire Lord's palace is modest against the 900 m caldera: the palace tier (r 55) is cut by

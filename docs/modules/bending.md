@@ -225,3 +225,14 @@ transient lights). Parented under one `FxRoot` in the current scene.
 * Light latency per strike (press -> active, 60 Hz): Air 6/6/6, Earth 5/5/5, Fire 5/5/6/6,
   Water 6/6/6 (`test_player.gd::test_light_attack_latency`).
 * Playtest `player_elements` (Forward+ and Mobile renderer).
+
+## Wave 4 integration fixes (docs/qa/integration_fixes.md)
+
+* Practice is counted exactly once per use for every technique and signature of every element
+  (verified through the real player: `test_integration_fixes.gd::test_practice_counted_exactly_once_per_use`);
+  the counting stays inside the abilities (`FireCommon` / `EarthEnv` / `AirEnv` / `WaterCommon.practiced`),
+  the controller counts nothing.
+* `BendingController.locked_signature` / `locked_signature_info()`: the element's signature while
+  it is not learned; `request(&"signature")` then fails with `&"locked"` (was `&"empty"` with no id).
+  `load_equipped()` frees a technique slot holding a signature (older saves: lessons / rewards
+  used to auto-equip signatures into technique slots).

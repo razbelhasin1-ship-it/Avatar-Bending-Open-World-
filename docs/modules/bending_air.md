@@ -271,16 +271,21 @@ All additive and minimal:
 | `assets/shaders/content/veg_common.gdshaderinc`, `grass.gdshader`, `cloth.gdshader` | include `air_wind.gdshaderinc` and add the impulse term |
 | `tests/unit/test_bending.gd` | starter checks use `.has()` (Air now has two starters; identical to the peers) |
 
+## Wave 4 integration (docs/qa/integration_fixes.md)
+
+* **Air enemies ship**: `EnemyArchetypes` has `air_sparring_monk` (= `AirKit.enemy_archetype()`,
+  the air trainer's spar partner now bends instead of using knives) and `air_renegade` (a
+  temple exile leading the north road bandits: jabs, blast, Air Push, Air Sweep, Wind Blade).
+  `EnemyAbilities.LOADOUTS` has an Air entry, so EnemyBase equips them by itself
+  (`AirKit.equip_enemy` still works for custom loadouts).
+* **World fires**: settlement braziers / torches / lanterns / campfires are `extinguishable`
+  through `WorldFires` stand-ins: strong gusts (`AirEnv.extinguish`, heavy or force >= 4 hits)
+  blow them out; they relight after 30-60 s.
+
 ## Known limitations
 
-* No Air enemy archetype ships in `EnemyArchetypes` (and `EnemyAbilities.LOADOUTS` has no
-  Air entry); `AirKit.enemy_archetype()` / `equip_enemy()` provide one for quests / arenas.
-  The enemy brain rarely picks push / blade (range windows) - it used jabs + blast in the
-  playtest.
-* World lanterns and settlement props are static meshes: only vegetation, grass, cloth,
-  `AirProp`s, `wind_reactive` nodes and `extinguishable` nodes react. The fire module's
-  braziers / burning grass join through the `extinguishable` group contract (not on this
-  branch, so only the playtest torches were verified).
+* World props other than fires are static meshes: only vegetation, grass, cloth,
+  `AirProp`s, `wind_reactive` nodes and `extinguishable` nodes react.
 * The scooter raises the rig visually (`ride_height`); the capsule stays on the ground, so
   low ceilings are checked at capsule height.
 * Wall runs only trigger on static geometry (characters / props / rigid bodies are not

@@ -335,6 +335,14 @@ All minimal and additive; desktop behaviour is unchanged unless noted.
 * `tools/test.sh test_mobile` also checks the mobile budgets (one shadow cascade, no LOD1
   settlement shadows, LOD ranges) — see Performance.
 
+## Wave 4 integration fixes (docs/qa/integration_fixes.md)
+
+* The signature button shows while the signature is still locked (padlock + "LV n", dimmed);
+  a tap explains how to learn it (HUD toast) instead of the button being absent.
+* Burn ticks give a faint 14 ms buzz instead of a full damage pulse.
+* World fires: the `WorldFires` stand-ins are capped at 8 on the mobile preset (12 / 16 / 24
+  above); the fire mask is one uniform array on two shared materials (no extra draw calls).
+
 ## Known limitations
 
 * **No real device was tested.** Everything above ran in this container: Godot under Xvfb

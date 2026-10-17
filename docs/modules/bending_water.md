@@ -208,14 +208,19 @@ add_child(ExtinguishableFire.new())
   string (a plain `Array[StringName].sort()` orders by interned pointer, so with several starters
   the slot order changed between runs: slot 1 must stay `ice_shards`, the tutorial technique).
 
+## Wave 4 integration (docs/qa/integration_fixes.md)
+
+* **World fires**: settlement / outpost / POI braziers, torches, lanterns and campfires join
+  the extinguish hook through `WorldFires` stand-ins: Water Surge, Water Wave, the Torrent,
+  Water Jet, Ice Wall and Tidal Torrent (`WaterEnv.extinguish`) and any water hit on the flame
+  (`FireHitProxy`) put them out; they relight after 30-60 s.
+* **Enemy waterbenders use the techniques**: `WaterKit.enemy_attacks()` (Water Surge, Ice
+  Trap, Ice Wall as reactive cover) - `water_pirate` (and the Water spar partner) cast them
+  through enemy-tuned copies (`EnemyAbilities.VARIANTS`: Ice Trap freezes 1.1 s, Surge 13 dmg).
+
 ## Known limitations
 
 * Trainer-gated techniques (Healing Waters, Tidal Torrent) can only be learned once the NPC /
   trainer module sets the `trained_<trainer>_<id>` flags (ids in `WaterKit.TRAINERS`).
-* World fires (braziers, campfires built into settlement geometry) are not yet extinguishable
-  nodes; they need an `ExtinguishableFire` (or the hook) from the modules that place them.
-* Enemy waterbenders (`water_pirate`) still use the core kit + Ice Shards; the new techniques
-  are verified on enemy casters in tests but are not in an archetype's attack list yet
-  (enemies module data).
 * The water crest is a stylised mesh with a flowing shader; seen from directly behind at a
   low camera it reads as a rounded mound.

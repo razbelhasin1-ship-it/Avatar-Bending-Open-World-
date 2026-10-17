@@ -250,18 +250,23 @@ add_to_group(&"extinguishable")  # func extinguish(by: Node, at: Vector3) -> boo
   fire_lightning*.wav` (+ `.import`), `src/audio/sound_catalog.gd` (`ALL_SFX`),
   `docs/ARCHITECTURE.md` ("Audio names", Fire), `tools/audiogen/report.{json,md}`.
 
+## Wave 4 integration (docs/qa/integration_fixes.md)
+
+* **World fires react**: the braziers, torches, lanterns and campfires baked into settlement,
+  outpost and POI cells are registered with `WorldFires` (`src/world/fires/`); the nearest get
+  a `WorldFireSpot` stand-in carrying the IGNITE / EXTINGUISH hooks and a `FireHitProxy`, so
+  `FireEnv.heat` / fire hits light them and water / strong wind put them out (they relight
+  after 30-60 s). A share of braziers stands cold by day for a firebender to light.
+* **Enemy firebenders use the techniques**: `fire_soldier` adds Fire Burst (space), the
+  lieutenant Fire Whip and, in phase two, Fire Ring (`FireKit.enemy_attacks()` entries; the
+  enemy-tuned copies live in `EnemyAbilities.VARIANTS` / `LOADOUTS`).
+* **Burn ticks never shake the camera** (`PlayerDamage.is_tick`: hits tagged `dot` /
+  `no_hitstop`); the HUD vignette and phone haptics are softer for ticks too.
+
 ## Known limitations
 
-* World fires built into settlement / outpost geometry (decorative braziers, lanterns) are
-  not `FireBrazier` nodes yet; the modules that place them can swap in `FireBrazier` or join
-  the hooks. In the world, only grass, snow, water, ice and the ground react to fire today.
 * Trainer-gated techniques (Inferno, Lightning) need the NPC module to set
   `trained_fn_jinzo_<id>`.
-* Enemy firebender archetypes (`fire_soldier`, ...) keep their current attack lists; the new
-  techniques are verified on enemy casters (unit test + a runtime archetype in the enemies
-  playtest) but adding them to archetype data is the enemies module's call.
-* Burn ticks on the player go through the player's damage path, which adds a light camera
-  shake per tick.
 * `FireEnv.is_burnable` reads `GroundSampler._zone_at` (a private helper of the player
   module) so arena zones decide burnability.
 * Grass blades inside a burnt patch are darkened by the decal but not removed (no

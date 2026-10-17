@@ -278,6 +278,12 @@ opens the book, and closing the book returns to the pause menu.
 * New scene `scenes/ui/journey_book.tscn`; new icons in `assets/ui/icons/` (skills, map, journal,
   bag, character, padlock, close, map markers).
 
+## Wave 4: one level-up flow (docs/qa/integration_fixes.md)
+
+`GameState.add_xp` used to toast "Level n reached" on top of this banner. The toast is gone; the
+banner joins group `level_up_banner`, and the HUD shows its own (single, combined) level-up toast
+only when no banner is in the scene.
+
 ## Known issues / next steps
 
 * The book isn't installed in the training grounds (tutorial), on purpose: that scene has no

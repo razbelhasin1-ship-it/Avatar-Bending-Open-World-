@@ -171,8 +171,22 @@ ELEMENT=air tools/playtest.sh settlements_wa_world out 960x540
   stair, a grand stair and into the healer hut, and a new game per element through the real
   world scene (hook registered, spawn on the settlement floor with no safety floor, walking).
 
+## Wave 4 integration fixes (docs/qa/integration_fixes.md)
+
+* **Interior anchors follow the -Z anchor contract**: the healer, the master and the idlers in
+  the healer hut / training hall / family home faced the wall behind them (their facings were
+  written for a +Z-forward model); they face into the room now and the students face the
+  master. Tested (`test_interior_anchors_face_into_their_rooms`); the NPC module's runtime turn
+  for indoor crowd NPCs is gone.
+* **Open fires answer to bending**: braziers (`NwtProps.brazier`, sea-wall / palace braziers
+  via `BuildingKit.brazier`), lanterns and the fire pits (village fires, the family-home hearth)
+  record LOD0 fire spots that `WorldFires` makes interactive near the player.
+
 ## Known issues / next steps
 
+* Door-front anchors (homes, workers, door quest givers, palace guards, the princess at the
+  oasis) still face their building rather than out (contract: "facing out"); see
+  docs/qa/integration_fixes.md.
 * Performance numbers come from the software renderer (llvmpipe) on the CI box; no real
   phone was profiled. Water Tribe LOD0 cells are heavy (avg 53 k, max 114 k triangles); mobile
   relies on the 110 m LOD0 range.

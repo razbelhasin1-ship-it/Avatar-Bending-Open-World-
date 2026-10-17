@@ -223,10 +223,12 @@ around the player (sidestep, wait when the player stands in the way). NPC bodies
 An NPC turns see-through while the camera is inside / right behind it, and its marker and name
 plate fade out near the camera.
 
-**Facing.** Settlement plans do not all agree on which way an anchor yaw faces (the Water Tribe
-interiors treat local +Z as forward, the contract says -Z), so a named or indoor NPC whose facing
-runs into a wall within 4 m while its back is open turns around once (home + facing) as soon as
-the ground collision under it exists (`NpcCharacter.ensure_open_facing`). Bending challenges
+**Facing.** Interior anchors follow the -Z contract at the source since wave 4 (Water Tribe,
+Ba Sing Se and Fire Nation interiors, the Flame Kata Grounds master and students -
+docs/qa/integration_fixes.md), so indoor crowd NPCs face their rooms without help. As a safety
+net for door-front quest-giver anchors (they face their building), a **named** NPC whose facing
+runs into a wall within 4 m while its back is open still turns around once (home + facing) as
+soon as the ground collision under it exists (`NpcCharacter.ensure_open_facing`). Bending challenges
 likewise raise their posts / partner in the most open of eight directions when the player's
 facing has less than 6.5 m of floor.
 
@@ -449,6 +451,12 @@ plaza on the mobile preset; empty-looking markets (customers added).
 * No other module's files were edited. Worked around in this module instead: the Water Tribe
   interior anchors' yaw convention (`NpcCharacter.ensure_open_facing`) and the DialogueBox
   close / open fade race (`DialogueRunner._settle_box`).
+* Wave 4 (docs/qa/integration_fixes.md): both are fixed at the source now - interior anchors
+  face into their rooms (settlement planners) and `DialogueBox.open()` kills a pending close
+  fade - so `_settle_box` is gone and `ensure_open_facing` only guards named NPCs. Trainer
+  lessons and quest rewards no longer put a signature into a technique slot (it has its own
+  button; the toast names the slot the technique went to). The air trainer's spar partner is
+  the bending `air_sparring_monk` (was knives).
 
 ## Known issues / next steps
 
@@ -467,11 +475,9 @@ plaza on the mobile preset; empty-looking markets (customers added).
   of the camera's view rather than path-finding round the obstacle.
 * The gameplay camera (player module) does not avoid NPCs; NPCs turn see-through when the camera
   is inside / right behind them instead.
-* The Water Tribe plan's interior anchors face local +Z (the anchor contract says -Z); this module
-  turns indoor / named NPCs to the open side at runtime. The source fix belongs to settlements_wa.
-* `DialogueBox.close()` hides the box 0.15 s later even if `open()` ran meanwhile (UI module);
-  the runner waits the fade out, a fix in `DialogueBox.open()` (kill the close tween) would be
-  cleaner.
+* Door-front anchors (homes, door quest givers) still face their building, against the
+  contract's "facing out" (see docs/qa/integration_fixes.md); named NPCs are turned by
+  `ensure_open_facing`, crowd residents step off the doorstep toward the door.
 * `WorldData.get_water_height` tests lakes by radius while the lake surface follows its polygon
   (a companion swam where it reported dry ground); turtle duck herds spawn by the former.
 * Turtle ducks on a lake read low in the water from the shore (the lake shader's grazing-angle

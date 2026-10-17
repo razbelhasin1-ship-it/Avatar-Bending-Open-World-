@@ -238,3 +238,14 @@ Air 6 / 6 / 6, Earth 5 / 5 / 5, Fire 5 / 5 / 6 / 6, Water 6 / 6 / 6.
   velocity curve so distances are exact: v0 = 1.5 d / T, quadratic ease-out).
 * All randomness of feel (camera shake, hitstop) is decoupled from simulation; hitstop dips
   `Engine.time_scale` but is always restored by `TimeDilation`.
+
+## Wave 4 integration fixes (docs/qa/integration_fixes.md)
+
+* `PlayerDamage.is_tick(hit)`: damage-over-time ticks (FireStatus burn, meta `dot`) and sustained
+  pulses (meta `no_hitstop`) hurt and flash softly but add **no camera shake**.
+* The player re-reads its technique slots (`BendingController.load_equipped`, deferred and
+  coalesced) on `Events.abilities_equipped_changed` / `ability_unlocked` when the save's element
+  is the player's, so a technique learned anywhere (quest reward, trainer, skill tree, script) is
+  usable at once and the HUD / touch buttons follow on the next frame.
+* HUD contract addition: `get_locked_signature_info() -> Dictionary` (the element's signature
+  while it is not learned: id, name, icon, element, level; `{}` once learned).

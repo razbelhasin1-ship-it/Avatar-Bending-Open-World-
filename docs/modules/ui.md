@@ -342,6 +342,18 @@ using "←↑" in text.
   menu via the pause action; `ELEMENT=fire` etc.). Shots wait on state rather than
   wall-clock because software rendering caps game time per frame.
 
+## Wave 4 integration fixes (docs/qa/integration_fixes.md)
+* `DialogueBox.open()` kills a still-running close fade (it used to hide a box reopened within
+  0.15 s); the NPC runner no longer waits it out.
+* HUD signature slot: while the element's signature is not learned it draws the technique's
+  icon faint under a padlock with "LV n" (`HudAbilitySlot.set_locked`, from the player's
+  optional `get_locked_signature_info()`); pressing R then shows one hint toast ("... is locked
+  · learn it in Bending Skills (level n)", at most every 4 s).
+* Level-up: `GameState.add_xp` no longer toasts; the progression `LevelUpBanner` (group
+  `level_up_banner`) is the presentation in the world, and the HUD shows one combined toast
+  only where no banner exists (dev arenas).
+* Burn ticks (hits tagged `dot`) only tint the vignette lightly (0.3 instead of a full flash).
+
 ## Known limitations
 * Panorama landmarks are stylised low-poly silhouettes meant to be read at a distance;
   they are not the gameplay versions of those places.
