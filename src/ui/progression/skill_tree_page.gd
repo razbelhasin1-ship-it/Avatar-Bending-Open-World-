@@ -27,6 +27,7 @@ var _art: Label
 var _philosophy: Label
 var _points: Label
 var _points_box: Control
+var _points_caption: Label
 var _name: Label
 var _kind: Label
 var _stats: Label
@@ -98,6 +99,7 @@ func _build_header(parent: Control) -> void:
 	pb.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	h.add_child(pb)
 	_points_box = pb
+	pb.custom_minimum_size = Vector2(226, 0)
 	var pv := HBoxContainer.new()
 	pv.add_theme_constant_override(&"separation", 12)
 	pb.add_child(pv)
@@ -114,7 +116,8 @@ func _build_header(parent: Control) -> void:
 	pv.add_child(pc)
 	_points = UiTheme.make_label("0", UiTheme.title_font(800, 2), UiTheme.SIZE_H3 + 2, UiTheme.GOLD_HI, HORIZONTAL_ALIGNMENT_CENTER)
 	pc.add_child(_points)
-	pc.add_child(UiTheme.make_label("SKILL POINTS", UiTheme.title_font(600, 3), UiTheme.SIZE_TINY - 3, UiTheme.PARCHMENT_DIM, HORIZONTAL_ALIGNMENT_CENTER))
+	_points_caption = UiTheme.make_label("SKILL POINTS", UiTheme.title_font(600, 3), UiTheme.SIZE_TINY - 3, UiTheme.PARCHMENT_DIM, HORIZONTAL_ALIGNMENT_CENTER)
+	pc.add_child(_points_caption)
 
 
 func _build_loadout(parent: Control) -> void:
@@ -244,6 +247,10 @@ func _build_detail(parent: Control) -> void:
 	_action.theme_type_variation = &"PrimaryButton"
 	_action.custom_minimum_size = Vector2(0, UiTheme.touch_height(64))
 	_action.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_action.size_flags_stretch_ratio = 1.6
+	# long labels ("LOCKED · PRACTISE ...") must not widen the panel (the layout would jump)
+	_action.clip_text = true
+	_action.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	UiFx.wire(_action, {"press_sound": UiFx.CONFIRM})
 	_action.pressed.connect(_on_action.bind(0))
 	row.add_child(_action)
@@ -251,6 +258,8 @@ func _build_detail(parent: Control) -> void:
 	_action2.name = "Action2"
 	_action2.custom_minimum_size = Vector2(0, UiTheme.touch_height(64))
 	_action2.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_action2.clip_text = true
+	_action2.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	UiFx.wire(_action2)
 	_action2.pressed.connect(_on_action.bind(1))
 	row.add_child(_action2)
@@ -330,6 +339,7 @@ func refresh() -> void:
 	slots[4].set_technique(SkillTreeModel.signature_id(element), element)
 	slots[4].target = false
 	_points.text = str(GameState.skill_points)
+	_points_caption.text = "SKILL POINT" if GameState.skill_points == 1 else "SKILL POINTS"
 	_points.add_theme_color_override(&"font_color", UiTheme.GOLD_HI if GameState.skill_points > 0 else UiTheme.PARCHMENT_MUTED)
 	if armed != &"":
 		_loadout_hint.text = "Choose a slot for %s." % SkillTreeModel.display_name(armed)
@@ -470,7 +480,13 @@ func _set_actions(d: AbilityDef, st: StringName) -> void:
 		_action.set_meta(&"kind", &"show_master")
 		_action.disabled = m.is_empty()
 		return
-	_action.text = "LOCKED  ·  %s" % SkillTreeModel.lock_text(selected).to_upper()
+	# the requirement list above says exactly what is missing; the button names it briefly
+	var short := {&"level": "REACH LEVEL %d" % int(d.unlock.get("level", 1)),
+		&"prerequisite": "LEARN THE ONE BEFORE", &"practice": "PRACTISE MORE", &"skill_points": "NEEDS A SKILL POINT",
+		&"quest": "FINISH ITS QUEST"}
+	var t := String(short.get(why, SkillTreeModel.lock_text(selected).to_upper()))
+	_action.text = "LOCKED  ·  %s" % t
+	_action.tooltip_text = SkillTreeModel.lock_text(selected)
 	_action.disabled = true
 
 
