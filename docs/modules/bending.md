@@ -213,6 +213,17 @@ transient lights). Parented under one `FxRoot` in the current scene.
 | `IceFx.shard / shatter / splash` | crystal shards, shatter, splashes |
 | `ImpactFx.hit / block / parry / world` | element impacts (`ImpactFx.hits_shown` counts hit VFX) |
 
+**Shader warm-up (perf_polish).** `ShaderWarmup` (`src/perf/shader_warmup.gd`) casts the whole
+kit on rig-less casters on a stage beyond the world edge and spawns every shared one-shot above
+(all `FxBurst` kinds, the four decals, ring, flash, rock / ice debris, parries and world impacts
+of every element) behind a loading screen, so the first use of a technique compiles nothing.
+The world / tutorial boot runs it (docs/modules/worldscene.md); the combat arena
+(`scenes/dev/combat_arena.gd::_warm_up`) runs it behind the held Router fade when it was entered
+through a transition (or with param `warmup`, then behind its own black cover); param
+`no_warmup` skips it. A new technique is covered automatically when it is in
+`AbilityRegistry.for_element()` with a `script_path`; FX spawned only in special situations
+should be added to `ShaderWarmup._common_fx()`.
+
 ## Verification
 
 * `tests/unit/test_bending.gd` (12): registry + kits complete (scripts, clips, 3-4 light

@@ -11,6 +11,8 @@ const PLANTS: Array[StringName] = [&"maple", &"blossom", &"bamboo", &"shrub", &"
 	# Settlements II: Earth Kingdom avenues / farmsteads, Fire Nation gardens and the resort isle
 	&"oak", &"palm", &"tropical"]
 const NIGHT_GLOW_SHADER := preload("res://src/world/settlements/common/night_glow.gdshader")
+## Phones (detail 0): garden plants are not drawn beyond this (perf_polish).
+const GARDEN_RANGE_PHONE := 170.0
 ## Glow colours of the builders' piece_glows().
 const GLOW_LAMP := Color(1.0, 0.80, 0.52)
 const GLOW_FIRE := Color(1.0, 0.55, 0.22)
@@ -66,6 +68,7 @@ static func vegetation_node(items: Array, origin: Vector3) -> Node3D:
 		g[3] = int(g[3]) + 1
 		g[4] = (g[4] as Vector3).min(local.origin)
 		g[5] = (g[5] as Vector3).max(local.origin)
+	var phone := Settings.detail_level() == 0
 	for key: String in groups:
 		var g: Array = groups[key]
 		var sp: StringName = g[0]
@@ -90,8 +93,42 @@ static func vegetation_node(items: Array, origin: Vector3) -> Node3D:
 			mmi.material_override = VegetationLibrary.get_material(sp, lod)
 			mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if (lod == 1 and VegetationLibrary.SPECIES[sp]["group"] == &"tree") \
 					else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			# Not submitted where the vegetation shader hides every instance anyway (perf_polish:
+			# a garden used to draw all of its LOD MultiMeshes at any distance). Visibility ranges
+			# measure to the AABB centre, so the band is widened by the half diagonal.
+			var band := plant_band(sp, lod)
+			var half := aabb.size.length() * 0.5
+			if phone:
+				# phones: garden trees end with the near city (a draw call per garden, species
+				# and LOD for a few impostors each was the largest share of the draw budget)
+				band.y = minf(band.y, GARDEN_RANGE_PHONE)
+			if band.y > 0.0:
+				mmi.visibility_range_end = band.y + half
+			if band.x > 0.0:
+				mmi.visibility_range_begin = maxf(0.0, band.x - half)
 			root.add_child(mmi)
 	return root
+
+
+## Camera distances (m) between which the vegetation shader can show instances of a species LOD
+## (Vector2(near, far); 0 = unlimited), from the shared vegetation ranges (VegetationMaterials).
+## The mid tree LOD also casts the near trees' shadows (fade-in ignored in the shadow pass), so
+## it keeps no near limit.
+static func plant_band(sp: StringName, lod: int) -> Vector2:
+	var tree_lod0 := VegetationMaterials.get_range("tree_lod0")
+	var tree := VegetationMaterials.get_range("tree")
+	var small_lod0 := VegetationMaterials.get_range("small_lod0")
+	match VegetationLibrary.SPECIES[sp]["group"]:
+		&"tree":
+			match lod:
+				0: return Vector2(0.0, tree_lod0)
+				1: return Vector2(0.0, tree)
+				_: return Vector2(maxf(0.0, tree - 40.0), VegetationMaterials.get_range("far"))
+		&"small":
+			if lod == 0:
+				return Vector2(0.0, small_lod0)
+			return Vector2(maxf(0.0, small_lod0 - 12.0), VegetationMaterials.get_range("small"))
+	return Vector2(0.0, VegetationMaterials.get_range("grass"))
 
 
 ## WORKER THREAD: night glows ([[Vector3 world, Color, size], ...]) of kit light records
@@ -120,8 +157,9 @@ static func add_glows(p: CellPayload, glows: Array, origin: Vector3, aabb: AABB,
 	for gl: Array in glows:
 		var c: Color = gl[1]
 		CellPayload.write_instance(buf, Transform3D(Basis(), (gl[0] as Vector3) - origin), Color(c.r, c.g, c.b, float(gl[2])))
+	# night_only: WorldContent hides the MultiMesh while the sun is up (not submitted by day)
 	p.add_multimesh(_glow_mesh, _glow_mat, buf, glows.size(), aabb.grow(8.0), {"vis_begin": vis_begin, "vis_end": vis_end,
-		"margin": 0.0, "shadow": false, "tag": tag})
+		"margin": 0.0, "shadow": false, "tag": tag, "night_only": true})
 
 
 ## Wind chimes (main thread): rings the `wind_chime` sound now and then while the camera is

@@ -88,6 +88,22 @@ bridges, arch feet and cave mouths.
 | `get_stats()`, `reset_stats()` | per provider cells/active/instances, main-thread µs (last/max/avg), build ms, step/scan/update maxima (with the provider that caused them), collider and node counts |
 | `frame_budget_usec`, `max_jobs`, `update_interval`, `predict_seconds`, `colliders` | tunables (set from Settings on `Events.graphics_settings_changed`) |
 | `use_default_providers` | set false before `add_child` for an empty framework |
+| `is_night()` | night-only MultiMeshes shown (sun luminance below 0.46, hysteresis to 0.5) |
+
+Payload options added by perf_polish (wave 4, `docs/qa/perf_polish.md`):
+
+* `CellPayload.add_multimesh(..., {"night_only": true})` — drawn only at night (window and lantern
+  glows; `WorldContent._update_night()` checks the sun colour every 0.5 s).
+* `add_multimesh` / `add_mesh_surfaces` `"fade"` — `GeometryInstance3D.VisibilityRangeFadeMode`
+  for the visibility range (the margin becomes the cross-fade band instead of a hysteresis).
+* `add_mesh_surfaces` `"vis_parent"` — tag of an earlier mesh of the same cell that becomes the
+  `visibility_parent` (HLOD: the child shows only while the parent is hidden for being too close).
+* Surfaces may carry a third element, a `{lod_size: PackedInt32Array}` dictionary of LOD index
+  buffers (`MeshLods.for_arrays()`, built on the worker), passed to `add_surface_from_arrays`.
+* `add_mesh_surfaces` `"lod_bias"` — `GeometryInstance3D.lod_bias` of the mesh (< 1 = coarser mesh
+  LODs sooner; reset to 1 for pooled nodes).
+* Vegetation: `far_density` (0.55 on phones) thins the far impostor forests deterministically
+  (`ContentHash.unit2(211, gx, gz)`).
 
 ### Writing a provider (`register_provider`)
 
