@@ -53,6 +53,8 @@ func _tick_until(cond: Callable, timeout: float = 5.0) -> bool:
 
 func _place(pos: Vector3, yaw_deg: float = 0.0) -> void:
 	p.release_all()
+	# attack_in() wakes the bot; each section starts with it idle again.
+	(arena.get("bot") as SparringBot).active = false
 	if pl.get_lock_target() != null:
 		pl.targeting.call("toggle_lock")
 	pl.teleport(Transform3D(Basis(Vector3.UP, deg_to_rad(yaw_deg)), pos))
@@ -183,22 +185,27 @@ func _core() -> void:
 	var bot := arena.get("bot") as SparringBot
 	await _place(Vector3(0, 0, -9.0))
 	bot.attack_in(0.4, &"projectile")
-	var parried := false
+	var parried := [false]  # lambdas capture locals by value: share an array
 	var cb := func(hit: HitInfo, t: Node, r: int) -> void:
-		if t == pl and r == Combat.Result.DEFLECTED:
-			parried = true
+		if r == Combat.Result.DEFLECTED and t == pl:
+			parried[0] = true
 	Events.hit_landed.connect(cb)
+	# Raise the guard ~0.07 s before the fireball arrives (the parry window is 0.15 s).
 	for i in 200:
 		await p.get_tree().physics_frame
-		if BendingProjectile.incoming(pl.get_aim_point(), 2.2, pl.team).size() > 0:
-			Input.action_press(&"block")
-			break
+		var inc := BendingProjectile.incoming(pl.get_aim_point(), 6.0, pl.team)
+		if inc.size() > 0:
+			var fb := inc[0]
+			var eta := (fb.global_position.distance_to(pl.get_aim_point()) - 0.8) / maxf(fb.velocity.length(), 1.0)
+			if eta < 0.07:
+				Input.action_press(&"block")
+				break
 	await p.wait_game(0.08)
 	await _obs("core_shield_parry", pl.global_position + Vector3(0, 1.2, -3.0), 1.0, 5.0, 1.6)
 	await p.wait_game(0.4)
 	Input.action_release(&"block")
 	Events.hit_landed.disconnect(cb)
-	p.note("shield parry: %s" % parried)
+	p.check(parried[0], "shield parry turned the fireball")
 	await p.wait_game(0.3)
 	# Air Dash.
 	await _place(Vector3(-4, 0, 6.0), 90.0)
@@ -252,7 +259,8 @@ func _aerial() -> void:
 	await _cast(&"dodge", &"air_dash")
 	await p.wait_game(0.15)
 	Input.action_press(&"jump")
-	await p.wait_game(0.6)
+	p.check(await _tick_until(func() -> bool: return pl.motor.gliding, 1.5), "gliding after the air dashes")
+	await p.wait_game(0.35)
 	await _obs("aerial_glide", pl.global_position + Vector3(0, -0.5, -3), -1.0, 6.0, 1.0)
 	Input.action_release(&"jump")
 	Input.action_release(&"move_forward")
@@ -348,7 +356,8 @@ func _scooter() -> void:
 	wall.add_child(mi)
 	arena.add_child(wall)
 	wall.global_position = Vector3(0, 4.0, -22.0)
-	await _place(Vector3(0, 0, 10.0), 0.0)
+	# Lane between the dummies and clear of the pillars.
+	await _place(Vector3(-1.6, 0, 10.0), 0.0)
 	_equip(&"air_scooter", &"technique_3")
 	Input.action_press(&"move_forward")
 	await p.wait_game(0.2)
@@ -363,12 +372,14 @@ func _scooter() -> void:
 	await _tick_until(func() -> bool:
 		var a := pl.controller.current
 		return a == null or int(a.get("phase")) == 1, 3.0)
+	var wall_z := pl.global_position.z
 	await p.wait_game(0.25)
 	await _obs("scooter_wall_run", pl.global_position + Vector3(0, 0.5, -0.5), 1.0, 7.0, 0.0)
 	var top_y := pl.global_position.y
-	await p.wait_game(0.4)
-	top_y = maxf(top_y, pl.global_position.y)
-	p.check(top_y > 3.0, "ran up the wall (%.1f m)" % top_y)
+	for i in 30:
+		await p.get_tree().physics_frame
+		top_y = maxf(top_y, pl.global_position.y)
+	p.check(top_y > 3.0 and wall_z < -19.0, "ran up the wall (%.1f m, from z %.1f)" % [top_y, wall_z])
 	Input.action_release(&"move_forward")
 	# Coasting: the ball hovers in place until the technique is pressed again (hop down).
 	await p.wait_game(0.6)
@@ -471,7 +482,7 @@ func _env() -> void:
 		var a := pl.controller.current as ChargeAbility
 		return a != null and a.released, 1.0)
 	await p.wait_game(0.1)
-	await _obs("env_push_garden", Vector3(0, 0.5, 13.0), -1.0, 9.0, 3.5)
+	await _close("env_push_garden", Vector3(0, 0.3, 14.0), 7.0, 5.0, 10.0)
 	await p.wait_game(0.25)
 	await _obs("env_push_after", Vector3(0, 0.5, 13.0), 1.0, 9.0, 3.0)
 	p.check(garden.torches_out() >= 1, "torches blown out (%d)" % garden.torches_out())
@@ -486,11 +497,13 @@ func _env() -> void:
 	await p.wait_game(0.6)
 	# Gliding low over the garden leaves a wake.
 	await _place(Vector3(0, 0, 24.0), 0.0)
-	pl.teleport(Transform3D(Basis.IDENTITY, Vector3(0, 3.2, 21.0)))
+	pl.teleport(Transform3D(Basis.IDENTITY, Vector3(0, 4.2, 22.0)))
+	await p.wait_game(0.3)
 	Input.action_press(&"move_forward")
 	Input.action_press(&"jump")
-	await p.wait_game(0.7)
-	await _obs("env_glide_wake", pl.global_position + Vector3(0, -2.0, -1.0), 1.0, 6.0, 0.5)
+	await _tick_until(func() -> bool: return pl.motor.gliding, 1.5)
+	await p.wait_game(0.3)
+	await _close("env_glide_wake", pl.global_position + Vector3(0, -1.2, 0.5), 7.5, 2.5, 160.0)
 	Input.action_release(&"jump")
 	Input.action_release(&"move_forward")
 	await _tick_until(func() -> bool: return pl.is_on_floor(), 3.0)

@@ -151,14 +151,29 @@ func _ride(delta: float) -> void:
 	if wh > -INF and wh > ctx.ground_y(p, 0.6, 3.0) + 0.2 and p.y < wh + 0.4:
 		ctx.gravity_scale = 0.0
 		body.velocity.y = clampf((wh + 0.05 - p.y) * 10.0, -4.0, 6.0)
-	# Wall run: riding fast into a steep wall runs up it.
+	# Wall run: riding fast into a steep wall (world geometry, not a character) runs up it.
 	if body.is_on_wall() and vel.length() > 6.0 and wall_left > 0.0:
-		var n := body.get_wall_normal()
-		if n.y < 0.35 and vel.normalized().dot(-Vector3(n.x, 0.0, n.z).normalized()) > 0.45:
+		var n := _runnable_wall(body)
+		if n != Vector3.ZERO and vel.normalized().dot(-Vector3(n.x, 0.0, n.z).normalized()) > 0.45:
 			phase = Phase.WALL
 			_wall_n = Vector3(n.x, 0.0, n.z).normalized()
 			_off_wall = 0.0
 			AirFx.swirl(ctx.caster, body.global_position + Vector3.UP * 0.6, 0.6, 0.3, {"grow": 1.8, "spin": 20.0, "height": 0.1, "opacity": 0.6})
+
+
+## Normal of the steep static surface the body slid against this tick (ZERO if the
+## only walls were characters, props or projectiles).
+static func _runnable_wall(body: CharacterBody3D) -> Vector3:
+	for i in body.get_slide_collision_count():
+		var c := body.get_slide_collision(i)
+		var n := c.get_normal()
+		if n.y >= 0.35:
+			continue
+		var o := c.get_collider()
+		if o is CharacterBody3D or o is RigidBody3D:
+			continue
+		return n
+	return Vector3.ZERO
 
 
 func _wall(delta: float) -> void:
