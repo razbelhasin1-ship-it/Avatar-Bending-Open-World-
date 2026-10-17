@@ -306,7 +306,7 @@ func _quest_giver() -> void:
 	var runner := dir.runner
 	var started := false
 	for attempt in 4:
-		await _press(&"interact", 0.08)
+		await p.tap(&"interact", 0.08)
 		started = await p.wait_until(func() -> bool: return runner.busy, 2.0)
 		if started:
 			break
@@ -328,7 +328,7 @@ func _quest_giver() -> void:
 			up.pressed = false
 			Input.parse_input_event(up)
 		else:
-			await _press(&"interact", 0.06)
+			await p.tap(&"interact", 0.06)      # InputEventAction, like a key / pad press
 		await p.wait_game(0.35)
 	p.check(not runner.busy, "%s conversation ended (%d lines)" % [el, runner.transcript.size()])
 	await p.wait_game(0.8)
@@ -352,6 +352,12 @@ func _combat() -> void:
 	fwd = fwd.normalized()
 	# --- every slot against a real bandit ---
 	var en := _spawn_enemy(&"bandit_brawler", pl.global_position + fwd * 7.0, pl.global_position)
+	var en_states := {}
+	var en_attacks := [0]
+	var en_defeat := [&""]
+	en.defeated.connect(func(_e: EnemyBase, how: StringName) -> void: en_defeat[0] = how)
+	en.state_changed.connect(func(ns: int, _os: int) -> void: en_states[EnemyBase.State.keys()[ns]] = true)
+	en.attack_telegraphed.connect(func(_e: EnemyBase, _a: Dictionary, _s: float) -> void: en_attacks[0] += 1)
 	await p.wait_game(0.6)
 	await _press(&"lock_on")
 	await p.wait_game(0.3)
@@ -417,7 +423,10 @@ func _combat() -> void:
 		await _ticks_until(func() -> bool: return not pl.controller.is_busy(), 3.0)
 		t += 2.5
 	p.check(not is_instance_valid(en) or not en.is_alive(), "%s bandit defeated in the fight (%.0f s)" % [el, t])
-	p.check(killed.has(en), "%s enemy_killed reported" % el)
+	p.check(en_defeat[0] != &"" and (en_defeat[0] != &"killed" or killed.has(en)), "%s defeat reported: %s (Events.enemy_killed on a kill; surrender / flight count as defeats for quests)" % [el, en_defeat[0]])
+	p.note("%s bandit states seen: %s, attacks telegraphed: %d" % [el, str(en_states.keys()), en_attacks[0]])
+	p.check(en_states.has("STAGGER") or en_states.has("KNOCKDOWN"), "%s the bandit reacted to hits (stagger / knockdown)" % el)
+	p.check(en_attacks[0] > 0 and (en_states.has("CHASE") or en_states.has("STRAFE") or en_states.has("ATTACK")), "%s the bandit fought back (%d attacks)" % [el, en_attacks[0]])
 	await p.wait_game(1.0)
 	p.check(xp_gained > xp0, "%s defeat granted XP (+%d)" % [el, xp_gained - xp0])
 	await p.screenshot("%s_05_defeated" % el)
@@ -601,7 +610,8 @@ func _save_menu_continue() -> void:
 	await p.wait_until(func() -> bool: return w.playing, 30.0)
 	await p.wait_game(1.0)
 	pl = w.player
-	var got := GameState.to_dict()
+	var got := _json(GameState.to_dict())
+	want = _json(want)
 	var pos := Vector3(want["player_position"][0], want["player_position"][1], want["player_position"][2])
 	p.check(pl.global_position.distance_to(pos) < 1.0, "%s position restored (%.2f m)" % [el, pl.global_position.distance_to(pos)])
 	p.check(pl.element == e and got["element"] == want["element"], "%s element restored" % el)
@@ -613,7 +623,7 @@ func _save_menu_continue() -> void:
 		live_slots.append(String(d.id) if d else "")
 	p.check(live_slots == want["equipped_abilities"], "%s the player's live slots match the save %s" % [el, str(live_slots)])
 	p.check(str(got["quests"]) == str(want["quests"]) and got["tracked_quest"] == want["tracked_quest"], "%s quests restored" % el)
-	p.check(str(got["inventory"]) == str(want["inventory"]) and int(got["inventory"].get("ginseng_tea", 0)) >= 2, "%s inventory restored %s" % [el, str(got["inventory"])])
+	p.check(str(got["inventory"]) == str(want["inventory"]) and GameState.item_count(&"ginseng_tea") >= 2 and GameState.inventory["ginseng_tea"] is int, "%s inventory restored %s" % [el, str(GameState.inventory)])
 	p.check(str(got["discovered_pois"]) == str(want["discovered_pois"]), "%s discovered POIs restored (%d)" % [el, got["discovered_pois"].size()])
 	p.check(absf(w.renderer.get_time_of_day() - float(want["time_of_day"])) < 0.25, "%s hour restored (%.2f vs %.2f)" % [el, w.renderer.get_time_of_day(), want["time_of_day"]])
 	var c2 := pl.get_companion() as Companion
@@ -638,6 +648,11 @@ func _save_menu_continue() -> void:
 	w.pause_menu.return_to_menu()
 	await p.wait_until(func() -> bool: return p.scene() is MainMenu and not Router.is_transitioning, 60.0)
 	await p.frames(3)
+
+
+## Through JSON (one number type) so a saved and a live record compare by value.
+func _json(v: Variant) -> Variant:
+	return JSON.parse_string(JSON.stringify(v))
 
 
 func _a_learnable_technique() -> StringName:

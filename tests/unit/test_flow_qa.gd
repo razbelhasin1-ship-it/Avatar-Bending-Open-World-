@@ -210,6 +210,36 @@ func test_router_request_during_fade_in_is_not_lost() -> void:
 		expect(ok and get_tree().current_scene is ElementSelect, "a second request during the fade-out is dropped (scene %s)" % get_tree().current_scene))
 
 
+# --- 15: save / load preserves what it claims -----------------------------------------------------------------
+
+## A save is JSON (one number type): counts came back as floats, so `log.has(1)` (the quest
+## journal's "stage reached") was false for [0.0, 1.0] and records printed "2.0".
+func test_save_round_trip_keeps_integer_records() -> void:
+	GameState.new_game(ElementDefs.Element.EARTH)
+	GameState.add_item(&"ginseng_tea", 3)
+	GameState.incr_stat("enemies_defeated", 4)
+	GameState.add_practice(&"earth_pillar", 2)
+	GameState.quests["ek_stone_beneath_the_sky"] = {"state": "failed", "stage": 1, "objectives": {"meet_lin": 1}, "log": [0, 1], "started": 12.5}
+	GameState.discover_poi(&"poi_test")
+	GameState.player_position = Vector3(10, 20, 30)
+	GameState.time_of_day = 17.25
+	var want := GameState.to_dict()
+	expect(SaveSystem.save_game(SaveSystem.MAX_SLOTS - 1), "saved")
+	GameState.reset()
+	expect(SaveSystem.load_game(SaveSystem.MAX_SLOTS - 1), "loaded")
+	expect(GameState.inventory["ginseng_tea"] is int and GameState.item_count(&"ginseng_tea") == 3, "inventory count is an int (%s)" % type_string(typeof(GameState.inventory["ginseng_tea"])))
+	expect(GameState.stats["enemies_defeated"] is int and GameState.ability_practice["earth_pillar"] is int, "stats / practice are ints")
+	var rec: Dictionary = GameState.quests["ek_stone_beneath_the_sky"]
+	expect((rec["log"] as Array).has(1) and rec["stage"] is int and rec["objectives"]["meet_lin"] is int, "quest log / stage / progress are ints %s" % str(rec))
+	expect(is_equal_approx(float(rec["started"]), 12.5), "times stay floats")
+	var info := Quests.journal_entry(&"ek_stone_beneath_the_sky")
+	if not info.is_empty():
+		expect((info["stages"] as Array).size() == 2, "a failed quest's journal shows the stages it reached (%d)" % (info["stages"] as Array).size())
+	expect(GameState.player_position.is_equal_approx(Vector3(10, 20, 30)) and is_equal_approx(GameState.time_of_day, 17.25), "position / hour")
+	expect(str(JSON.parse_string(JSON.stringify(GameState.to_dict())).get("quests")) == str(JSON.parse_string(JSON.stringify(want)).get("quests")), "quests identical by value")
+	SaveSystem.delete_save(SaveSystem.MAX_SLOTS - 1)
+
+
 # --- 11: no permanent stuck states (input fuzz) --------------------------------------------------------------
 
 const FUZZ_ACTIONS: Array[StringName] = [&"attack_light", &"attack_light", &"attack_light", &"attack_heavy", &"attack_heavy", &"block",

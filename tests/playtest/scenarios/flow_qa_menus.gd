@@ -16,11 +16,9 @@ var snapshot: Dictionary = {}
 func run(pt: Playtest) -> void:
 	p = pt
 	snapshot = Settings.snapshot()
-	for i in SaveSystem.MAX_SLOTS:
-		if SaveSystem.has_save(i):
-			p.note("existing save slot %d is ignored by this run (no CONTINUE)" % i)
-	var saves_before := _save_files()
-	await p.goto_scene(Router.MAIN_MENU)
+	_backup_saves()
+	# The real launch path: boot.tscn (project main scene) routes to the main menu.
+	await p.load_scene("res://scenes/boot.tscn")
 	var menu := await _menu()
 	if menu == null:
 		return
@@ -36,14 +34,28 @@ func run(pt: Playtest) -> void:
 	await _exit(menu)
 	Settings.restore_snapshot(snapshot)
 	Settings.apply()
-	p.check(_save_files() == saves_before, "menus and the training grounds wrote no save (%s)" % str(_save_files()))
+	_restore_saves()
 
 
-func _save_files() -> Array:
-	var out := []
+const BACKUP := "user://saves_flow_qa_menus_backup"
+
+
+## No save during the run: 01 ENTER THE WORLD goes straight to the element select.
+func _backup_saves() -> void:
+	DirAccess.make_dir_recursive_absolute(BACKUP)
 	for i in SaveSystem.MAX_SLOTS:
-		out.append(SaveSystem.has_save(i))
-	return out
+		if SaveSystem.has_save(i):
+			DirAccess.copy_absolute(SaveSystem.slot_path(i), BACKUP.path_join("slot_%d.json" % i))
+			SaveSystem.delete_save(i)
+
+
+func _restore_saves() -> void:
+	for i in SaveSystem.MAX_SLOTS:
+		var b := BACKUP.path_join("slot_%d.json" % i)
+		if FileAccess.file_exists(b):
+			SaveSystem.delete_save(i)
+			DirAccess.copy_absolute(b, SaveSystem.slot_path(i))
+			DirAccess.remove_absolute(b)
 
 
 func _ui(action: StringName) -> void:
@@ -60,7 +72,13 @@ func _menu() -> MainMenu:
 	var menu := p.scene() as MainMenu
 	if not p.check(menu != null, "main menu up (%s)" % p.scene()):
 		return null
-	await p.wait_until(func() -> bool: return _focus_owner() == menu.options[0], 30.0)
+	await p.wait_until(func() -> bool: return _focus_owner() is MenuOptionButton, 30.0)
+	# back to 01 (focus returns to the option a sub-screen was opened from)
+	var guard := 0
+	while _focus_owner() != menu.options[0] and guard < 5:
+		guard += 1
+		await _ui(&"ui_up")
+	p.check(_focus_owner() == menu.options[0], "01 ENTER THE WORLD focused")
 	return menu
 
 
@@ -97,7 +115,7 @@ func _settings(menu: MainMenu) -> void:
 	p.note("render state with Low: %s" % str(low))
 	p.check(int(Settings.get_value("graphics", "shadows")) == 1 and not bool(Settings.get_value("graphics", "glow")), "Low preset values set (shadows 1, glow off)")
 	p.check(low["msaa"] == Viewport.MSAA_DISABLED and low["ssaa"] == Viewport.SCREEN_SPACE_AA_DISABLED, "anti-aliasing off on the real viewport")
-	p.check(low["glow"] == false and low["sun_shadow_dist"] < before["sun_shadow_dist"] and low["mesh_lod"] > before["mesh_lod"], "the menu scene's environment glow, sun shadow distance and mesh LOD follow the preset")
+	p.check(low["glow"] == false and low["sun_mode"] != before["sun_mode"] and low["mesh_lod"] > before["mesh_lod"], "the menu scene's environment glow, sun shadow cascades and mesh LOD follow the preset")
 	p.check(low["pos_atlas"] < before["pos_atlas"], "positional shadow atlas shrinks (%d -> %d)" % [before["pos_atlas"], low["pos_atlas"]])
 	await p.screenshot("menus_02_settings_low")
 	# Render scale on the Display tab
@@ -120,7 +138,7 @@ func _render_state(vp: Viewport, pano: Node) -> Dictionary:
 	return {"msaa": vp.msaa_3d, "ssaa": vp.screen_space_aa, "taa": vp.use_taa, "scale": snappedf(vp.scaling_3d_scale, 0.01),
 			"mesh_lod": vp.mesh_lod_threshold, "pos_atlas": vp.positional_shadow_atlas_size,
 			"glow": env.glow_enabled if env else null, "ssao": env.ssao_enabled if env else null,
-			"sun_shadow": sun.shadow_enabled if sun else null, "sun_shadow_dist": sun.directional_shadow_max_distance if sun else 0.0}
+			"sun_shadow": sun.shadow_enabled if sun else null, "sun_mode": sun.directional_shadow_mode if sun else -1}
 
 
 # --- 01 ENTER THE WORLD -> element select -> Back during the fade-in -------------------------------------
@@ -168,6 +186,7 @@ func _tutorial(menu: MainMenu) -> void:
 		return
 	await p.wait_until(func() -> bool: return t.is_ready and not Router.is_transitioning, 300.0)
 	p.check(GameState.is_tutorial and GameState.element == ElementDefs.Element.FIRE and t.player.element == ElementDefs.Element.FIRE, "tutorial as a firebender (GameState.is_tutorial)")
+	p.check(not SaveSystem.can_save() and not SaveSystem.save_game(SaveSystem.MAX_SLOTS - 1), "nothing can be saved in the training grounds")
 	await p.wait_until(func() -> bool: return t.director != null and t.director.running, 30.0)
 	await p.wait_game(0.5)
 	await p.screenshot("menus_04_training_grounds")
