@@ -150,6 +150,13 @@ count is not comparable to the 200 budget; the reduction is what transfers.
 Screenshots: `budget_water_before_after.png`, `budget_earth_before_after.png` (before above,
 after below; same views).
 
+**Desktop check** (`PRESET=high`, Forward+, after): the desktop chain is unchanged apart from the
+outline-less LOD1 / LOD2 (the outline is invisible there), the cross-fades, glows hidden by day,
+garden bands and character mesh LODs at the 1 px threshold. Worst views: water 2030k primitives /
+377 draws, earth 1829k / 400, fire 1772k / 250, air 1781k / 183 (software rendering: 1.8-2.5 s
+frames, not a target). `desktop_high_water_spawn.png`, `desktop_high_earth_spawn.png`: ink
+outlines, fur shells, distant walls and towers all present.
+
 **Remaining.**
 * Margins are thin: water 246k (4k under), earth 196 draws (4 under). The NPC director can put
   up to 10 NPCs in view and weather / combat FX add on top; the budget holds for the spawn
@@ -216,7 +223,9 @@ fight: visible in only 24 % of the frames with the brawler within 3.5 m.
 | largest yaw step per frame | 4.07° | 4.23° |
 
 NPC on the line: fade 0.72 after 0.8 s, restored (own materials back) after stepping away;
-polar bear dog on the line: fade 0.72 including every fur shell, back to 0 once moved. Unit
+polar bear dog on the line: fade 0.72 including every fur shell, back to 0 once moved. The
+occluder part also passes on the Compatibility renderer (`PART=occluders RENDERER=gl_compatibility`);
+the creature shaders rendered without errors on all three renderers (budget runs). Unit
 tests: `test_occluder_between_camera_and_player_fades_and_restores`,
 `test_dither_twin_copies_the_toon_look`, `test_lock_on_close_target_stays_in_view`.
 

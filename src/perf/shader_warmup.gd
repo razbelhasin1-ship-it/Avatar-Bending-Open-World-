@@ -251,9 +251,14 @@ func _make_caster(e: int, p: Vector3) -> BendingController:
 	add_child(b)
 	_bodies.append(b)
 	var ctx := BendingContext.new(b, null, e, Combat.Team.PLAYER)
+	# captures the body, not the (ref-counted) context: no reference cycle ctx -> lambda -> ctx
 	ctx.aim_provider = func() -> Dictionary:
-		var f := ctx.forward()
-		return {"direction": f, "target": null, "point": ctx.origin() + Vector3.UP * 1.1 + f * TARGET_DISTANCE}
+		if not is_instance_valid(b):
+			return {"direction": Vector3.FORWARD, "target": null, "point": Vector3.ZERO}
+		var f := -b.global_basis.z
+		f.y = 0.0
+		f = f.normalized() if f.length_squared() > 1e-6 else Vector3.FORWARD
+		return {"direction": f, "target": null, "point": b.global_position + Vector3.UP * 1.1 + f * TARGET_DISTANCE}
 	var bc := BendingController.new()
 	b.add_child(bc)
 	bc.setup(ctx)
