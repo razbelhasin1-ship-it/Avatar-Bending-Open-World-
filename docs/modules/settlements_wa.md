@@ -182,6 +182,18 @@ ELEMENT=air tools/playtest.sh settlements_wa_world out 960x540
   via `BuildingKit.brazier`), lanterns and the fire pits (village fires, the family-home hearth)
   record LOD0 fire spots that `WorldFires` makes interactive near the player.
 
+## Wave 4 bug hunt (docs/qa/bughunt_world.md)
+
+* **Air Temple stairs walled off** (found by the city walk audit: a walker going up the 220
+  ramp stopped half way, pressed against a wall): `_find_ramps` kept the WorldData bearing 220
+  while the wall spans work in -180..180, so the 220 ramp got no gap - the courtyard and sanctum
+  walls ran straight across both of its stairs. Bearings are wrapped now. And beside every stair
+  the ramp's side slopes pushed the wall face out at the gap end only: the chord next to the gap
+  ran diagonally (15-28 degrees) and its deep body narrowed the sanctum stairs to 0.5-2 m;
+  `_sample_faces` keeps the default face over the gap (+ the conservative window). Every stair's
+  9 m walkway is clear now (`test_bughunt_world.gd::test_air_temple_stairs_are_not_walled_off`,
+  all four ramps walked to the sanctum in the audit).
+
 ## Known issues / next steps
 
 * Door-front anchors (homes, workers, door quest givers, palace guards, the princess at the

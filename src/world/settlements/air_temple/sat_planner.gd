@@ -153,7 +153,9 @@ func place(kind: StringName, pos: Vector3, yaw: float, spec: Dictionary, lod: in
 
 func _find_ramps() -> void:
 	for rp in L.ramps:
-		var b := float(rp["bearing"])
+		# wrapped like the wall spans (-180..180): the 220 ramp got no gap in the courtyard and
+		# sanctum walls, which ran straight across its stairs (wave 4 bug hunt)
+		var b := wrapf(float(rp["bearing"]), -180.0, 180.0)
 		for rb: float in [46.0, 112.0, 162.0]:
 			var lo := tier_y(rb + 20.0, b)
 			var hi := tier_y(rb - 20.0, b)
@@ -249,9 +251,21 @@ func foot_radius(rb: float, b: float, y_low: float) -> float:
 
 
 func _sample_faces(rb: float) -> void:
+	# beside a stair the ramp's side slopes would push the face out at the gap end only: the chord
+	# next to the gap then runs diagonally and its deep body swings across the stair (the 220 stair
+	# to the courtyard was closed, the sanctum stairs narrowed to 0-2 m - wave 4 bug hunt). The
+	# default face over the gap and the conservative +-2 degree window keeps those chords straight.
+	var stair_b: Array[float] = []
+	for r: Array in ramps:
+		if absf(float(r[1]) - rb) < 1.0:
+			stair_b.append(float(r[0]))
+	var keep := RingLayout.half_angle(RAMP_HALF * 2.0, rb + FACE_OUT) + 3.0
 	var raw := PackedFloat32Array()
 	for k in 361:
 		var b := -180.0 + k
+		if stair_b.any(func(sb: float) -> bool: return absf(RingLayout.bdiff(b, sb)) < keep):
+			raw.append(rb + FACE_OUT)
+			continue
 		var y_low := tier_y(rb + 30.0, b)
 		var y_top := tier_y(rb - 8.0, b)
 		var foot := foot_radius(rb, b, y_low)

@@ -131,6 +131,83 @@ func test_releasing_a_cell_with_a_vanished_npc() -> void:
 	WorldData.height_override = Callable()
 
 
+# --- settlements: stairs not walled off ------------------------------------------------------------
+
+## Does a `kinds` piece's body (walls: boxes L x (H - bottom) x depth behind their face, local +Z,
+## like SatCivic.tier_wall builds them) contain p?
+static func _in_wall(walls: Array, p: Vector3) -> bool:
+	for w: Dictionary in walls:
+		var ws: Dictionary = w["spec"]
+		var lp := Transform3D(Basis(Vector3.UP, float(w["yaw"])), w["pos"]).affine_inverse() * p
+		if absf(lp.x) < float(ws["L"]) * 0.5 and lp.z > 0.05 and lp.z < float(ws.get("depth", 5.6)) \
+				and lp.y > float(ws.get("bottom", -1.2)) and lp.y < float(ws["H"]):
+			return true
+	return false
+
+
+## Every stair piece whose walkway (between the cheek walls, a walker's body 0.4-1.6 m over the
+## steps, foot to head) is narrowed by a `kinds` piece's body to less than `min_free` m anywhere:
+## "stair @bearing: at r .. (x, y, z) only .. m free (needs ..)".
+static func _stair_blocks(plan: SettlementPlan, kinds: Array, min_free: float) -> Array[String]:
+	var out: Array[String] = []
+	var walls: Array = plan.pieces.filter(func(pc: Dictionary) -> bool: return kinds.has(pc["kind"]))
+	for st: Dictionary in plan.pieces:
+		if st["kind"] != &"stair":
+			continue
+		var sxf := Transform3D(Basis(Vector3.UP, float(st["yaw"])), st["pos"])
+		var sp: Dictionary = st["spec"]
+		var H := float(sp["H"])
+		var R := float(sp["R"])
+		var hw := (float(sp.get("W", 12.0)) - 3.0) * 0.5
+		var mid := sxf * Vector3(0, 0, -R * 0.5)
+		var near: Array = walls.filter(func(w: Dictionary) -> bool:
+			return Vector2((w["pos"] as Vector3).x - mid.x, (w["pos"] as Vector3).z - mid.z).length() < R * 0.5 + float(w["spec"]["L"]) + float(w["spec"].get("depth", 5.6)) + 4.0)
+		var worst := INF
+		var worst_p := Vector3.ZERO
+		for k in 61:
+			var t := k / 60.0
+			# the widest run of free 0.25 m lanes across the walkway at this point of the climb
+			var best := 0.0
+			var run := 0.0
+			var lx := -hw + 0.125
+			while lx < hw:
+				var free := true
+				for up: float in [0.4, 1.6]:
+					free = free and not _in_wall(near, sxf * Vector3(lx, H * t + up, -R * t))
+				run = run + 0.25 if free else 0.0
+				best = maxf(best, run)
+				lx += 0.25
+			if best < worst:
+				worst = best
+				worst_p = sxf * Vector3(0, H * t, -R * t)
+		if worst < min_free:
+			var pol := Vector2(worst_p.x - plan.center.x, worst_p.z - plan.center.z)
+			out.append("stair @%.0f: at r %.0f (%.0f, %.1f, %.0f) only %.2f m free (needs %.1f)" % [
+				rad_to_deg(atan2(pol.x, -pol.y)), pol.length(), worst_p.x, worst_p.y, worst_p.z, worst, min_free])
+	return out
+
+
+## Found by the walk audit (Air Temple, the stair up the 220 ramp): the retaining wall chord next
+## to a stair gap follows the foot of the slope the terrain generator blended there, runs
+## diagonally and its 20 m deep body reaches across the stair - a walker going up stops half way,
+## pressed against the wall at chest height.
+func test_air_temple_stairs_are_not_walled_off() -> void:
+	if not WorldData.has_world_data():
+		return
+	# plans are cached for the run: one built under another test's flat terrain has no stairs
+	Settlements.reset()
+	var plan := Settlements.plan(&"southern_air_temple")
+	var stairs := plan.pieces.filter(func(pc: Dictionary) -> bool: return pc["kind"] == &"stair").size()
+	expect(stairs >= 6, "the temple's grand stairs (%d)" % stairs)
+	# the walkway is 9 m between the cheek walls; a wall corner shaving its edge is harmless, a
+	# walker needs a clear lane of 2 m (the player capsule is 0.8 m wide)
+	var blocked := _stair_blocks(plan, [&"tier_wall"], 2.0)
+	expect(blocked.is_empty(), "no retaining wall closes a stair: %s" % "; ".join(blocked))
+	var narrowed := _stair_blocks(plan, [&"tier_wall"], 8.5)
+	if not narrowed.is_empty():
+		print("  (narrowed, still passable: %s)" % "; ".join(narrowed))
+
+
 # --- content streaming pools --------------------------------------------------------------------------
 
 ## A few instanced boxes per 32 m cell (a stand-in for vegetation / settlement multimeshes).
