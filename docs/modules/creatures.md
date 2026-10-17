@@ -198,7 +198,10 @@ mark_row + v along the part)`, `UV2 = (meters around, meters along)`, `COLOR.rgb
   catchlights, glow (dragon). `membrane.gdshader`: double-sided wing skin with veins and
   translucency. `bird.gdshader`: vertex-shader wing flap for MultiMesh flocks.
 * Per-creature hit flash / status use `instance uniform`s with fixed `instance_index`, so
-  materials are shared across instances. All shaders run on Forward+, Mobile and
+  materials are shared across instances. `occlusion_fade` (index 3, perf_polish) dithers the
+  creature out (4×4 Bayer discard at the start of every creature fragment shader: skin, fur
+  shells, membrane, eye, outline) when it stands between the camera and the player
+  (`OccluderFader`). All shaders run on Forward+, Mobile and
   Compatibility (verified with playtests on all three).
 
 ### Gait engine (`GaitEngine`, `CreatureLeg`)

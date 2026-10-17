@@ -15,6 +15,9 @@ extends RefCounted
 const SLOT_ORDER: Array[StringName] = [&"solid", &"ice", &"glow", &"cloth"]
 
 var _slots: Dictionary = {}            # slot -> GeoBuilder (used as plain array storage)
+## Material slot remap applied by add(): {&"ice": &"solid", ...} folds surfaces together (one draw
+## call instead of up to four: the phones' merged silhouettes, perf_polish).
+var slot_map: Dictionary = {}
 var boxes: Array = []
 var faces := PackedVector3Array()
 var lights: Array[Dictionary] = []
@@ -42,7 +45,7 @@ func add(res: KitResult, t: Transform3D = Transform3D.IDENTITY, opts: Dictionary
 	var nt := Transform3D(t.basis, Vector3.ZERO)
 	for s: Array in res.surfaces:
 		var arr: Array = s[0]
-		var dst := _slot(s[1])
+		var dst := _slot(slot_map.get(s[1], s[1]))
 		var base := dst.verts.size()
 		var v: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
 		dst.verts.append_array(t * v)

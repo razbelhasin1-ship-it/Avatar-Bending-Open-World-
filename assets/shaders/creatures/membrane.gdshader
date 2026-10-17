@@ -15,6 +15,7 @@ void vertex() {
 }
 
 void fragment() {
+	CREATURE_OCCLUSION_DISCARD
 	vec3 c = albedo.rgb * COLOR.rgb;
 	// Veins: branching lines along the membrane (UV2 = finger index, row).
 	float vx = abs(fract(UV2.x * vein_scale * 0.5 + 0.13 * sin(UV2.y * 2.1)) - 0.5);

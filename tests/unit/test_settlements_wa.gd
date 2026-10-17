@@ -109,7 +109,10 @@ func test_lod_handover_has_no_gap() -> void:
 		var n := 0
 		for m: Dictionary in payload.meshes:
 			n += 1
-			expect_eq(float(m.get("margin", 0.0)), 0.0, "no visibility margin on %s" % m.get("tag"))
+			# A margin is a hysteresis (gap) only without a fade mode; with FADE_SELF (desktop
+			# cross-fade, perf_polish) both LODs draw across the band, so no gap.
+			if int(m.get("fade", 0)) != GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF:
+				expect_eq(float(m.get("margin", 0.0)), 0.0, "no visibility margin on %s" % m.get("tag"))
 		for m: Dictionary in payload.multimeshes:
 			expect_eq(float(m.get("margin", 0.0)), 0.0, "no visibility margin on %s" % m.get("tag"))
 		expect(n > 0, "%s has meshes" % pr.id)

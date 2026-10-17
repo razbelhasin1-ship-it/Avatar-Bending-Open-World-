@@ -24,6 +24,9 @@ var env: Environment
 var _help: Label
 var _info: Label
 var _source_id := -1
+## The running ShaderWarmup (null once done) and its report (perf_polish).
+var warmup: ShaderWarmup = null
+var warmup_report: Dictionary = {}
 
 
 func _ready() -> void:
@@ -51,6 +54,27 @@ func _ready() -> void:
 	_spawn_targets()
 	_add_ui()
 	Events.player_died.connect(_on_player_died)
+	_warm_up(e)
+
+
+## perf_polish: compiles the element's FX pipelines up front (ShaderWarmup) behind the Router
+## fade (held while it runs; every normal entry, also `--scene=`). Scenes instanced directly
+## (playtests, tests) skip it unless Router.params has "warmup": true (then a black cover hides it).
+func _warm_up(e: int) -> void:
+	var held := Router.is_transitioning
+	var wanted := held or bool(Router.params.get("warmup", false))
+	var w := ShaderWarmup.start(self, e, {"cover": not held, "skip": not wanted or bool(Router.params.get("no_warmup", false))})
+	warmup = w
+	if not w.done:
+		if held:
+			Router.hold_fade()
+		await w.wait_done()
+		if held:
+			Router.release_fade()
+	if is_instance_valid(w):
+		warmup_report = w.report
+		w.queue_free()
+	warmup = null
 
 
 func _exit_tree() -> void:

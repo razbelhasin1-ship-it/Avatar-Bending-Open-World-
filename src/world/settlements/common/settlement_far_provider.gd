@@ -53,15 +53,22 @@ func build_cell(cell: ContentCell) -> void:
 		var r := build_sub(sub, origin, cell.seed)
 		if r.surfaces.is_empty():
 			continue
+		# no ink outline pass (it fades out by 60 m; LOD2 starts at >= 300 m); desktop cross-fades
+		# with the near provider's LOD1 (same AABB, same margin) and dissolves at the far end
+		var fm := float(cfg.get("fade_margin", 0.0))
 		r.add_to_payload(p, Transform3D.IDENTITY, {"vis_begin": float(cfg["lod1_end"]), "vis_end": float(cfg["far_end"]),
-			"margin": 0.0, "shadow": false, "collision": false, "lights": false,
-			"tag": StringName("%s_%d_%d" % [id, sub.x, sub.y])})
+			"margin": fm, "fade": GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF if fm > 0.0 else GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED,
+			"shadow": false, "collision": false, "lights": false,
+			"tag": StringName("%s_%d_%d" % [id, sub.x, sub.y]), "outline": false, "lods": bool(cfg.get("mesh_lods", false)),
+			"lod_bias": float(cfg.get("sil_lod_bias", 1.0))})
 	cell.payload = p
 
 
 ## LOD2 result of one near-grid sub-cell (relative to `origin`).
 func build_sub(sub: Vector2i, origin: Vector3, seed: int = 1) -> KitResult:
 	var m := KitMerger.new()
+	if bool(cfg.get("merge_far", false)):
+		m.slot_map = SettlementProvider.MERGED_SLOTS     # phones: one surface, one draw call
 	var kit := BuildingKit.new(builder.palette(), 2, seed)
 	for i in plan.cell_pieces(sub):
 		var pc: Dictionary = plan.pieces[i]

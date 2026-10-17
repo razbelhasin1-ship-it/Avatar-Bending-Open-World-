@@ -30,6 +30,7 @@ void vertex() {
 }
 
 void fragment() {
+	CREATURE_OCCLUSION_DISCARD
 	if (v_fur_amount < 0.05) {
 		discard;
 	}

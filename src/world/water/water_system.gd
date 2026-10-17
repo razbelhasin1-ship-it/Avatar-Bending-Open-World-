@@ -49,7 +49,9 @@ func _ready() -> void:
 	inland_material.set_shader_parameter(&"wave_params", Vector4(0.0, 0.0, 1.0, 1.0))
 	ocean = MeshInstance3D.new()
 	ocean.name = "Ocean"
-	ocean.mesh = build_ocean_mesh(96, 30000.0)
+	# phones: 64 radial segments (~15k triangles instead of ~24k, perf_polish); the waves fade
+	# out by 300 m there anyway
+	ocean.mesh = build_ocean_mesh(64 if Settings.detail_level() == 0 else 96, 30000.0)
 	ocean.material_override = ocean_material
 	ocean.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	ocean.custom_aabb = AABB(Vector3(-30000, -4, -30000), Vector3(60000, 8, 60000))
