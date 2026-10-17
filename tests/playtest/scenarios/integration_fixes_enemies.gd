@@ -59,22 +59,29 @@ func _duel(arch: StringName) -> Dictionary:
 	e.attack_telegraphed.connect(func(_en: EnemyBase, at: Dictionary, secs: float) -> void:
 		tells.append("%s %.2f" % [at.get("id", &"?"), secs]))
 	var t := 0.0
-	var phase := 0
-	while t < 26.0:
+	var phase := -1
+	var keep := 0.0
+	while t < 36.0:
 		await p.wait_game(0.1)
 		t += 0.1
-		# shift between close (techniques that clear space) and mid range every 4 s
-		if int(t / 4.0) != phase:
-			phase = int(t / 4.0)
-			var want := 2.4 if phase % 2 == 1 else 7.5
-			var to := pl.global_position - e.global_position
-			to.y = 0.0
+		keep -= 0.1
+		# alternate mid range and close range (where the space-clearing techniques belong)
+		# every 4.5 s; up close the player keeps pressing in when the bender backs off
+		var ph := int(t / 4.5)
+		var close := ph % 2 == 1
+		var to := pl.global_position - e.global_position
+		to.y = 0.0
+		if ph != phase or (close and to.length() > 3.4 and keep <= 0.0 and not e.actions.is_busy()):
+			phase = ph
+			keep = 1.0
+			var want := 2.3 if close else 7.5
 			var dir := to.normalized() if to.length() > 0.5 else Vector3.BACK
 			pl.teleport(Transform3D(pl.global_basis, e.global_position + dir * want))
-		if pl.states.state == PlayerCharacter.State.KNOCKED_DOWN or pl.states.state == PlayerCharacter.State.HITSTUN:
-			pass
 		var cur := e.controller.current
-		if cur != null and TECH.has(cur.def.id) and not shots.has(cur.def.id) and cur.time > 0.22:
+		# shoot just after the technique's release / impact (its effect on screen)
+		var released := cur != null and cur.time > 0.15 and cur.time_to_event(&"release") == INF and cur.time_to_event(&"impact") == INF
+		if cur != null and TECH.has(cur.def.id) and not shots.has(cur.def.id) and released:
+			await p.wait_game(0.12)
 			shots[cur.def.id] = true
 			await _obs("integration_fixes_enemy_%s_%s" % [arch, String(cur.def.id).trim_prefix("enemy_")], e, cur.def.id)
 	p.note("%s casts %s" % [arch, str(casts)])
@@ -128,6 +135,8 @@ func _group() -> void:
 	arena.call("clear_enemies")
 
 
+## Side-on observer shot of the bender and the player, from whichever side has a clear view
+## (the arena's stairs and pillars otherwise fill the foreground).
 func _obs(shot: String, e: EnemyBase, id: StringName) -> void:
 	var a := e.global_position + Vector3.UP
 	var b := pl.global_position + Vector3.UP
@@ -137,7 +146,23 @@ func _obs(shot: String, e: EnemyBase, id: StringName) -> void:
 	var fwd := f.normalized() if f.length() > 0.3 else Vector3.BACK
 	var right := Vector3(-fwd.z, 0.0, fwd.x)
 	var d := maxf(6.0, a.distance_to(b) * 0.9 + 4.0)
-	cam.look_at_from_position(mid + right * d + Vector3.UP * 2.6, mid, Vector3.UP)
+	var space := pl.get_world_3d().direct_space_state
+	var best := mid + right * d + Vector3.UP * 2.6
+	var best_clear := -1.0
+	for side: float in [1.0, -1.0]:
+		for k in 4:
+			var ang := deg_to_rad(-30.0 + k * 20.0)
+			var dir := (right * side).rotated(Vector3.UP, ang * side)
+			var pos := mid + dir * d + Vector3.UP * (2.2 + k * 0.4)
+			var clear := 1.0
+			for target: Vector3 in [a, b, mid]:
+				var q := PhysicsRayQueryParameters3D.create(pos, target, Layers.WORLD | Layers.CONSTRUCT)
+				if not space.intersect_ray(q).is_empty():
+					clear -= 0.34
+			if clear > best_clear:
+				best_clear = clear
+				best = pos
+	cam.look_at_from_position(best, mid, Vector3.UP)
 	cam.make_current()
 	await p.wait_game(0.05)
 	await p.screenshot(shot)

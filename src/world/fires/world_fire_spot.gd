@@ -21,19 +21,23 @@ func _ready() -> void:
 	add_to_group(FireEnv.IGNITABLE)
 	add_to_group(FireEnv.EXTINGUISHABLE)
 	add_to_group(&"world_fire")
-	proxy = FireHitProxy.make(0.6, _on_hit)
-	proxy.position = Vector3.UP * 0.3
+	proxy = FireHitProxy.make(0.8, _on_hit)
+	proxy.position = Vector3.UP * 0.15
 	add_child(proxy)
 
 
-## Binds the stand-in to a fire (world position of the flame base, reach radius).
+## Binds the stand-in to a fire (world position of the flame base, reach radius). The hit
+## sphere wraps the flame generously and sits up in the flame: its centre (the aim point the
+## line-of-sight checks use) must clear the bowl / lantern box the fire stands in, while the
+## sphere still reaches down to chest height for a brazier on a plinth.
 func bind(id: int, pos: Vector3, radius: float) -> void:
 	spot_id = id
 	global_position = pos
 	ignite_radius = clampf(radius + 0.25, 0.45, 1.0)
 	extinguish_radius = ignite_radius
 	if proxy:
-		proxy.set_radius(clampf(radius + 0.2, 0.4, 0.9))
+		proxy.position = Vector3.UP * minf(radius, 0.5)
+		proxy.set_radius(clampf(radius + 0.45, 0.6, 1.0))
 		proxy.active = true
 
 

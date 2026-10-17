@@ -154,15 +154,16 @@ func _fires() -> void:
 	await p.wait_until(func() -> bool: return not pl.controller.is_busy(), 3.0)
 	await p.wait_game(1.5)
 	await _obs("integration_fixes_fire_5_burning_again", bpos)
-	# An airbender's blast blows it out; then it relights by itself after its timer.
+	# An airbender's Air Push blows it out; then it relights by itself after its timer.
 	pl.set_element(E.AIR)
 	pl.resources.infinite_chi = true
 	pl.teleport(Transform3D(pl.global_basis, stand))
 	await p.wait_game(0.4)
+	_equip(&"air_push")
 	await _face_to(bpos)
-	await p.tap(&"attack_heavy", 0.08)
+	await _tap1()
 	await p.wait_until(func() -> bool: return not WorldFires.is_lit(bid), 3.0)
-	p.check(not WorldFires.is_lit(bid), "an air blast blew it out")
+	p.check(not WorldFires.is_lit(bid), "an Air Push blew it out")
 	var o: Dictionary = m.overrides.get(bid, {})
 	p.note("relights in %.0f s" % (float(o.get("until", 0.0)) - m.clock))
 	await p.wait_game(1.5)

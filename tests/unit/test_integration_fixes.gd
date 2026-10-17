@@ -653,6 +653,54 @@ func test_world_fires_douse_ignite_relight() -> void:
 	WorldFires.clear()
 
 
+## The real player's bending reaches a settlement-style brazier on a plinth (flame base 1.5 m
+## up, as the Water Tribe's): an air blast and a water whip put it out, a fire jab lights it.
+func test_player_bending_reaches_world_fires() -> void:
+	_ground()
+	WorldFires.clear()
+	WorldFires.time_override = 1
+	var kit := BuildingKit.new(NationPalette.get_palette(&"water_tribe"), 0, 3)
+	kit.box(Vector3(0, 0.35, 0), Vector3(1.3, 0.7, 1.3), &"stone_dark", true)
+	kit.brazier(Vector3(0, 0.7, 0), {"height": 0.5, "radius": 0.5, "range": 12.0})
+	var root := kit.build().instantiate({"name": "Plinth"})
+	root.position = Vector3(0, 0, -3.7)
+	add_child(root)
+	var m := WorldFires.ensure()
+	await frames(2)
+	m.focus_override = Vector3(0, 1.6, 2.0)
+	m.update_now()
+	var bid := int(WorldFires.spots_near(Vector3(0, 1.5, -3.7), 0.6)[0]["id"])
+	var report: Array[String] = []
+	for e: int in [E.AIR, E.WATER, E.FIRE]:
+		GameState.new_game(e)
+		var p := PlayerSim.player(self, e, Vector3.ZERO)
+		p.resources.infinite_chi = true
+		await PlayerSim.step(p, 3)
+		if e == E.FIRE:
+			WorldFires.extinguish(bid)
+			await frames(1)
+		var was := WorldFires.is_lit(bid)
+		var action := &"attack_heavy" if e == E.AIR else &"attack_light"
+		await PlayerSim.tap(p, action, 4)
+		for i in 90:
+			await get_tree().physics_frame
+			PlayerSim.step_once(p)
+			if WorldFires.is_lit(bid) != was:
+				break
+		report.append("%s %s: %s -> %s" % [ElementDefs.id_of(e), action, was, WorldFires.is_lit(bid)])
+		expect(WorldFires.is_lit(bid) != was, "%s %s changes the brazier (%s)" % [ElementDefs.id_of(e), action, report.back()])
+		m.clear_override(bid)
+		await frames(2)
+		p.queue_free()
+		await frames(1)
+	print("[integration_fixes] player vs brazier: ", " | ".join(report))
+	WorldFires.time_override = -1
+	m.focus_override = Vector3.INF
+	root.queue_free()
+	await frames(1)
+	WorldFires.clear()
+
+
 ## The real settlements record their fires: a Water Tribe cell with braziers (and the fire pit
 ## of an arctic village) built by the SettlementProvider carries LOD0 fire records.
 func test_settlement_cells_record_fires() -> void:
