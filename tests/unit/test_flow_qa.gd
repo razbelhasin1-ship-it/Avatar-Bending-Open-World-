@@ -158,3 +158,136 @@ func test_heavy_strike_report_for_charge_abilities_and_earth_boulder() -> void:
 		a.set(&"charge", 0.9)
 		var r := TutorialDirector.heavy_strike_of(a)
 		expect(not r.is_empty() and not bool(r["tapped"]) and float(r["charge"]) > 0.8, "%s: charged release reported %s" % [heavy_id, str(r)])
+
+
+# --- 16: menu <-> game transitions keep input working ---------------------------------------------------------
+
+func _press_ui(action: StringName) -> void:
+	for pressed: bool in [true, false]:
+		var ev := InputEventAction.new()
+		ev.action = action
+		ev.pressed = pressed
+		Input.parse_input_event(ev)
+		await frames(1)
+
+
+## Runs `body` with the Router free to change scenes (the test runner is kept aside as the
+## current scene), then frees whatever scene the Router left and restores the runner.
+func _with_router(body: Callable) -> void:
+	var prev := get_tree().current_scene
+	var holder := Node.new()
+	holder.name = "FlowQaHolder"
+	get_tree().root.add_child(holder)
+	get_tree().current_scene = holder
+	await body.call()
+	await _wait_until(func() -> bool: return not Router.is_transitioning, 30.0)
+	var cur := get_tree().current_scene
+	get_tree().current_scene = prev
+	if is_instance_valid(cur) and cur != prev:
+		cur.queue_free()
+	if is_instance_valid(holder):
+		holder.queue_free()
+	get_tree().paused = false
+	await frames(3)
+
+
+## Back / Esc pressed while the element select is still fading in (keyboard and pad input are
+## not blocked by the fade, only the mouse is): the request used to be dropped by the Router
+## while the screen's own `_busy` flag stayed set, so the screen ignored every later input.
+func test_router_request_during_fade_in_is_not_lost() -> void:
+	await _with_router(func() -> void:
+		Router.goto(Router.ELEMENT_SELECT, {"tutorial": false}, 0.4)
+		var ok := await _wait_until(func() -> bool: return get_tree().current_scene is ElementSelect, 30.0)
+		expect(ok and Router.is_transitioning, "element select swapped in and still fading in (%s)" % Router.is_transitioning)
+		await _press_ui(&"ui_cancel")
+		ok = await _wait_until(func() -> bool: return get_tree().current_scene is MainMenu and not Router.is_transitioning, 30.0)
+		expect(ok, "Back during the fade-in reaches the main menu (scene %s)" % get_tree().current_scene)
+		# A request issued by the outgoing scene before the swap is still ignored.
+		Router.goto(Router.ELEMENT_SELECT, {}, 0.3)
+		Router.goto(Router.TUTORIAL, {}, 0.3)
+		ok = await _wait_until(func() -> bool: return get_tree().current_scene is ElementSelect and not Router.is_transitioning, 30.0)
+		await frames(10)
+		expect(ok and get_tree().current_scene is ElementSelect, "a second request during the fade-out is dropped (scene %s)" % get_tree().current_scene))
+
+
+# --- 11: no permanent stuck states (input fuzz) --------------------------------------------------------------
+
+const FUZZ_ACTIONS: Array[StringName] = [&"attack_light", &"attack_light", &"attack_light", &"attack_heavy", &"attack_heavy", &"block",
+		&"dodge", &"dodge", &"jump", &"jump", &"sprint", &"ability_1", &"ability_2", &"ability_3", &"ability_4", &"ability_special",
+		&"lock_on", &"interact", &"companion_call", &"mount", &"descend"]
+const MOVES: Array[StringName] = [&"move_forward", &"move_back", &"move_left", &"move_right"]
+## States that may legitimately last (riding is ended by the player).
+const FREE_STATES := [PlayerCharacter.State.LOCOMOTION, PlayerCharacter.State.AIRBORNE, PlayerCharacter.State.MOUNTED]
+
+
+## Seeded random play next to an attacking bandit, for every element: every state the player
+## enters ends by itself, the controller never stays busy, and once the input stops the player is
+## back in control and walks.
+func test_input_fuzz_never_leaves_the_player_stuck() -> void:
+	for e in ElementDefs.ALL:
+		var el := String(ElementDefs.id_of(e))
+		GameState.new_game(e)
+		GameState.intro_done = true
+		var w := await _load(WORLD, {"new_game": true, "skip_intro": true, "no_content": true}) as WorldScene
+		if not expect(w.is_ready, "%s world ready" % el):
+			await _free(w)
+			continue
+		var pl := w.player
+		await physics_frames(10)
+		var fwd := -pl.global_basis.z
+		var foe := EnemyBase.create(&"bandit_brawler", {"home": Transform3D(Basis(), pl.global_position + fwd * 6.0), "level": 1, "seed": 3})
+		w.add_child(foe)
+		var rng := RandomNumberGenerator.new()
+		rng.seed = 4242 + e
+		var state_t := 0.0
+		var last_state := pl.get_state()
+		var worst := {"state": "", "t": 0.0}
+		var busy_t := 0.0
+		var worst_busy := 0.0
+		var held: Array[StringName] = []
+		for tick in 60 * 45:
+			if tick % 6 == 0:
+				for a in held.duplicate():
+					if rng.randf() < 0.45:
+						Input.action_release(a)
+						held.erase(a)
+				var act: StringName = FUZZ_ACTIONS[rng.randi() % FUZZ_ACTIONS.size()] if rng.randf() < 0.7 else MOVES[rng.randi() % MOVES.size()]
+				if not held.has(act):
+					Input.action_press(act)
+					held.append(act)
+				if rng.randf() < 0.3:
+					pl.camera_rig.set_yaw(pl.camera_rig.yaw + rng.randf_range(-0.6, 0.6))
+			if pl.health.ratio() < 0.3 and pl.is_alive():
+				pl.health.health = pl.health.max_health
+			await get_tree().physics_frame
+			var st := pl.get_state()
+			if st != last_state:
+				state_t = 0.0
+				last_state = st
+			else:
+				state_t += 1.0 / 60.0
+			if not FREE_STATES.has(st) and st != PlayerCharacter.State.DEAD and state_t > float(worst["t"]):
+				worst = {"state": pl.get_state_name(), "t": state_t}
+			busy_t = busy_t + 1.0 / 60.0 if pl.controller.is_busy() else 0.0
+			worst_busy = maxf(worst_busy, busy_t)
+			if not pl.global_position.is_finite() or not pl.velocity.is_finite():
+				fail("%s non-finite player position / velocity" % el)
+				break
+		_release_all()
+		# Leave a mount (if the fuzz ended on one) the way a player would.
+		if pl.get_state() == PlayerCharacter.State.MOUNTED:
+			await _hold_for(&"mount", 0.05)
+		var back := await _ticks_until(func() -> bool: return pl.get_state() == PlayerCharacter.State.LOCOMOTION and not pl.controller.is_busy(), 12.0)
+		expect(back, "%s back in control after the fuzz (state %s, busy %s, ability %s)" % [el, pl.get_state_name(), pl.controller.is_busy(),
+				pl.controller.current.def.id if pl.controller.current else &""])
+		expect(float(worst["t"]) < 8.0, "%s no locking state lasted long: worst %s %.1f s" % [el, worst["state"], worst["t"]])
+		expect(worst_busy < 12.0, "%s controller never busy for long (%.1f s)" % [el, worst_busy])
+		var at := pl.global_position
+		Input.action_press(&"move_forward")
+		await physics_frames(50)
+		Input.action_release(&"move_forward")
+		expect(Vector2(pl.global_position.x - at.x, pl.global_position.z - at.z).length() > 1.0 or pl.motor.swimming, "%s walks after the fuzz" % el)
+		if is_instance_valid(foe):
+			foe.queue_free()
+		await _free(w)
+		GameState.reset()
