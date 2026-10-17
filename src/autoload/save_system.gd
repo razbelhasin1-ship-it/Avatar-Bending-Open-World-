@@ -59,13 +59,28 @@ func save_game(slot: int = AUTOSAVE_SLOT) -> bool:
 		push_warning("SaveSystem: cannot write %s (%s)" % [tmp, error_string(FileAccess.get_open_error())])
 		return false
 	f.store_string(json)
+	var werr := f.get_error()
 	f.close()
+	# Only a temp file that reads back complete may replace the slot: a full disk / storage quota
+	# (phones, a browser's IndexedDB) used to leave a truncated temp file that then replaced the
+	# good save - the journey was lost (wave 4 bug hunt, docs/qa/bughunt_world.md).
+	if werr != OK or FileAccess.get_file_as_string(tmp) != json:
+		push_warning("SaveSystem: the save did not reach the disk intact (%s); the previous save is kept" % error_string(werr))
+		DirAccess.remove_absolute(tmp)
+		return false
 	var dir := DirAccess.open(save_dir)
 	if dir == null:
 		return false
-	if dir.file_exists(slot_path(slot).get_file()):
-		dir.remove(slot_path(slot).get_file())
-	var err := dir.rename(tmp.get_file(), slot_path(slot).get_file())
+	var file := slot_path(slot).get_file()
+	# The previous save stays as a backup (read_slot falls back to it if the slot is ever unreadable).
+	if dir.file_exists(file):
+		DirAccess.copy_absolute(slot_path(slot), slot_path(slot) + ".bak")
+	# rename() replaces the old slot atomically where the platform allows it; remove + rename
+	# only when it refuses (a crash in between still leaves the .tmp / .bak for read_slot).
+	var err := dir.rename(tmp.get_file(), file)
+	if err != OK and dir.file_exists(file):
+		dir.remove(file)
+		err = dir.rename(tmp.get_file(), file)
 	if err != OK:
 		push_warning("SaveSystem: rename failed (%s)" % error_string(err))
 		return false
@@ -74,8 +89,10 @@ func save_game(slot: int = AUTOSAVE_SLOT) -> bool:
 	return true
 
 
+## A slot exists (or can be recovered from its temp / backup file, see read_slot).
 func has_save(slot: int = AUTOSAVE_SLOT) -> bool:
-	return FileAccess.file_exists(slot_path(slot))
+	var path := slot_path(slot)
+	return FileAccess.file_exists(path) or FileAccess.file_exists(path + ".tmp") or FileAccess.file_exists(path + ".bak")
 
 
 func has_any_save() -> bool:
@@ -96,36 +113,48 @@ func latest_slot() -> int:
 		var d := read_slot(i)
 		if d.is_empty():
 			continue
-		var t := float(d.get("saved_unix", float(FileAccess.get_modified_time(slot_path(i)))))
+		var t := _num(d.get("saved_unix"), float(FileAccess.get_modified_time(slot_path(i))))
 		if t > best_time:
 			best_time = t
 			best = i
 	return best
 
 
+## The slot's data ({} if missing / unreadable). An unreadable or missing slot file falls back to
+## a complete temp file (a crash between writing and renaming) and then to the previous save
+## (`.bak`), so one damaged file never costs the whole journey.
 func read_slot(slot: int) -> Dictionary:
-	if not has_save(slot):
-		return {}
-	var text := FileAccess.get_file_as_string(slot_path(slot))
-	var json := JSON.new()
-	if json.parse(text) != OK or not (json.data is Dictionary):
-		push_warning("SaveSystem: slot %d is corrupt" % slot)
-		return {}
-	return _migrate(json.data)
+	var path := slot_path(slot)
+	for p: String in [path, path + ".tmp", path + ".bak"]:
+		if not FileAccess.file_exists(p):
+			continue
+		var json := JSON.new()
+		if json.parse(FileAccess.get_file_as_string(p)) != OK or not (json.data is Dictionary) \
+				or not ElementDefs.is_valid(int(_num((json.data as Dictionary).get("element"), -1))):
+			push_warning("SaveSystem: %s is corrupt" % p.get_file())
+			continue
+		if p != path:
+			push_warning("SaveSystem: slot %d recovered from %s" % [slot, p.get_file()])
+		return _migrate(json.data)
+	return {}
+
+
+static func _num(v: Variant, fallback: float) -> float:
+	return float(v) if (v is int or v is float) else fallback
 
 
 ## Summary for menus: element, level, region, play time, saved_at. Empty if none/invalid.
 func get_save_info(slot: int) -> Dictionary:
 	var d := read_slot(slot)
-	if d.is_empty() or not ElementDefs.is_valid(int(d.get("element", -1))):
+	if d.is_empty() or not ElementDefs.is_valid(int(_num(d.get("element"), -1))):
 		return {}
 	return {
 		"slot": slot,
-		"element": int(d.get("element")),
-		"level": int(d.get("level", 1)),
-		"region": String(d.get("region", "")),
-		"play_time": float(d.get("play_time", 0.0)),
-		"saved_at": String(d.get("saved_at", "")),
+		"element": int(_num(d.get("element"), -1)),
+		"level": int(_num(d.get("level"), 1)),
+		"region": String(d.get("region")) if d.get("region") is String else "",
+		"play_time": _num(d.get("play_time"), 0.0),
+		"saved_at": String(d.get("saved_at")) if d.get("saved_at") is String else "",
 	}
 
 
@@ -144,12 +173,13 @@ func load_game(slot: int = AUTOSAVE_SLOT) -> bool:
 
 
 func delete_save(slot: int) -> void:
-	if has_save(slot):
-		DirAccess.remove_absolute(slot_path(slot))
+	for p: String in [slot_path(slot), slot_path(slot) + ".tmp", slot_path(slot) + ".bak"]:
+		if FileAccess.file_exists(p):
+			DirAccess.remove_absolute(p)
 
 
 func _migrate(d: Dictionary) -> Dictionary:
-	var v := int(d.get("version", 0))
+	var v := int(_num(d.get("version"), 0))
 	if v < 1:
 		# Pre-versioned saves: nothing structural changed yet.
 		d["version"] = 1

@@ -98,9 +98,16 @@ func add_records(coord: Vector2i, recs: Array) -> void:
 func remove_records(coord: Vector2i) -> void:
 	for k: StringName in _cells.get(coord, []):
 		_records.erase(k)
-		var n: NpcCharacter = _live.get(k)
-		if n != null and is_instance_valid(n) and not n.in_conversation():
-			n.queue_free()
+		# Untyped read: an NPC that faded out (vanish) frees itself before the next _update prunes
+		# _live, and assigning that freed instance to a typed variable raised a script error that
+		# aborted the loop - the rest of the cell's records stayed behind (wave 4 bug hunt).
+		var v: Variant = _live.get(k)
+		if v == null:
+			continue
+		if not is_instance_valid(v):
+			_live.erase(k)
+		elif not (v as NpcCharacter).in_conversation():
+			(v as NpcCharacter).queue_free()
 			_live.erase(k)
 	_cells.erase(coord)
 
@@ -121,7 +128,7 @@ func live_count() -> int:
 func live_npcs() -> Array[NpcCharacter]:
 	var out: Array[NpcCharacter] = []
 	for k: StringName in _live:
-		var n: NpcCharacter = _live[k]
+		var n: Variant = _live[k]       # untyped: may hold a freed (vanished) NPC until _update prunes it
 		if is_instance_valid(n):
 			out.append(n)
 	return out

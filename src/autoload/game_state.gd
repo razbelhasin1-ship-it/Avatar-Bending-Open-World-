@@ -203,25 +203,29 @@ func to_dict() -> Dictionary:
 	}
 
 
-## Loads from a dict, tolerating missing keys and older versions.
+## Loads from a dict, tolerating missing keys, older versions and damaged values: a field of the
+## wrong type (JSON writes a NaN as null, a hand-edited file...) falls back to its default instead
+## of aborting the load with a script error - one bad number no longer makes a journey unloadable
+## (wave 4 bug hunt, docs/qa/bughunt_world.md).
 func from_dict(d: Dictionary) -> bool:
 	reset()
-	var e := int(d.get("element", ElementDefs.Element.NONE))
+	var e := int(_num(d.get("element"), ElementDefs.Element.NONE))
 	if not ElementDefs.is_valid(e):
 		return false
 	element = e
-	player_name = String(d.get("player_name", player_name))
-	level = clampi(int(d.get("level", 1)), 1, MAX_LEVEL)
-	xp = maxi(0, int(d.get("xp", 0)))
-	skill_points = maxi(0, int(d.get("skill_points", 0)))
+	player_name = String(d.get("player_name", player_name)) if d.get("player_name") is String else player_name
+	level = clampi(int(_num(d.get("level"), 1)), 1, MAX_LEVEL)
+	xp = maxi(0, int(_num(d.get("xp"), 0)))
+	skill_points = maxi(0, int(_num(d.get("skill_points"), 0)))
 	unlocked_abilities.clear()
-	for a in d.get("unlocked_abilities", []):
-		unlocked_abilities.append(StringName(str(a)))
-	var eq: Array = d.get("equipped_abilities", [])
+	for a: Variant in _arr(d.get("unlocked_abilities")):
+		if a is String or a is StringName:
+			unlocked_abilities.append(StringName(str(a)))
+	var eq := _arr(d.get("equipped_abilities"))
 	for i in ABILITY_SLOTS:
-		equipped_abilities[i] = StringName(str(eq[i])) if i < eq.size() and eq[i] != null else &""
+		equipped_abilities[i] = StringName(str(eq[i])) if i < eq.size() and (eq[i] is String or eq[i] is StringName) else &""
 	inventory = _ints(_dict(d.get("inventory")))
-	currency = int(d.get("currency", 0))
+	currency = maxi(0, int(_num(d.get("currency"), 0)))
 	quests = _dict(d.get("quests"))
 	for q: Variant in quests:
 		var rec: Variant = quests[q]
@@ -229,31 +233,46 @@ func from_dict(d: Dictionary) -> bool:
 			for key: String in ["stage", "log", "objectives"]:
 				if (rec as Dictionary).has(key):
 					rec[key] = _ints(rec[key])
-	tracked_quest = StringName(str(d.get("tracked_quest", "")))
+	tracked_quest = StringName(str(d.get("tracked_quest", ""))) if d.get("tracked_quest") is String else &""
 	discovered_pois = _dict(d.get("discovered_pois"))
 	world_flags = _dict(d.get("world_flags"))
 	stats = _ints(_dict(d.get("stats")))
 	ability_practice = _ints(_dict(d.get("ability_practice")))
 	var comp := _dict(d.get("companion"))
 	for k: String in comp:
-		companion[k] = comp[k]
-	companion["bond"] = _ints(companion.get("bond", 0))
-	if companion.get("type", "") == "":
+		if comp[k] != null:
+			companion[k] = comp[k]
+	companion["bond"] = int(_num(_ints(companion.get("bond", 0)), 0))
+	companion["health_ratio"] = clampf(_num(companion.get("health_ratio"), 1.0), 0.0, 1.0)
+	if not (companion.get("type") is String) or companion.get("type", "") == "":
 		companion["type"] = String(ElementDefs.get_data(element).get("companion", ""))
 	var p: Variant = d.get("player_position")
 	if p is Array and (p as Array).size() == 3:
-		player_position = Vector3(float(p[0]), float(p[1]), float(p[2]))
-	player_yaw = float(d.get("player_yaw", 0.0))
-	player_health_ratio = clampf(float(d.get("player_health_ratio", 1.0)), 0.05, 1.0)
-	region = StringName(str(d.get("region", "")))
-	time_of_day = fposmod(float(d.get("time_of_day", 9.0)), 24.0)
-	play_time = float(d.get("play_time", 0.0))
-	intro_done = bool(d.get("intro_done", true))
+		var v := Vector3(_num(p[0], INF), _num(p[1], INF), _num(p[2], INF))
+		if v.is_finite():
+			player_position = v
+	player_yaw = _num(d.get("player_yaw"), 0.0)
+	player_health_ratio = clampf(_num(d.get("player_health_ratio"), 1.0), 0.05, 1.0)
+	region = StringName(str(d.get("region", ""))) if d.get("region") is String else &""
+	time_of_day = fposmod(_num(d.get("time_of_day"), 9.0), 24.0)
+	play_time = maxf(0.0, _num(d.get("play_time"), 0.0))
+	intro_done = bool(d.get("intro_done")) if d.get("intro_done") is bool else true
 	return true
 
 
 static func _dict(v: Variant) -> Dictionary:
 	return (v as Dictionary).duplicate(true) if v is Dictionary else {}
+
+
+static func _arr(v: Variant) -> Array:
+	return v if v is Array else []
+
+
+## A finite number from a save field, else `fallback` (JSON null from a NaN, strings, objects).
+static func _num(v: Variant, fallback: float) -> float:
+	if (v is float or v is int) and is_finite(float(v)):
+		return float(v)
+	return fallback
 
 
 ## JSON has one number type: a save brings every count back as a float (2 -> 2.0). Whole

@@ -1,0 +1,575 @@
+extends RefCounted
+## bughunt_world: adversarial audit of the open world with the REAL player in the REAL world
+## scene (docs/qa/bughunt_world.md). Parts (PART=travel,walk,npc - default all):
+##
+##   travel  every fast-travel point of the map (cities, villages, ports, shrines, training
+##           grounds, docks) made known, then travelled to through MapModel.travel (the map's own
+##           path): the player must arrive on dry, walkable floor - not swimming, not inside a
+##           wall or on a roof, able to walk away in some direction.
+##   walk    the main streets of every ring city: from outside the outer tier the player runs
+##           along every ramp bearing to the palace (InputMap actions + camera yaw, like a
+##           player), recording where the body is blocked, drops, or is rescued by the fall net.
+##   npc     at each city, every live NPC is checked for a capsule buried in settlement geometry
+##           and for walkers that stay stuck (NPCs walking into walls), over ~20 s of game time.
+##   quests  every quest objective with a place, played for real: the quest is advanced to the
+##           objective's stage, the player travels there; quest props must stand on reachable
+##           floor and be collected with `interact` (the item / report arrives), go_to places must
+##           complete when the player stands there, named NPCs (talk_to) must not be buried and
+##           must have floor in front of them to talk from.
+##
+## Headless (fast numbers): godot --headless --path . res://tests/playtest/playtest.tscn -- --test
+##   --scenario=bughunt_world_audit --out=<dir>  (PART=, CITY= to narrow). Rendered (screenshots
+## at every finding): tools/playtest.sh bughunt_world_audit <dir> 960x540.
+## Findings are written to <out>/audit.txt.
+
+const E := ElementDefs.Element
+
+var p: Playtest
+var w: WorldScene
+var pl: PlayerCharacter
+var lines: Array[String] = []
+var findings: Array[String] = []
+var shots := 0
+
+
+func run(pt: Playtest) -> void:
+	p = pt
+	SaveSystem.save_dir = "user://saves_bughunt_world_audit"
+	DirAccess.make_dir_recursive_absolute(SaveSystem.save_dir)
+	GameState.new_game(E.EARTH)
+	GameState.intro_done = true
+	w = await p.load_scene("res://scenes/world/world.tscn", {"new_game": true, "element": E.EARTH, "skip_intro": true, "time_of_day": 11.0}) as WorldScene
+	var ok := await p.wait_until(func() -> bool: return w.is_ready and w.playing, 600.0)
+	if not p.check(ok, "world ready %s" % str(w.load_report)):
+		return
+	pl = w.player
+	pl.camera_rig.require_capture = false
+	# a quiet world for the audit: no camps spawning around the player, never dying
+	var d := EncounterDirector.instance()
+	if d != null:
+		d.spawn_radius = -1.0
+	await p.wait_game(1.0)
+	var parts := OS.get_environment("PART")
+	if parts == "":
+		parts = "travel,walk,npc"
+	if "travel" in parts:
+		await _audit_travel()
+	if "walk" in parts:
+		await _audit_walks()
+	if "npc" in parts:
+		await _audit_npcs()
+	if "quests" in parts:
+		await _audit_quests()
+	_write()
+
+
+# --- helpers ---------------------------------------------------------------------------------------
+
+func _log(s: String) -> void:
+	lines.append(s)
+	p.note(s)
+
+
+func _finding(s: String) -> void:
+	findings.append(s)
+	_log("FINDING: " + s)
+
+
+func _write() -> void:
+	var f := FileAccess.open(p.out_dir.path_join("audit.txt"), FileAccess.WRITE)
+	if f:
+		f.store_string("\n".join(lines) + "\n\n== FINDINGS (%d)\n" % findings.size() + "\n".join(findings) + "\n")
+	p.note("audit: %d findings (see audit.txt)" % findings.size())
+
+
+func _shot(tag: String) -> void:
+	if DisplayServer.get_name() == "headless" or shots >= 40:
+		return
+	shots += 1
+	await p.wait_game(0.3)
+	await p.screenshot("audit_%02d_%s" % [shots, tag.validate_filename().left(48)])
+
+
+func _heal() -> void:
+	if pl.health and pl.health.health < pl.health.max_health:
+		pl.health.heal(pl.health.max_health)
+
+
+## Describes the collider a ray / shape met: node name, its parent's name, class.
+static func _who(obj: Object) -> String:
+	if obj == null:
+		return "-"
+	var n := obj as Node
+	if n == null:
+		return obj.get_class()
+	var par := n.get_parent()
+	return "%s<%s>%s" % [n.name, n.get_class(), (" in " + String(par.name)) if par else ""]
+
+
+## Solid geometry (not the floor) inside the player's body: a capsule from 0.45 m to 1.65 m.
+func _embedded_in(body: Node3D) -> String:
+	var sh := CapsuleShape3D.new()
+	sh.radius = 0.26
+	sh.height = 1.2
+	var q := PhysicsShapeQueryParameters3D.new()
+	q.shape = sh
+	q.transform = Transform3D(Basis(), body.global_position + Vector3(0, 1.05, 0))
+	q.collision_mask = Layers.WORLD | Layers.CONSTRUCT
+	if body is CollisionObject3D:
+		q.exclude = [(body as CollisionObject3D).get_rid()]
+	var hits := body.get_world_3d().direct_space_state.intersect_shape(q, 4)
+	var out: Array[String] = []
+	for h: Dictionary in hits:
+		out.append(_who(h.get("collider")))
+	return ", ".join(out)
+
+
+func _yaw_to(from: Vector3, to: Vector3) -> float:
+	var d := Vector2(to.x - from.x, to.z - from.z)
+	return atan2(-d.x, -d.y)
+
+
+## Walks `secs` along camera yaw `yaw`; returns the horizontal distance covered.
+func _walk_dir(yaw: float, secs: float) -> float:
+	pl.camera_rig.set_yaw(yaw)
+	var a := pl.global_position
+	Input.action_press(&"move_forward")
+	await p.wait_game(secs)
+	Input.action_release(&"move_forward")
+	await p.wait_game(0.15)
+	return Vector2(pl.global_position.x - a.x, pl.global_position.z - a.z).length()
+
+
+func _travel(xf: Transform3D) -> bool:
+	_heal()
+	var ok: bool = await w.travel.travel_to(xf, {"fade": 0.05, "autosave": false, "content_timeout": 10.0})
+	await p.wait_game(0.6)
+	return ok
+
+
+# --- 1 fast travel ---------------------------------------------------------------------------------------
+
+func _audit_travel() -> void:
+	# know every place (as after a long journey)
+	var visited := {}
+	for pl_: Dictionary in MapModel.places():
+		if pl_["kind"] == &"poi":
+			GameState.discovered_pois[String(pl_["id"])] = true
+		else:
+			visited[String(pl_["id"])] = true
+	GameState.set_flag("visited_places", visited)
+	var points := MapModel.travel_points()
+	_log("== TRAVEL: %d fast-travel points" % points.size())
+	var only := OS.get_environment("CITY")
+	for place: Dictionary in points:
+		if only != "" and not String(place["id"]).contains(only):
+			continue
+		await _audit_travel_point(place)
+
+
+func _audit_travel_point(place: Dictionary) -> void:
+	var label := "%s (%s)" % [place["name"], place["id"]]
+	var why := MapModel.travel_block_reason(place)
+	var xf := MapModel.travel_transform(place)
+	var ok := false
+	if why == "":
+		ok = await MapModel.travel(place)
+		await p.wait_game(0.6)
+	else:
+		# already there (< MIN_TRAVEL_M): arrive from elsewhere first through the same transform
+		ok = await _travel(xf)
+	if not ok:
+		_finding("travel %s: refused / failed (%s)" % [label, why])
+		return
+	await p.wait_game(1.2)
+	var at := pl.global_position
+	var issues: Array[String] = []
+	var dist := Vector2(at.x - xf.origin.x, at.z - xf.origin.z).length()
+	if dist > 8.0:
+		issues.append("arrived %.1f m from the travel point" % dist)
+	if pl.motor.swimming or pl.motor.water_depth > 0.4:
+		issues.append("in water (depth %.1f, swimming %s)" % [pl.motor.water_depth, pl.motor.swimming])
+	if not pl.motor.on_floor:
+		issues.append("not on the floor (%s, vy %.1f)" % [pl.get_state_name(), pl.velocity.y])
+	var emb := _embedded_in(pl)
+	if emb != "":
+		issues.append("body inside %s" % emb)
+	var above := at.y - WorldData.get_height(at.x, at.z)
+	if above > 3.5:
+		issues.append("stands %.1f m above the terrain (roof / wall top?)" % above)
+	if w.load_report.get("safety_floor", false):
+		issues.append("landed on the temporary safety floor (no collision found)")
+	# can the player walk away? four directions, back to the point between tries
+	var best := 0.0
+	var dirs: Array[String] = []
+	for k in 4:
+		var yaw := xf.basis.get_euler().y + k * PI * 0.5
+		var dd: float = await _walk_dir(yaw, 0.9)
+		dirs.append("%.1f" % dd)
+		best = maxf(best, dd)
+		pl.teleport(Transform3D(pl.global_basis, at))
+		await p.wait_game(0.25)
+	if best < 1.5:
+		issues.append("cannot walk away (best %.1f m: %s)" % [best, " / ".join(dirs)])
+	_log("travel %-42s at (%.0f, %.1f, %.0f) +%.1f m over terrain, walks %s %s" % [label, at.x, at.y, at.z, above,
+		" / ".join(dirs), ("  ** " + "; ".join(issues)) if not issues.is_empty() else "ok"])
+	if not issues.is_empty():
+		_finding("travel %s: %s" % [label, "; ".join(issues)])
+		pl.teleport(Transform3D(xf.basis, at))
+		await _shot("travel_" + String(place["id"]))
+
+
+# --- 2 city walks ----------------------------------------------------------------------------------------
+
+func _audit_walks() -> void:
+	var only := OS.get_environment("CITY")
+	for c: Dictionary in WorldData.get_cities():
+		if only != "" and not String(c["id"]).contains(only):
+			continue
+		var L := RingLayout.from_city(c["id"])
+		if not L.is_valid():
+			continue
+		_log("== WALK %s: %d ramps" % [c["id"], L.ramps.size()])
+		for rp: Dictionary in L.ramps:
+			await _walk_spoke(c, L, float(rp["bearing"]))
+
+
+func _walk_spoke(c: Dictionary, L: RingLayout, bearing: float) -> void:
+	var r_out := 0.0
+	var r_in := INF
+	for t in L.tiers:
+		r_out = maxf(r_out, float(t["r_outer"]))
+		r_in = minf(r_in, float(t["r_inner"]))
+	var goal_r := r_in + 4.0
+	var pal: Variant = c.get("palace")
+	if pal is Dictionary and (pal as Dictionary).has("radius"):
+		goal_r = maxf(goal_r, float(pal["radius"]) + 6.0)
+	var start := L.point(r_out + 18.0, bearing)
+	start = WorldData.get_safe_ground(start)
+	var label := "%s @%.0f" % [c["id"], bearing]
+	if not await _travel(Transform3D(Basis(Vector3.UP, _yaw_to(start, Vector3(L.center.x, 0, L.center.y))), start)):
+		_finding("walk %s: could not travel to the start" % label)
+		return
+	var t := 0.0
+	var last := pl.global_position
+	var win_t := 0.0
+	var win_from := pl.global_position
+	var blocks: Array[String] = []
+	var unstick := 0
+	var block_at := Vector3.INF
+	var min_r := L.polar(pl.global_position.x, pl.global_position.z).x
+	var y_track := pl.global_position.y
+	var limit := (r_out + 30.0 - goal_r) / 5.0 + 40.0
+	Input.action_press(&"sprint")
+	while t < limit:
+		_heal()
+		var pos := pl.global_position
+		var pr := L.polar(pos.x, pos.z)
+		min_r = minf(min_r, pr.x)
+		if pr.x <= goal_r:
+			break
+		# steer along the spoke: aim at the point 12 m further in on the same bearing
+		var aim := L.point(maxf(pr.x - 12.0, 0.0), bearing)
+		pl.camera_rig.set_yaw(_yaw_to(pos, aim))
+		Input.action_press(&"move_forward")
+		await p.wait_game(0.1)
+		t += 0.1
+		var now := pl.global_position
+		if now.distance_to(last) > 25.0:
+			_finding("walk %s: jumped %.0f m in one step at r=%.0f (fall net / rescue?) from (%.0f, %.1f, %.0f) to (%.0f, %.1f, %.0f)" % [label,
+				now.distance_to(last), pr.x, last.x, last.y, last.z, now.x, now.y, now.z])
+			await _shot("rescue_" + label)
+			break
+		if y_track - now.y > 5.0 and pl.motor.on_floor:
+			_finding("walk %s: dropped %.1f m at r=%.0f (%.0f, %.1f, %.0f) - a hole / ledge on the street?" % [label, y_track - now.y, pr.x, now.x, now.y, now.z])
+			await _shot("drop_" + label)
+		if pl.motor.on_floor:
+			y_track = now.y
+		last = now
+		win_t += 0.1
+		if win_t >= 1.5:
+			var moved := Vector2(now.x - win_from.x, now.z - win_from.z).length()
+			if moved < 1.2:
+				var info := _block_info()
+				if not block_at.is_finite() or block_at.distance_to(now) > 4.0:
+					block_at = now
+					unstick = 0
+					blocks.append("r=%.0f %s" % [pr.x, info])
+					_finding("walk %s: blocked at r=%.0f (%.0f, %.1f, %.0f) tier %s, %s" % [label, pr.x, now.x, now.y, now.z,
+						String(L.tier_at(now.x, now.z).get("id", "-")), info])
+					await _shot("block_" + label)
+				unstick += 1
+				if unstick > 3:
+					_log("walk %s: gives up at r=%.0f" % [label, pr.x])
+					break
+				# a player would jump and sidestep
+				await p.tap(&"jump")
+				var side := &"move_right" if unstick % 2 == 1 else &"move_left"
+				Input.action_press(side)
+				await p.wait_game(0.9)
+				Input.action_release(side)
+				t += 1.0
+			win_t = 0.0
+			win_from = pl.global_position
+	Input.action_release(&"move_forward")
+	Input.action_release(&"sprint")
+	await p.wait_game(0.2)
+	var reached := L.polar(pl.global_position.x, pl.global_position.z).x <= goal_r + 1.0
+	_log("walk %-34s %s in %.0f s (closest r=%.0f, goal r=%.0f) %d block(s) %s" % [label, "REACHED" if reached else "stopped",
+		t, min_r, goal_r, blocks.size(), ", ".join(blocks)])
+
+
+## What stops the player: rays ahead at knee and chest height, plus the step in front.
+func _block_info() -> String:
+	var space := pl.get_world_3d().direct_space_state
+	var fwd := -pl.global_basis.z
+	fwd.y = 0.0
+	fwd = fwd.normalized()
+	var out: Array[String] = []
+	for hgt: float in [0.35, 1.2]:
+		var a := pl.global_position + Vector3(0, hgt, 0)
+		var q := PhysicsRayQueryParameters3D.create(a, a + fwd * 1.4, Layers.SOLID | Layers.NPC | Layers.COMPANION)
+		q.exclude = [pl.get_rid()]
+		var r := space.intersect_ray(q)
+		out.append("%.2fm:%s" % [hgt, _who(r.get("collider")) if not r.is_empty() else "free"])
+	var ahead := pl.global_position + fwd * 1.0
+	var qd := PhysicsRayQueryParameters3D.create(ahead + Vector3.UP * 3.0, ahead + Vector3.DOWN * 4.0, Layers.SOLID)
+	qd.exclude = [pl.get_rid()]
+	var rd := space.intersect_ray(qd)
+	if not rd.is_empty():
+		out.append("step %+.2f m" % ((rd["position"] as Vector3).y - pl.global_position.y))
+	out.append(pl.get_state_name())
+	return " ".join(out)
+
+
+# --- 3 NPCs -----------------------------------------------------------------------------------------------
+
+func _audit_npcs() -> void:
+	var only := OS.get_environment("CITY")
+	for c: Dictionary in WorldData.get_cities():
+		if only != "" and not String(c["id"]).contains(only):
+			continue
+		var place := MapModel.place_by_id(c["id"])
+		var xf := MapModel.travel_transform(place) if not place.is_empty() else Transform3D(Basis(), WorldData.get_safe_ground(c["center"]))
+		if not await _travel(xf):
+			continue
+		await p.wait_game(3.0)
+		var buried: Dictionary = {}
+		var stuck: Dictionary = {}
+		var seen: Dictionary = {}
+		var last_pos: Dictionary = {}
+		var still_t: Dictionary = {}
+		for i in 40:
+			_heal()
+			for n: Node in p.get_tree().get_nodes_in_group(&"npc"):
+				var npc := n as NpcCharacter
+				if npc == null or not npc.is_inside_tree() or npc.is_vanishing():
+					continue
+				var k := String(npc.key)
+				seen[k] = npc.full
+				var emb := _embedded_in(npc)
+				if emb != "" and not buried.has(k):
+					buried[k] = "%s %s at (%.1f, %.1f, %.1f) in %s" % ["full" if npc.full else "lite", npc.display_name(), npc.global_position.x,
+						npc.global_position.y, npc.global_position.z, emb]
+				if npc.is_moving():
+					var lp: Vector3 = last_pos.get(k, npc.global_position)
+					if lp.distance_to(npc.global_position) < 0.05:
+						still_t[k] = float(still_t.get(k, 0.0)) + 0.5
+						if float(still_t[k]) >= 3.0 and not stuck.has(k):
+							stuck[k] = "%s at (%.1f, %.1f, %.1f) wants to walk but has not moved for 3 s" % [npc.display_name(),
+								npc.global_position.x, npc.global_position.y, npc.global_position.z]
+					else:
+						still_t[k] = 0.0
+				last_pos[k] = npc.global_position
+			await p.wait_game(0.5)
+		_log("npc %s: %d NPCs seen (%d full), %d buried in geometry, %d stuck walkers" % [c["id"], seen.size(),
+			seen.values().count(true), buried.size(), stuck.size()])
+		for k: String in buried:
+			_finding("npc %s: buried: %s" % [c["id"], buried[k]])
+		for k: String in stuck:
+			_finding("npc %s: stuck: %s" % [c["id"], stuck[k]])
+		if not buried.is_empty():
+			await _shot("npc_" + String(c["id"]))
+
+
+# --- 4 quests ---------------------------------------------------------------------------------------------
+
+## A floor point where a player can stand within r_min..r_max of `at` (no wall in the body), or INF.
+func _standing_spot(at: Vector3, r_min: float, r_max: float) -> Vector3:
+	var space := pl.get_world_3d().direct_space_state
+	for rr: float in [r_min, (r_min + r_max) * 0.5, r_max]:
+		for k in 12:
+			var a := TAU * k / 12.0
+			var q := at + Vector3(cos(a), 0, sin(a)) * rr
+			var rq := PhysicsRayQueryParameters3D.create(q + Vector3.UP * 2.5, q + Vector3.DOWN * 3.0, Layers.WORLD | Layers.CONSTRUCT)
+			rq.exclude = [pl.get_rid()]
+			var hit := space.intersect_ray(rq)
+			if hit.is_empty():
+				continue
+			var g: Vector3 = hit["position"]
+			if absf(g.y - at.y) > 1.3 or WorldData.get_water_height(g.x, g.z) > g.y + 0.6:
+				continue
+			var sh := CapsuleShape3D.new()
+			sh.radius = 0.3
+			sh.height = 1.2
+			var sq := PhysicsShapeQueryParameters3D.new()
+			sq.shape = sh
+			sq.transform = Transform3D(Basis(), g + Vector3(0, 1.05, 0))
+			sq.collision_mask = Layers.WORLD | Layers.CONSTRUCT
+			sq.exclude = [pl.get_rid()]
+			if space.intersect_shape(sq, 1).is_empty():
+				return g
+	return Vector3.INF
+
+
+func _advance_to(q: StringName, stage: int) -> bool:
+	Quests.reset_quest(q)
+	if not Quests.start(q, {"silent": true}):
+		return false
+	var guard := 0
+	while Quests.is_active(q) and Quests.current_stage(q) < stage and guard < 16:
+		guard += 1
+		for od: Dictionary in Quests.stage_def(q).get("objectives", []):
+			if Quests.is_active(q) and Quests.current_stage(q) < stage:
+				Quests.complete_objective(q, od["id"])
+	return Quests.is_active(q) and Quests.current_stage(q) == stage
+
+
+func _audit_quests() -> void:
+	var props_node := w.props_root.get_node_or_null("QuestProps") as QuestProps
+	var only := OS.get_environment("QUEST")
+	_log("== QUESTS")
+	for q: StringName in Quests.order:
+		if only != "" and not String(q).contains(only):
+			continue
+		var stages: Array = Quests.get_def(q).get("stages", [])
+		for si in stages.size():
+			for od: Dictionary in (stages[si] as Dictionary)["objectives"]:
+				var props: Array = od.get("props", [])
+				if not props.is_empty():
+					await _audit_props(q, si, od, props_node)
+				elif od["type"] == &"go_to":
+					await _audit_go_to(q, si, od)
+				elif od["type"] == &"talk_to" or od["type"] == &"escort":
+					await _audit_named(q, od)
+		Quests.reset_quest(q)
+
+
+func _audit_props(q: StringName, stage: int, od: Dictionary, props_node: QuestProps) -> void:
+	var label := "%s/%s" % [q, od["id"]]
+	if not _advance_to(q, stage):
+		_finding("quest %s: could not advance to stage %d" % [label, stage])
+		return
+	var before := GameState.item_count(od.get("item", &"")) if od["type"] == &"collect" else 0
+	var props: Array = od["props"]
+	var got := 0
+	for i in props.size():
+		var at := QuestTargets.resolve((props[i] as Dictionary).get("at"))
+		var stand := WorldData.get_safe_ground(at + Vector3(2.5, 0, 0))
+		if absf(stand.y - at.y) > 3.0:
+			stand = Vector3(at.x + 2.5, at.y + 0.3, at.z)
+		if not await _travel(Transform3D(Basis(), stand)):
+			_finding("quest %s prop %d: travel failed" % [label, i])
+			continue
+		props_node.refresh()
+		await p.wait_game(0.3)
+		var node: Node3D = null
+		for n in props_node.live_props():
+			var qp := n as QuestProps.QuestPropNode
+			if qp and qp.quest_id == q and qp.objective["id"] == od["id"] and qp.index == i:
+				node = qp
+		if node == null:
+			if not Quests.is_objective_active(q, od["id"]):
+				break
+			_finding("quest %s prop %d: did not spawn at (%.0f, %.1f, %.0f)" % [label, i, at.x, at.y, at.z])
+			continue
+		var pp := node.global_position
+		var issues: Array[String] = []
+		var above := pp.y - WorldData.get_height(pp.x, pp.z)
+		if WorldData.get_water_height(pp.x, pp.z) > pp.y + 0.3:
+			issues.append("under water (%.1f m)" % (WorldData.get_water_height(pp.x, pp.z) - pp.y))
+		var emb := _embedded_in(node)
+		if emb != "":
+			issues.append("inside %s" % emb)
+		var spot := _standing_spot(pp, 1.0, 1.9)
+		if not spot.is_finite():
+			issues.append("no floor to stand on within 2 m")
+		else:
+			pl.teleport(Transform3D(Basis(Vector3.UP, _yaw_to(spot, pp)), spot + Vector3.UP * 0.05))
+			await p.wait_game(0.6)
+			await p.tap(&"interact")
+			await p.wait_game(1.0)
+			if QuestProps.is_taken(q, od["id"], i):
+				got += 1
+			else:
+				issues.append("interact did not take it (player %.1f m away, state %s)" % [pl.global_position.distance_to(pp), pl.get_state_name()])
+		_log("prop %-40s #%d at (%.0f, %.1f, %.0f) +%.1f m %s" % [label, i, pp.x, pp.y, pp.z, above, ("** " + "; ".join(issues)) if not issues.is_empty() else "ok, taken"])
+		if not issues.is_empty():
+			_finding("quest %s prop %d at (%.0f, %.1f, %.0f): %s" % [label, i, pp.x, pp.y, pp.z, "; ".join(issues)])
+			await _shot("prop_%s_%d" % [label, i])
+		if not Quests.is_objective_active(q, od["id"]):
+			break
+	if Quests.is_objective_active(q, od["id"]) and Quests.current_stage(q) == stage:
+		var have := GameState.item_count(od.get("item", &"")) - before
+		_finding("quest %s: objective still open after taking %d of %d props (+%d items, needs %d)" % [label, got, props.size(), have, int(od["count"])])
+
+
+func _audit_go_to(q: StringName, stage: int, od: Dictionary) -> void:
+	var label := "%s/%s" % [q, od["id"]]
+	if not _advance_to(q, stage):
+		_finding("quest %s: could not advance to stage %d" % [label, stage])
+		return
+	var t := QuestTargets.resolve(od.get("target"))
+	var spot := WorldData.get_safe_ground(t)
+	var r := float(od.get("radius", 20.0))
+	if Vector2(spot.x - t.x, spot.z - t.z).length() > r * 0.8:
+		_finding("quest %s: no safe ground within the radius (nearest %.0f m, radius %.0f)" % [label, Vector2(spot.x - t.x, spot.z - t.z).length(), r])
+	if not await _travel(Transform3D(Basis(), spot)):
+		_finding("quest %s: travel failed" % label)
+		return
+	await p.wait_game(1.0)
+	var done := not Quests.is_objective_active(q, od["id"])
+	_log("go_to %-40s target (%.0f, %.1f, %.0f) r %.0f: %s" % [label, t.x, t.y, t.z, r, "completed" if done else "** still open"])
+	if not done:
+		var pp := pl.global_position
+		_finding("quest %s: standing at (%.0f, %.1f, %.0f), %.0f m from the target (r %.0f, dy %.1f) does not complete it" % [label,
+			pp.x, pp.y, pp.z, Vector2(pp.x - t.x, pp.z - t.z).length(), r, pp.y - t.y])
+		await _shot("goto_" + label)
+
+
+var _named_done := {}
+
+
+func _audit_named(q: StringName, od: Dictionary) -> void:
+	var id: StringName = od["npc"]
+	if _named_done.has(id):
+		return
+	_named_done[id] = true
+	var xf := NpcRegistry.placement(id)
+	if not xf.origin.is_finite():
+		_finding("npc %s (%s): no placement" % [id, q])
+		return
+	var front := xf.origin + (xf.basis * Vector3.FORWARD) * 2.5
+	var stand := WorldData.get_safe_ground(front)
+	if absf(stand.y - xf.origin.y) > 3.0:
+		stand = front + Vector3.UP * 0.3
+	if not await _travel(Transform3D(Basis(Vector3.UP, _yaw_to(stand, xf.origin)), stand)):
+		return
+	await p.wait_game(2.5)
+	var npc := NpcRegistry.live_npc(id) as NpcCharacter
+	if npc == null:
+		_finding("npc %s (%s): not spawned near its placement (%.0f, %.1f, %.0f)" % [id, q, xf.origin.x, xf.origin.y, xf.origin.z])
+		return
+	var issues: Array[String] = []
+	var emb := _embedded_in(npc)
+	if emb != "":
+		issues.append("buried in %s" % emb)
+	var spot := _standing_spot(npc.global_position, 1.2, 2.2)
+	if not spot.is_finite():
+		issues.append("no floor to talk from within 2.2 m")
+	if WorldData.get_water_height(npc.global_position.x, npc.global_position.z) > npc.global_position.y + 0.4:
+		issues.append("stands in water")
+	_log("npc %-24s at (%.0f, %.1f, %.0f) %s" % [id, npc.global_position.x, npc.global_position.y, npc.global_position.z, ("** " + "; ".join(issues)) if not issues.is_empty() else "ok"])
+	if not issues.is_empty():
+		_finding("npc %s (%s) at (%.0f, %.1f, %.0f): %s" % [id, q, npc.global_position.x, npc.global_position.y, npc.global_position.z, "; ".join(issues)])
+		await _shot("named_" + String(id))
