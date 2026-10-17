@@ -128,6 +128,72 @@ func test_releasing_a_cell_with_a_vanished_npc() -> void:
 	WorldData.height_override = Callable()
 
 
+# --- settings ----------------------------------------------------------------------------------------
+
+## A value the menu could set for `row` that differs from the current one (null = none).
+static func _other_value(row: Dictionary) -> Variant:
+	var cur: Variant = Settings.get_value(String(row["section"]), String(row["key"]))
+	match String(row["kind"]):
+		"toggle":
+			return not bool(cur)
+		"slider":
+			var v := float(row["min"]) + float(row["step"]) * 3.0
+			return v if not is_equal_approx(v, float(cur)) else float(row["min"]) + float(row["step"]) * 5.0
+		"choice":
+			for it: Dictionary in row.get("items", []):
+				if it.get("disabled", false) or it["value"] == cur:
+					continue
+				return it["value"]
+	return null
+
+
+## Settings that do not survive a restart: every option of every settings tab is changed the way
+## the menu does it (values from SettingsSchema rows), saved, the game "restarts" (defaults, then
+## load_settings + apply like Settings._ready) - each value must come back with its type, and a
+## rebound key must still be bound. Verified clean (no bug found): kept as a guard.
+func test_every_settings_row_survives_a_restart() -> void:
+	var before := Settings.snapshot()
+	var path := "user://settings_bughunt_world_%d.cfg" % Time.get_ticks_usec()
+	Settings.save_path = path
+	var want := {}
+	for tab: String in SettingsSchema.TABS:
+		for row: Dictionary in SettingsSchema.rows(tab):
+			if not row.has("key") or String(row.get("kind", "")) == "header" or String(row["key"]) == "preset":
+				continue
+			var v: Variant = _other_value(row)
+			if v == null:
+				continue
+			Settings.set_value(String(row["section"]), String(row["key"]), v)
+			want["%s.%s" % [row["section"], row["key"]]] = v
+	Settings.set_binding(&"jump", "kbm", {"type": "key", "code": KEY_J})
+	Settings.save()
+	# restart
+	Settings.restore_defaults()
+	Settings.load_settings()
+	Settings.apply()
+	var lost: Array[String] = []
+	for k: String in want:
+		var parts := k.split(".")
+		var got: Variant = Settings.get_value(parts[0], parts[1])
+		var same: bool = got == want[k] if typeof(got) == typeof(want[k]) else (want[k] is float and got is float and is_equal_approx(got, want[k]))
+		if not same:
+			lost.append("%s: wanted %s (%s), got %s (%s)" % [k, str(want[k]), type_string(typeof(want[k])), str(got), type_string(typeof(got))])
+	expect(want.size() >= 30, "changed %d options" % want.size())
+	expect(lost.is_empty(), "every option survives the restart: %s" % "; ".join(lost))
+	var jump_keys: Array = []
+	for ev in InputMap.action_get_events(&"jump"):
+		if ev is InputEventKey:
+			jump_keys.append((ev as InputEventKey).physical_keycode)
+	expect(jump_keys.has(KEY_J), "the rebound jump key is bound after the restart (%s)" % str(jump_keys))
+	var master := AudioServer.get_bus_index("Master")
+	expect_near(db_to_linear(AudioServer.get_bus_volume_db(master)), float(Settings.get_value("audio", "master")), 0.01, "master volume applied")
+	# leave everything as it was
+	DirAccess.remove_absolute(path)
+	Settings.save_path = Settings.SAVE_PATH
+	Settings.restore_snapshot(before)
+	Settings.apply()
+
+
 # --- quests ------------------------------------------------------------------------------------------
 
 ## Journal -> ABANDON on a side quest that hands out an item (a letter, a parcel, incense) kept the
@@ -164,6 +230,156 @@ func test_abandoning_a_quest_takes_back_its_handouts() -> void:
 	expect_eq(Quests.progress(moss, &"moss"), 1, "a restart counts what the player really holds")
 	expect(not QuestProps.is_taken(moss, &"moss", 0), "and its props are back in the world")
 	Quests.reset_quest(moss)
+
+
+## Every action a conversation can reach in the current state: branches are routed as the runner
+## routes them, every visible choice is a path the player may take.
+static func _reachable_actions(tree: Dictionary) -> Array:
+	var out: Array = []
+	var seen := {}
+	var stack: Array[String] = [String(tree.get("start", "start"))]
+	while not stack.is_empty():
+		var key: String = stack.pop_back()
+		if key == "" or seen.has(key):
+			continue
+		seen[key] = true
+		var node := DialogueTree.get_node_data(tree, key)
+		if node.is_empty():
+			continue
+		out.append_array(node.get("do", []))
+		if node.has("branch") and not node.has("text") and not node.has("lines"):
+			stack.append(DialogueTree.route(node))
+			continue
+		var choices := DialogueTree.visible_choices(node)
+		for c in choices:
+			out.append_array(c.get("do", []))
+			if not bool(c.get("end", false)):
+				stack.append(String(c.get("next", "")))
+		if choices.is_empty():
+			stack.append(DialogueTree.route(node) if node.has("branch") else ("" if bool(node.get("end", false)) else String(node.get("next", ""))))
+	return out
+
+
+static func _has_action(actions: Array, verb: StringName, args: Array) -> bool:
+	for a: Variant in actions:
+		if not (a is Array) or (a as Array).size() < args.size() + 1 or StringName(str(a[0])) != verb:
+			continue
+		var ok := true
+		for i in args.size():
+			if StringName(str(a[i + 1])) != StringName(str(args[i])):
+				ok = false
+		if ok:
+			return true
+	return false
+
+
+## The element a quest is played with (its `requires` element, else its nation).
+static func _quest_element(d: Dictionary) -> int:
+	var req: Variant = d.get("requires")
+	if req is Dictionary and (req as Dictionary).has("element"):
+		var e: Variant = req["element"]
+		return ElementDefs.from_id(StringName(str(e[0] if e is Array else e)))
+	var n := ElementDefs.from_id(StringName(str(d.get("nation", "water"))))
+	return n if ElementDefs.is_valid(n) else E.WATER
+
+
+## Some present NPC's conversation in the current state can start `q`.
+static func _offered(q: StringName) -> bool:
+	for id in NpcRegistry.ids():
+		var tid := NpcRegistry.pick_tree(id)
+		if tid != &"" and QuestConditions.check(NpcRegistry.get_npc(id).get("present")) \
+				and _has_action(_reachable_actions(NpcRegistry.dialogue_tree(tid)), &"start_quest", [q]):
+			return true
+	return false
+
+
+## Puts the journey where `q` can be offered: its element, max level, required quests completed.
+func _make_available(q: StringName) -> void:
+	var d := Quests.get_def(q)
+	GameState.new_game(_quest_element(d))
+	GameState.level = GameState.MAX_LEVEL
+	var req: Variant = d.get("requires")
+	var reqs: Array = [req] if req is Dictionary else (req if req is Array else [])
+	for r: Variant in reqs:
+		if r is Dictionary and (r as Dictionary).has("quest"):
+			var qa: Array = r["quest"] if r["quest"] is Array else [r["quest"]]
+			if String(qa[1] if qa.size() > 1 else "completed") in ["completed", "started"]:
+				Quests.force_complete(StringName(str(qa[0])))
+
+
+## Dialogue dead ends: a quest that should be on offer but no NPC conversation in that state can
+## start it; a challenge objective whose NPC's conversation never offers the challenge; an NPC a
+## talk / challenge / escort objective needs who is not in the world at that point of the quest.
+func test_no_dialogue_dead_ends_in_any_quest() -> void:
+	var dead: Array[String] = []
+	var checked := 0
+	var started_by_chain := {}
+	for q: StringName in Quests.order:
+		var nx: StringName = Quests.get_def(q).get("next", &"")
+		if nx != &"":
+			started_by_chain[nx] = true
+	for q: StringName in Quests.order:
+		if String(q).begins_with("test_"):
+			continue
+		var d := Quests.get_def(q)
+		# 1. on offer -> some NPC's conversation in this state starts it
+		if d.get("auto_start") == null and not started_by_chain.has(q):
+			_make_available(q)
+			if not Quests.is_available(q):
+				dead.append("%s: could not be made available (requires %s)" % [q, str(d.get("requires"))])
+			else:
+				checked += 1
+				var found := _offered(q)
+				# a giver busy with another quest's line offers it once the player moves that one on
+				var rounds := 0
+				while not found and rounds < 4 and Quests.is_available(q):
+					rounds += 1
+					for other in Quests.active_quests():
+						for o3: Dictionary in Quests.stage_def(other).get("objectives", []):
+							Quests.complete_objective(other, o3["id"])
+					found = _offered(q)
+				if not found:
+					dead.append("%s: available, but no present NPC's conversation can start it (giver %s talks with %s)" % [q,
+						d.get("giver"), NpcRegistry.pick_tree(StringName(str(d.get("giver", ""))))])
+		# 2. every NPC-bound objective, at its stage
+		var stages: Array = d.get("stages", [])
+		for si in stages.size():
+			for od: Dictionary in (stages[si] as Dictionary)["objectives"]:
+				var npc := StringName(str(od.get("npc", "")))
+				if npc == &"":
+					continue
+				_make_available(q)
+				Quests.reset_quest(q)
+				Quests.start(q, {"silent": true})
+				var guard := 0
+				while Quests.is_active(q) and Quests.current_stage(q) < si and guard < 16:
+					guard += 1
+					for o2: Dictionary in Quests.stage_def(q).get("objectives", []):
+						if Quests.current_stage(q) < si:
+							Quests.complete_objective(q, o2["id"])
+				if not Quests.is_objective_active(q, od["id"]):
+					dead.append("%s/%s: could not reach the objective" % [q, od["id"]])
+					continue
+				checked += 1
+				var present := false
+				for hr in 24:
+					GameState.time_of_day = float(hr) + 0.5
+					if QuestConditions.check(NpcRegistry.get_npc(npc).get("present")):
+						present = true
+						break
+				GameState.time_of_day = 12.0
+				if not present:
+					dead.append("%s/%s: %s is never in the world while it is due" % [q, od["id"], npc])
+				if od["type"] == &"challenge" and not od.has("at"):
+					var tid2 := NpcRegistry.pick_tree(npc)
+					if not _has_action(_reachable_actions(NpcRegistry.dialogue_tree(tid2)), &"challenge", [q, od["id"]]):
+						dead.append("%s/%s: %s's conversation (%s) never offers the challenge" % [q, od["id"], npc, tid2])
+		Quests.reset_quest(q)
+	GameState.new_game(E.WATER)
+	for q2: StringName in Quests.order:
+		Quests.reset_quest(q2)
+	expect(checked > 40, "checked %d offers / objectives" % checked)
+	expect(dead.is_empty(), "dialogue dead ends:\n    %s" % "\n    ".join(dead))
 
 
 # --- saves -------------------------------------------------------------------------------------------
@@ -235,6 +451,48 @@ func test_damaged_fields_do_not_make_a_journey_unloadable() -> void:
 	GameState.reset()
 	expect(SaveSystem.load_game(0) and GameState.element == E.WATER, "and loads back")
 	_drop_saves(dir)
+
+
+## A swimmer pressing jump against a wall climbs out only when standing room is found above it.
+## The check looked 1.8 m above the swimmer (who floats 1.3 m under the surface): only ledges up to
+## ~0.5 m above the water could be climbed. The Water Tribe's canals run 1.8 m below their walkways
+## (+ a 0.3 m curb), so a player who stepped over the curb into a canal (the city walk audit did, at
+## the end of the ring canal) could not get out anywhere along it - no bending while swimming
+## either. Ledges up to 2.3 m above the water are climbable now; low ledges work as before.
+func _swim_climb(ledge: float, curb: float = 0.0) -> Dictionary:
+	WorldData.height_override = func(_x: float, _z: float) -> float: return -4.0      # sea at 0, 4 m deep
+	PlayerSim.box(self, Vector3(0, -4.5, 0), Vector3(40, 1, 40))
+	# the canal wall: face at x = 2, top `ledge` above the water, walkway 6 m deep
+	PlayerSim.box(self, Vector3(5, (ledge - 4.0) * 0.5, 0), Vector3(6, ledge + 4.0, 20))
+	if curb > 0.0:
+		PlayerSim.box(self, Vector3(2.4, ledge + curb * 0.5, 0), Vector3(0.45, curb, 20))
+	var p := PlayerSim.player(self, E.FIRE, Vector3(0.6, -1.3, 0))
+	p.motor.yaw = -PI * 0.5                       # facing +x, the wall
+	p.rotation.y = -PI * 0.5
+	await PlayerSim.step(p, 30)
+	var swam := p.motor.swimming
+	p.input.press(&"move_right")
+	await PlayerSim.step(p, 90)                   # swim up against the wall
+	p.input.press(&"jump")
+	await PlayerSim.step(p, 4)
+	p.input.release(&"jump")
+	await PlayerSim.step(p, 90)
+	p.input.release_all()
+	var out := {"swam": swam, "out": not p.motor.swimming and p.global_position.y > ledge - 0.3 and p.global_position.x > 2.3,
+		"pos": p.global_position}
+	p.queue_free()
+	for n in get_children():
+		n.queue_free()
+	await frames(2)
+	return out
+
+
+func test_swimmer_climbs_out_of_a_canal() -> void:
+	for spec: Array in [[0.3, 0.0], [1.8, 0.32], [2.2, 0.0]]:
+		var r: Dictionary = await _swim_climb(spec[0], spec[1])
+		expect(r["swam"], "swimming in the canal first (ledge %.1f)" % spec[0])
+		expect(r["out"], "climbs onto a ledge %.1f m above the water (+%.2f m curb): now at %s" % [spec[0], spec[1], str(r["pos"])])
+	WorldData.height_override = Callable()
 
 
 ## The real symptom: a player standing on the dry gorge floor below the falls pool did not stand,

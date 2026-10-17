@@ -18,6 +18,9 @@ signal landed(impact_speed: float, fall_height: float)
 const TERMINAL_SPEED := 45.0
 const SWIM_DEPTH := 1.3
 const SWIM_EXIT_DEPTH := 1.1
+## Highest ledge above the water surface a swimmer pulls itself onto (jump against the wall):
+## canal walkways (the Water Tribe's sit 1.8 m over the water + a curb) and quays are escapable.
+const CLIMB_OUT_MAX := 2.3
 
 var body: CharacterBody3D
 var profile: LocomotionProfile
@@ -344,11 +347,19 @@ func try_swim_exit() -> bool:
 	var xf := body.global_transform
 	if not body.test_move(xf, fwd * 0.6):
 		return false
-	# Wall ahead: is there standing room above it?
-	var up := Vector3.UP * 1.8
-	if body.test_move(xf, up):
-		return false
-	if body.test_move(xf.translated(up), fwd * 0.8):
+	# Wall ahead: is there standing room above it? Low ledges first (1.8 m over the swimmer), then
+	# up to CLIMB_OUT_MAX over the surface - only 1.8 m was tried before, i.e. ledges <= ~0.5 m
+	# above the water, and a player in a walled canal could never get out (wave 4 bug hunt).
+	var up := Vector3.ZERO
+	var heights: Array[float] = [1.8]
+	if water_height > -INF:
+		heights.append(water_height + CLIMB_OUT_MAX - body.global_position.y)
+	for hgt: float in heights:
+		var u := Vector3.UP * hgt
+		if hgt >= 1.8 and not body.test_move(xf, u) and not body.test_move(xf.translated(u), fwd * 0.8):
+			up = u
+			break
+	if up == Vector3.ZERO:
 		return false
 	# Ledge height (ray down just past the wall) -> exact vault velocity.
 	var from := body.global_position + fwd * 0.75 + up

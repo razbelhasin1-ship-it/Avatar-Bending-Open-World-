@@ -107,6 +107,9 @@ const PRESETS := {
 
 var _values: Dictionary = {}
 var _loaded := false
+## Where save() / load_settings() keep the settings (tests point it at a scratch file so a run
+## never touches the player's - or another test run's - settings.cfg).
+var save_path := SAVE_PATH
 
 
 func _ready() -> void:
@@ -180,7 +183,7 @@ func _detect_preset() -> String:
 
 func load_settings() -> void:
 	var cfg := ConfigFile.new()
-	if cfg.load(SAVE_PATH) != OK:
+	if cfg.load(save_path) != OK:
 		if is_mobile_device():
 			for section: String in MOBILE_DEFAULTS:
 				for key: String in MOBILE_DEFAULTS[section]:
@@ -201,7 +204,7 @@ func save() -> void:
 	for section: String in _values:
 		for key: String in _values[section]:
 			cfg.set_value(section, key, _values[section][key])
-	var err := cfg.save(SAVE_PATH)
+	var err := cfg.save(save_path)
 	if err != OK:
 		push_warning("Settings: could not save (%s)" % error_string(err))
 

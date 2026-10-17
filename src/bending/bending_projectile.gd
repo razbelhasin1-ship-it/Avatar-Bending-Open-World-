@@ -151,9 +151,11 @@ func _physics_process(delta: float) -> void:
 func step(delta: float) -> void:
 	if not alive:
 		return
-	# The caster was freed mid-flight (a despawned enemy, a torn-down scene): every hit is
-	# built from it, so the projectile ends quietly instead of raising script errors.
-	if ctx == null or not is_instance_valid(ctx.caster):
+	# A caster freed mid-flight (a despawned enemy, a torn-down scene) no longer ends the shot:
+	# BendingContext.make_hit / forward tolerate it (the hit simply has no source) and the
+	# callbacks check ctx.is_valid(), so an arrow loosed before its archer fell still lands
+	# (wave 4: flow_qa ended it here, bughunt_gameplay made the hit safe; docs/qa/bughunt_world.md).
+	if ctx == null:
 		_finish()
 		return
 	age += delta

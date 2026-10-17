@@ -60,6 +60,8 @@ func run(pt: Playtest) -> void:
 		await _audit_npcs()
 	if "quests" in parts:
 		await _audit_quests()
+	if "tour" in parts:
+		await _audit_tour()
 	_write()
 
 
@@ -229,27 +231,83 @@ func _audit_walks() -> void:
 		var L := RingLayout.from_city(c["id"])
 		if not L.is_valid():
 			continue
-		_log("== WALK %s: %d ramps" % [c["id"], L.ramps.size()])
+		_log("== WALK %s: %d ramps, %d gates" % [c["id"], L.ramps.size(), (c.get("gates", []) as Array).size()])
+		# every ramp bearing from the lowest tier to the highest one (the main streets and ramps)
+		var up_inward := float(L.tiers[0]["height"]) > float(L.tiers[-1]["height"])
 		for rp: Dictionary in L.ramps:
-			await _walk_spoke(c, L, float(rp["bearing"]))
+			var b := float(rp["bearing"])
+			var arc_tiers: Array[Dictionary] = []
+			for t in L.tiers:
+				if RingLayout.in_arc(b, t.get("arc")):
+					arc_tiers.append(t)
+			if arc_tiers.is_empty():
+				continue
+			var inner: Dictionary = arc_tiers[0]
+			var outer: Dictionary = arc_tiers[-1]
+			var r_top := float(inner["r_inner"]) + 4.0 if float(inner["r_inner"]) > 0.0 else float(inner["r_outer"]) - 6.0
+			if up_inward:
+				await _walk_line(c, L, b, float(outer["r_outer"]) - 6.0, r_top, "ramp")
+			else:
+				await _walk_line(c, L, b, float(inner["r_inner"]) + 10.0, float(outer["r_outer"]) - 6.0, "ramp")
+		# every gate: from 30 m outside through the gateway into the city
+		for g: Dictionary in c.get("gates", []):
+			var gp: Variant = g.get("position")
+			if not (gp is Vector3):
+				continue
+			var ends := _gate_ends(L, gp, float(g.get("bearing", 0.0)), g)
+			if ends.is_empty():
+				_log("walk %s gate %s: no inside / outside found around it" % [c["id"], g.get("id", "?")])
+				continue
+			await _walk_straight(c, L, ends[0], ends[1], "%s gate %s" % [c["id"], g.get("id", "?")])
 
 
-func _walk_spoke(c: Dictionary, L: RingLayout, bearing: float) -> void:
-	var r_out := 0.0
-	var r_in := INF
-	for t in L.tiers:
-		r_out = maxf(r_out, float(t["r_outer"]))
-		r_in = minf(r_in, float(t["r_inner"]))
-	var goal_r := r_in + 4.0
-	var pal: Variant = c.get("palace")
-	if pal is Dictionary and (pal as Dictionary).has("radius"):
-		goal_r = maxf(goal_r, float(pal["radius"]) + 6.0)
-	var start := L.point(r_out + 18.0, bearing)
-	start = WorldData.get_safe_ground(start)
-	var label := "%s @%.0f" % [c["id"], bearing]
-	if not await _travel(Transform3D(Basis(Vector3.UP, _yaw_to(start, Vector3(L.center.x, 0, L.center.y))), start)):
+## [outside, inside] 30 m either side of a gate: the record's own points (Ba Sing Se), else the axis
+## (radial, or along the ring for gates at the end of a tier's arc) with open ground outside the
+## tiers on one side and a tier on the other.
+func _gate_ends(L: RingLayout, gp: Vector3, bearing: float, g: Dictionary) -> Array:
+	if g.get("outside") is Vector3:
+		var o: Vector3 = g["outside"]
+		var d := Vector3(gp.x - o.x, 0, gp.z - o.z).normalized()
+		return [gp - d * 30.0, gp + d * 30.0]
+	var radial := Vector3(RingLayout.dir(bearing).x, 0, RingLayout.dir(bearing).y)
+	for axis: Vector3 in [radial, Vector3(-radial.z, 0, radial.x)]:
+		for sgn: float in [1.0, -1.0]:
+			var out_p := gp + axis * sgn * 30.0
+			var in_p := gp - axis * sgn * 30.0
+			if L.tier_at(out_p.x, out_p.z).is_empty() and not L.tier_at(in_p.x, in_p.z).is_empty():
+				return [Vector3(out_p.x, WorldData.get_height(out_p.x, out_p.z), out_p.z), Vector3(in_p.x, gp.y, in_p.z)]
+	return []
+
+
+## Runs along `bearing` from radius r0 to r1 (InputMap move + sprint, camera yaw), recording blocks,
+## drops and rescues. A player would jump and sidestep when blocked: so does the walker.
+func _walk_line(c: Dictionary, L: RingLayout, bearing: float, r0: float, r1: float, what: String) -> void:
+	var sgn := 1.0 if r1 > r0 else -1.0
+	await _walk(c, L, "%s %s @%.0f" % [c["id"], what, bearing], L.point(r0, bearing),
+		func(pos: Vector3) -> Vector3: return L.point(maxf(L.polar(pos.x, pos.z).x + sgn * 12.0, 0.0), bearing),
+		func(pos: Vector3) -> float: return (r1 - L.polar(pos.x, pos.z).x) * sgn,
+		absf(r1 - r0))
+
+
+func _walk_straight(c: Dictionary, L: RingLayout, a: Vector3, b: Vector3, label: String) -> void:
+	var d := Vector3(b.x - a.x, 0, b.z - a.z)
+	var length := d.length()
+	d /= maxf(length, 0.01)
+	await _walk(c, L, label, a,
+		func(pos: Vector3) -> Vector3:
+			var along := clampf((pos - a).dot(d) + 12.0, 0.0, length + 12.0)
+			return a + d * along,
+		func(pos: Vector3) -> float: return length - (pos - a).dot(d),
+		length)
+
+
+## The walker: from `start`, steering at aim(pos), until left(pos) <= 0 (metres still to go).
+func _walk(c: Dictionary, L: RingLayout, label: String, start: Vector3, aim: Callable, left: Callable, total: float) -> void:
+	var aim0: Vector3 = aim.call(start)
+	if not await _travel(Transform3D(Basis(Vector3.UP, _yaw_to(start, aim0)), start + Vector3.UP * 0.3)):
 		_finding("walk %s: could not travel to the start" % label)
 		return
+	await p.wait_game(0.6)
 	var t := 0.0
 	var last := pl.global_position
 	var win_t := 0.0
@@ -257,31 +315,34 @@ func _walk_spoke(c: Dictionary, L: RingLayout, bearing: float) -> void:
 	var blocks: Array[String] = []
 	var unstick := 0
 	var block_at := Vector3.INF
-	var min_r := L.polar(pl.global_position.x, pl.global_position.z).x
+	var best := 0.0
 	var y_track := pl.global_position.y
-	var limit := (r_out + 30.0 - goal_r) / 5.0 + 40.0
+	var limit := total / 4.0 + 30.0
 	Input.action_press(&"sprint")
 	while t < limit:
 		_heal()
 		var pos := pl.global_position
-		var pr := L.polar(pos.x, pos.z)
-		min_r = minf(min_r, pr.x)
-		if pr.x <= goal_r:
+		var rem: float = left.call(pos)
+		best = maxf(best, total - rem)
+		if rem <= 0.0:
 			break
-		# steer along the spoke: aim at the point 12 m further in on the same bearing
-		var aim := L.point(maxf(pr.x - 12.0, 0.0), bearing)
-		pl.camera_rig.set_yaw(_yaw_to(pos, aim))
+		var target: Vector3 = aim.call(pos)
+		pl.camera_rig.set_yaw(_yaw_to(pos, target))
 		Input.action_press(&"move_forward")
 		await p.wait_game(0.1)
 		t += 0.1
 		var now := pl.global_position
+		var r := L.polar(now.x, now.z).x
 		if now.distance_to(last) > 25.0:
 			_finding("walk %s: jumped %.0f m in one step at r=%.0f (fall net / rescue?) from (%.0f, %.1f, %.0f) to (%.0f, %.1f, %.0f)" % [label,
-				now.distance_to(last), pr.x, last.x, last.y, last.z, now.x, now.y, now.z])
+				now.distance_to(last), r, last.x, last.y, last.z, now.x, now.y, now.z])
+			_point(label, "rescue", last, _yaw_to(last, target))
 			await _shot("rescue_" + label)
 			break
-		if y_track - now.y > 5.0 and pl.motor.on_floor:
-			_finding("walk %s: dropped %.1f m at r=%.0f (%.0f, %.1f, %.0f) - a hole / ledge on the street?" % [label, y_track - now.y, pr.x, now.x, now.y, now.z])
+		if y_track - now.y > 4.0 and pl.motor.on_floor:
+			_finding("walk %s: dropped %.1f m at r=%.0f (%.0f, %.1f, %.0f) tier %s - off a ledge / through a hole?" % [label, y_track - now.y, r,
+				now.x, now.y, now.z, String(L.tier_at(now.x, now.z).get("id", "-"))])
+			_point(label, "drop", now, _yaw_to(now, target))
 			await _shot("drop_" + label)
 		if pl.motor.on_floor:
 			y_track = now.y
@@ -294,15 +355,15 @@ func _walk_spoke(c: Dictionary, L: RingLayout, bearing: float) -> void:
 				if not block_at.is_finite() or block_at.distance_to(now) > 4.0:
 					block_at = now
 					unstick = 0
-					blocks.append("r=%.0f %s" % [pr.x, info])
-					_finding("walk %s: blocked at r=%.0f (%.0f, %.1f, %.0f) tier %s, %s" % [label, pr.x, now.x, now.y, now.z,
+					blocks.append("r=%.0f" % r)
+					_finding("walk %s: blocked at r=%.0f (%.0f, %.1f, %.0f) tier %s, %s" % [label, r, now.x, now.y, now.z,
 						String(L.tier_at(now.x, now.z).get("id", "-")), info])
+					_point(label, "block", now, _yaw_to(now, target))
 					await _shot("block_" + label)
 				unstick += 1
 				if unstick > 3:
-					_log("walk %s: gives up at r=%.0f" % [label, pr.x])
+					_log("walk %s: gives up at r=%.0f" % [label, r])
 					break
-				# a player would jump and sidestep
 				await p.tap(&"jump")
 				var side := &"move_right" if unstick % 2 == 1 else &"move_left"
 				Input.action_press(side)
@@ -314,9 +375,46 @@ func _walk_spoke(c: Dictionary, L: RingLayout, bearing: float) -> void:
 	Input.action_release(&"move_forward")
 	Input.action_release(&"sprint")
 	await p.wait_game(0.2)
-	var reached := L.polar(pl.global_position.x, pl.global_position.z).x <= goal_r + 1.0
-	_log("walk %-34s %s in %.0f s (closest r=%.0f, goal r=%.0f) %d block(s) %s" % [label, "REACHED" if reached else "stopped",
-		t, min_r, goal_r, blocks.size(), ", ".join(blocks)])
+	var reached: bool = float(left.call(pl.global_position)) <= 1.0
+	_log("walk %-40s %s in %.0f s (%.0f of %.0f m) %d block(s) %s" % [label, "REACHED" if reached else "stopped",
+		t, best, total, blocks.size(), ", ".join(blocks)])
+
+
+var points: Array = []
+
+
+## PART=tour (rendered): POINTS=<walk_points.json of a headless walk run>; the player is placed at
+## every recorded block / drop and photographed from behind looking along the walk.
+func _audit_tour() -> void:
+	var path := OS.get_environment("POINTS")
+	var data: Variant = JSON.parse_string(FileAccess.get_file_as_string(path)) if path != "" else null
+	if not (data is Array):
+		p.check(false, "tour: POINTS=<walk_points.json> needed")
+		return
+	var i := 0
+	for e: Dictionary in data:
+		i += 1
+		var a: Array = e["pos"]
+		var at := Vector3(float(a[0]), float(a[1]), float(a[2]))
+		var yaw := float(e["yaw"])
+		if not await _travel(Transform3D(Basis(Vector3.UP, yaw), at + Vector3.UP * 0.2)):
+			continue
+		# a few steps back so the camera sees what stopped the walker
+		pl.teleport(Transform3D(Basis(Vector3.UP, yaw), at + Basis(Vector3.UP, yaw) * Vector3(0, 0.2, 2.5)))
+		pl.camera_rig.set_yaw(yaw)
+		await p.wait_game(1.2)
+		var pp := pl.global_position
+		_log("tour %02d %s %s at (%.0f, %.1f, %.0f); player at (%.0f, %.1f, %.0f) %s floor %s cam %s" % [i, e["kind"], e["label"], at.x, at.y, at.z,
+			pp.x, pp.y, pp.z, pl.get_state_name(), pl.motor.on_floor, str(p.get_viewport().get_camera_3d().global_position.round()) if p.get_viewport().get_camera_3d() else "-"])
+		shots = mini(shots, 39)
+		await _shot("tour_%02d_%s_%s" % [i, e["kind"], String(e["label"]).replace(" ", "_")])
+
+
+func _point(label: String, kind: String, at: Vector3, yaw: float) -> void:
+	points.append({"label": label, "kind": kind, "pos": [at.x, at.y, at.z], "yaw": yaw})
+	var f := FileAccess.open(p.out_dir.path_join("walk_points.json"), FileAccess.WRITE)
+	if f:
+		f.store_string(JSON.stringify(points, "\t"))
 
 
 ## What stops the player: rays ahead at knee and chest height, plus the step in front.

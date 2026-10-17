@@ -354,7 +354,9 @@ func test_projectile_outliving_its_caster_ends_quietly() -> void:
 	expect(g.alive, "in flight")
 	pl.queue_free()
 	await physics_frames(60)
-	expect(not g.alive and d.hits_taken == 0, "ended with its caster, no hit built from a freed caster (alive %s, hits %d)" % [g.alive, d.hits_taken])
+	# (wave 4 merge, docs/qa/bughunt_world.md) the shot now flies on and lands without a source
+	# (bughunt_gameplay's make_hit fix); what this guards is that no script error is raised.
+	expect(not g.alive, "finished after its caster was freed (alive %s, hits %d)" % [g.alive, d.hits_taken])
 	d.queue_free()
 	ground.queue_free()
 	await frames(2)
