@@ -27,6 +27,12 @@ code except `test_interact_with_a_freed_interactable`, a guard kept for a refute
 
 Refuted suspicions and checks that came out clean are listed at the end.
 
+Verification: `tools/check.sh` OK; `tools/test.sh` 465 / 465 (one earlier full run had
+`test_audio::test_music_loop_has_no_gap_in_engine` fail once under CPU contention from other
+agents' rendered playtests - it passed alone and in the next full run; audio was not touched);
+regression playtest `bughunt_gameplay_regressions` all parts pass (rendered, 960x540); final fuzz
+sessions clean (see Fuzz sessions).
+
 ---
 
 ## Tools
