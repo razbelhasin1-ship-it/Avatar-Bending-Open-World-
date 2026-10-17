@@ -230,7 +230,8 @@ func from_dict(d: Dictionary) -> bool:
 	for q: Variant in quests:
 		var rec: Variant = quests[q]
 		if rec is Dictionary:
-			for key: String in ["stage", "log", "objectives"]:
+			# "taken": the quest props already picked up (QuestProps.is_taken looks them up by int)
+			for key: String in ["stage", "log", "objectives", "taken"]:
 				if (rec as Dictionary).has(key):
 					rec[key] = _ints(rec[key])
 	tracked_quest = StringName(str(d.get("tracked_quest", ""))) if d.get("tracked_quest") is String else &""

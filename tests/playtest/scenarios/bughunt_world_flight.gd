@@ -255,10 +255,22 @@ func _report() -> void:
 			lines.append("revisit %s: mem %+.1f MB, objects %+d, nodes %+d, orphans %+d, resources %+d" % [v["place"],
 				v["mem"] - start_v["mem"], v["objects"] - start_v["objects"], v["nodes"] - start_v["nodes"], v["orphans"] - start_v["orphans"],
 				v["resources"] - start_v["resources"]])
+	# the same city on the next loop (same approach, same circling): pools and caches plateau
+	for v in visits:
+		for u in visits:
+			if u["place"] == v["place"] and int(u["loop"]) == int(v["loop"]) + 1 and int(v["loop"]) >= 0:
+				lines.append("loop %d -> %d over %s: mem %+.1f MB, objects %+d, nodes %+d, resources %+d, cells %+d" % [int(v["loop"]) + 1,
+					int(u["loop"]) + 1, u["place"], u["mem"] - v["mem"], u["objects"] - v["objects"], u["nodes"] - v["nodes"],
+					u["resources"] - v["resources"], u["cells"] - v["cells"]])
+	# the content pools are orphan nodes by design (out of the tree until reused): count the rest
 	var orph := 0
 	for v in visits:
-		orph = maxi(orph, int(v["orphans"]))
-	p.check(orph < 50, "no orphan nodes pile up (max %d)" % orph)
+		orph = maxi(orph, int(v["orphans"]) - int(v["mmi_pool"]) - int(v["mesh_pool"]))
+	p.check(orph < 60, "no orphan nodes pile up besides the content pools (max %d)" % orph)
+	var inst := 0
+	for v in visits:
+		inst = maxi(inst, int(v["mmi_inst"]))
+	p.check(inst == 0, "pooled MultiMeshes hold no instances (max %d)" % inst)
 	for l in lines:
 		p.note(l)
 

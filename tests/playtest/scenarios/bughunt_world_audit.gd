@@ -237,6 +237,8 @@ func _audit_walks() -> void:
 		var up_inward := float(L.tiers[0]["height"]) > float(L.tiers[-1]["height"])
 		for rp: Dictionary in (L.ramps if what != "gates" else []):
 			var b := float(rp["bearing"])
+			if OS.get_environment("RAMP") != "" and absf(RingLayout.bdiff(b, float(OS.get_environment("RAMP")))) > 0.5:
+				continue
 			var arc_tiers: Array[Dictionary] = []
 			for t in L.tiers:
 				if RingLayout.in_arc(b, t.get("arc")):
@@ -292,7 +294,15 @@ func _gate_ends(L: RingLayout, gp: Vector3, bearing: float, g: Dictionary) -> Ar
 		var d := Vector3(gp.x - o.x, 0, gp.z - o.z).normalized()
 		return [gp - d * 30.0, gp + d * 30.0]
 	var radial := Vector3(RingLayout.dir(bearing).x, 0, RingLayout.dir(bearing).y)
-	for axis: Vector3 in [radial, Vector3(-radial.z, 0, radial.x)]:
+	var axes: Array[Vector3] = [radial, Vector3(-radial.z, 0, radial.x)]
+	# a gate at the end of a tier's arc (the Water Tribe's land gates) opens along the ring; the
+	# radial line through it is the end wall itself
+	for t in L.tiers:
+		var arc: Variant = t.get("arc")
+		if arc is Array and (absf(RingLayout.bdiff(bearing, float(arc[0]))) < 6.0 or absf(RingLayout.bdiff(bearing, float(arc[1]))) < 6.0):
+			axes.reverse()
+			break
+	for axis: Vector3 in axes:
 		for sgn: float in [1.0, -1.0]:
 			var out_p := gp + axis * sgn * 30.0
 			var in_p := gp - axis * sgn * 30.0
@@ -517,7 +527,9 @@ func _block_info() -> String:
 		var q := PhysicsRayQueryParameters3D.create(a, a + fwd * 1.4, Layers.SOLID | Layers.NPC | Layers.COMPANION)
 		q.exclude = [pl.get_rid()]
 		var r := space.intersect_ray(q)
-		out.append("%.2fm:%s" % [hgt, _who(r.get("collider")) if not r.is_empty() else "free"])
+		# the hit distance and normal tell a wall (horizontal normal) from a slope / step
+		out.append("%.2fm:%s" % [hgt, ("%s @%.2fm n%s" % [_who(r.get("collider")), a.distance_to(r["position"]), str((r["normal"] as Vector3).snapped(Vector3.ONE * 0.01))])
+			if not r.is_empty() else "free"])
 	var ahead := pl.global_position + fwd * 1.0
 	var qd := PhysicsRayQueryParameters3D.create(ahead + Vector3.UP * 3.0, ahead + Vector3.DOWN * 4.0, Layers.SOLID)
 	qd.exclude = [pl.get_rid()]

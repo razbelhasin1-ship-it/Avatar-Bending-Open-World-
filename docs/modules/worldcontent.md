@@ -421,6 +421,15 @@ Settings-driven ranges and densities, and lights through `LightBudget`.
   `LightBudget.refresh()` re-picks at once. `PropFx.particles` puts smoke / embers in group
   `fire_fx` (stopped while their fire is out).
 
+### Wave 4: pooled nodes drop their cell's data (docs/qa/bughunt_world.md)
+
+* `_release_now` empties a MultiMeshInstance3D before pooling it (`instance_count = 0`, mesh and
+  `material_override` cleared): pooled nodes used to keep the released cell's instance buffer,
+  mesh and material alive until reused - ~27 000 instances held after a flight over all four
+  nations. `spawn_multimesh` sets everything again on reuse. The pools themselves are orphan
+  nodes by design (out of the tree, up to `POOL_LIMIT` each). Regression:
+  `test_bughunt_world.gd::test_released_cells_leave_nothing_in_the_pool`.
+
 ## Known issues
 
-KNOWN_ISSUES
+None recorded here (the draft's placeholder); wave-4 QA findings are in `docs/qa/`.

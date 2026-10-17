@@ -131,6 +131,71 @@ func test_releasing_a_cell_with_a_vanished_npc() -> void:
 	WorldData.height_override = Callable()
 
 
+# --- content streaming pools --------------------------------------------------------------------------
+
+## A few instanced boxes per 32 m cell (a stand-in for vegetation / settlement multimeshes).
+class BoxGrid extends ContentProvider:
+	var mesh: Mesh
+
+	func _init() -> void:
+		id = &"bw_boxes"
+		cell_size = 32.0
+		range_m = 48.0
+		unload_margin = 8.0
+		var g := GeoBuilder.new()
+		g.box(Transform3D.IDENTITY, Vector3.ONE)
+		mesh = g.to_mesh()
+
+	func build_cell(cell: ContentCell) -> void:
+		var p := CellPayload.new()
+		var buf := PackedFloat32Array()
+		for i in 40:
+			CellPayload.write_instance(buf, Transform3D(Basis(), Vector3((i % 8) * 4.0, 0, floorf(i / 8.0) * 4.0)), Color.WHITE)
+		p.add_multimesh(mesh, StandardMaterial3D.new(), buf, 40, AABB(Vector3(-1, -1, -1), Vector3(34, 2, 34)))
+		cell.payload = p
+
+
+## Released cells put their MultiMeshInstances in a pool for reuse - with the cell's instance
+## buffer, mesh and material still in them until a new cell took the node: after the long flight
+## over all four nations the pool held ~27 000 instances of cells long gone (bughunt_world_flight).
+func test_released_cells_leave_nothing_in_the_pool() -> void:
+	var p := BoxGrid.new()
+	var wc := WorldContent.new()
+	wc.use_default_providers = false
+	add_child(wc)
+	wc.register_provider(p)
+	var f := Node3D.new()
+	add_child(f)
+	wc.setup(f)
+	expect(wc.load_now(), "cells loaded")
+	f.global_position = Vector3(5000, 0, 5000)
+	expect(wc.load_now(), "loaded far away: the first cells were released")
+	var pool: Array = wc.get("_mmi_pool")
+	expect(pool.size() > 0, "released multimesh nodes went to the pool (%d)" % pool.size())
+	var held := 0
+	var meshes := 0
+	var mats := 0
+	for n: Variant in pool:
+		var mmi := n as MultiMeshInstance3D
+		if mmi.multimesh:
+			held += mmi.multimesh.instance_count
+			meshes += int(mmi.multimesh.mesh != null)
+		mats += int(mmi.material_override != null)
+	expect_eq(held, 0, "pooled multimeshes hold no instances")
+	expect_eq(meshes + mats, 0, "nor the released cells' meshes / materials")
+	# and a recycled node shows its new cell in full
+	f.global_position = Vector3.ZERO
+	expect(wc.load_now(), "back at the start")
+	var shown := 0
+	for c in wc.get_cells(&"bw_boxes"):
+		for n: Variant in c.pooled:
+			if n is MultiMeshInstance3D:
+				shown += (n as MultiMeshInstance3D).multimesh.instance_count
+	expect(shown > 0 and shown % 40 == 0, "recycled nodes show every instance of their new cells (%d)" % shown)
+	wc.queue_free()
+	f.queue_free()
+
+
 # --- settings ----------------------------------------------------------------------------------------
 
 ## A value the menu could set for `row` that differs from the current one (null = none).
@@ -233,6 +298,36 @@ func test_abandoning_a_quest_takes_back_its_handouts() -> void:
 	expect_eq(Quests.progress(moss, &"moss"), 1, "a restart counts what the player really holds")
 	expect(not QuestProps.is_taken(moss, &"moss", 0), "and its props are back in the world")
 	Quests.reset_quest(moss)
+
+
+## Quest props a player picked up are recorded in GameState.quests[q]["taken"] as prop indices.
+## A save brings every number back from JSON as a float; the load turned stages / logs / objective
+## counts back into ints but not the taken lists, and `[0.0, 1.0].has(0)` is false: after every
+## reload the gathered moss / letters / clues were back in the world, to be picked up (and sold)
+## again, and interact objectives counted them twice.
+func test_taken_quest_props_stay_taken_after_a_reload() -> void:
+	var dir := _private_saves()
+	GameState.new_game(E.WATER)
+	var moss := &"wt_healers_moss"
+	if not expect(Quests.has_quest(moss), "quest data present"):
+		_drop_saves(dir)
+		return
+	Quests.start(moss, {"silent": true})
+	QuestProps.mark_taken(moss, &"moss", 0)
+	QuestProps.mark_taken(moss, &"moss", 1)
+	GameState.add_item(&"arctic_moss", 2)
+	expect(SaveSystem.save_game(0), "saved")
+	GameState.reset()
+	expect(SaveSystem.load_game(0), "loaded")
+	expect(Quests.is_active(moss), "the quest is active again")
+	expect(QuestProps.is_taken(moss, &"moss", 0) and QuestProps.is_taken(moss, &"moss", 1), "both picked-up props stay taken")
+	expect(not QuestProps.is_taken(moss, &"moss", 2), "the others are still out there")
+	QuestProps.mark_taken(moss, &"moss", 1)
+	var rec: Dictionary = GameState.quests[String(moss)]
+	expect_eq(((rec["taken"] as Dictionary)["moss"] as Array).size(), 2, "taking one again does not add a second entry")
+	Quests.reset_quest(moss)
+	GameState.add_item(&"arctic_moss", -GameState.item_count(&"arctic_moss"))
+	_drop_saves(dir)
 
 
 ## Every action a conversation can reach in the current state: branches are routed as the runner

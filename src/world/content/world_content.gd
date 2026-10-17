@@ -617,6 +617,13 @@ func _release_now(cell: ContentCell) -> void:
 			_night_only.erase(n)
 			n.set_meta(&"night_only", false)
 		if n is MultiMeshInstance3D and _mmi_pool.size() < POOL_LIMIT:
+			# drop what the cell put in it: a pooled MMI kept its instance buffer, mesh and
+			# material alive until reused (~27k instances held after a flight, bughunt_world)
+			var mmi := n as MultiMeshInstance3D
+			if mmi.multimesh:
+				mmi.multimesh.instance_count = 0
+				mmi.multimesh.mesh = null
+			mmi.material_override = null
 			_mmi_pool.append(n)
 		elif n is MeshInstance3D and _mesh_pool.size() < POOL_LIMIT:
 			(n as MeshInstance3D).mesh = null

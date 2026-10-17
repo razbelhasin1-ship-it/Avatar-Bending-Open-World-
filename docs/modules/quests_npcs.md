@@ -494,7 +494,10 @@ plaza on the mobile preset; empty-looking markets (customers added).
   typed `NpcCharacter`; an NPC that faded out (`vanish`) has freed itself before the next `_update`
   prunes the table, so the read raised "Trying to assign invalid previously freed instance" (seen
   on every fast travel of the world audit), the loop aborted and the rest of the cell's crowd
-  records stayed registered. Untyped read + prune (`live_npcs()` likewise). Regression:
+  records stayed registered. Untyped read + prune (`live_npcs()` likewise). In the same window
+  `live_npc(key)` (asked by a chatting partner's `NpcBrain._partner` every talk tick) ran
+  `is NpcCharacter` before `is_instance_valid` - "Left operand of 'is' is a previously freed
+  instance" (twice in the Ba Sing Se walk audit); validity is checked first now. Regression:
   `test_bughunt_world.gd::test_releasing_a_cell_with_a_vanished_npc`.
 * `Quests.abandon` takes back what the quest handed out and the player still holds
   (`_take_back_handouts`: `on_start` give_item actions, items from its props). Abandon + restart
