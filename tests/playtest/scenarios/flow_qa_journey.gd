@@ -391,6 +391,8 @@ func _combat() -> void:
 		var n_used := used.size()
 		var n_hits := _enemy_hits(en).size()
 		var n_cons := BendingConstruct.live.size()
+		var setup := "bandit %.1f m away, %.2f m above its ground, %s" % [pl.global_position.distance_to(en.global_position),
+				en.global_position.y - WorldData.get_height(en.global_position.x, en.global_position.z), en.get_state_name()] if is_instance_valid(en) else ""
 		var hp := en.health.health if is_instance_valid(en) else 0.0
 		if slot == &"attack_light":
 			for k in 3:
@@ -415,7 +417,8 @@ func _combat() -> void:
 			res[rn] = int(res.get(rn, 0)) + 1
 		report[def.id] = {"cast": cast, "hits": landed, "results": res, "damage": snappedf(dmg, 0.1), "constructs": made}
 		p.check(cast, "%s %s (%s) performed from %s" % [el, def.display_name, def.id, slot])
-		p.check(landed > 0 or made > 0 or dmg > 0.0, "%s %s had a gameplay effect %s" % [el, def.id, str(report[def.id])])
+		if not p.check(landed > 0 or made > 0 or dmg > 0.0, "%s %s had a gameplay effect %s" % [el, def.id, str(report[def.id])]):
+			p.note("%s %s missed: at the cast %s" % [el, def.id, setup])
 		if not is_instance_valid(en) or not en.is_alive():
 			break
 	p.note("%s per-slot report: %s" % [el, str(report)])
