@@ -198,9 +198,11 @@ func _build_detail(parent: Control) -> void:
 	v.add_theme_constant_override(&"separation", 6)
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.add_child(v)
+	# the preview takes whatever height the text leaves (short phones / long descriptions)
 	var stage := Control.new()
 	stage.name = "Stage"
-	stage.custom_minimum_size = Vector2(0, 286)
+	stage.custom_minimum_size = Vector2(0, 170)
+	stage.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	stage.clip_contents = true
 	stage.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	v.add_child(stage)
@@ -234,10 +236,6 @@ func _build_detail(parent: Control) -> void:
 	_reqs = VBoxContainer.new()
 	_reqs.add_theme_constant_override(&"separation", 2)
 	v.add_child(_reqs)
-	var spacer := Control.new()
-	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	v.add_child(spacer)
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override(&"separation", 12)
 	v.add_child(row)

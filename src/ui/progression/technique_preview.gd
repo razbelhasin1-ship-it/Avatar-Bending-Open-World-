@@ -117,7 +117,8 @@ func _build_stage(appearance: Dictionary) -> void:
 	rig.set_lod(0)
 	rig.set_foot_ik(false)
 	rig.set_style(prof.rig_style)
-	rig.rotation.y = (-PI * 0.5 - 0.42) if not portrait else -0.35
+	# technique view: side-on to the right (moves read in profile); portrait: facing the camera
+	rig.rotation.y = (-PI * 0.5 - 0.42) if not portrait else PI - 0.3
 	rig.set_combat_stance(not portrait)
 	if not portrait:
 		flourish = PreviewFlourish.new()
@@ -195,7 +196,7 @@ func _process(delta: float) -> void:
 		_fit_viewport()
 	if portrait:
 		_turn += delta
-		rig.rotation.y = -0.35 + sin(_turn * 0.4) * 0.3
+		rig.rotation.y = PI - 0.3 + sin(_turn * 0.4) * 0.35
 		return
 	if _holding > 0.0:
 		_holding -= delta

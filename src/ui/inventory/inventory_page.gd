@@ -378,8 +378,10 @@ func _build_discoveries() -> void:
 		total_known += known.size()
 		total += pois.size()
 		_disc_list.add_child(_region_row(r, known, pois.size()))
-	var head := UiTheme.make_label("%d of %d places discovered across the four nations  ·  %d%% of the world explored" % [total_known, total, int(round(MapModel.revealed_ratio() * 100.0))],
-		UiTheme.title_font(600, 2), UiTheme.SIZE_SMALL, UiTheme.GOLD)
+	var head_text := "%d of %d places discovered across the four nations  ·  %d%% of the world explored" % [total_known, total, int(round(MapModel.revealed_ratio() * 100.0))]
+	if total == 0:
+		head_text = "%d places discovered. The world's records are not at hand here (training grounds)." % GameState.discovered_pois.size()
+	var head := UiTheme.make_label(head_text, UiTheme.title_font(600, 2), UiTheme.SIZE_SMALL, UiTheme.GOLD)
 	_disc_list.add_child(head)
 	_disc_list.move_child(head, 0)
 
