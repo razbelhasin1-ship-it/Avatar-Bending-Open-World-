@@ -55,7 +55,9 @@ so fights don't interfere; saves into `user://saves_bughunt_world_audit`.
   one step: fall net / respawn). Points go to `walk_points.json`. `CITY=a,b`, `WHAT=ramps|gates`,
   `RAMP=<bearing>` narrow it.
 * `PART=tour` (rendered) — `POINTS=<walk_points.json>`: the player at each block / drop, looking
-  along the walk (how every block was judged).
+  along the walk (how every block was judged). The teleport lands before a settlement cell's
+  collision has streamed in, so on stairs / decks the player stands on the terrain under them in
+  these shots (judge the geometry, not the player's height; the walks themselves cross them).
 * `PART=npc` — every city: 20 s of every NPC in range: buried in geometry, walkers that want to
   move but have not moved for 3 s.
 * `PART=quests` — every quest stage: every prop (spawned? on dry floor? reachable? does interact
