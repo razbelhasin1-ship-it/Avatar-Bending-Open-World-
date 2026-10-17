@@ -115,12 +115,22 @@ class Monkey extends RefCounted:
 			if clock >= float(held[a]):
 				p.release(a)
 				held.erase(a)
-		# UI opened by us: close it after a moment (the menus pause the tree).
+		# UI opened by us: close it after a moment (the menus pause the tree). Pause is a toggle:
+		# only press it while something is open, never blindly (a press that lands on a closed
+		# menu reopens it and the game stayed paused for good).
+		var paused := pl.get_tree().paused
 		if _ui_close_at >= 0.0 and clock >= _ui_close_at:
 			_ui_close_at = -1.0
-			p.hold(_ui_close_action)
-			p.release(_ui_close_action)
-			_note("ui_close_" + String(_ui_close_action))
+			if paused:
+				p.hold(_ui_close_action)
+				p.release(_ui_close_action)
+				_note("ui_close_" + String(_ui_close_action))
+		if paused:
+			# No play while a menu is open: just close it again.
+			if _ui_close_at < 0.0:
+				_ui_close_at = clock + rng.randf_range(0.1, 0.6)
+				_ui_close_action = [&"pause", &"ui_cancel"][rng.randi() % 2]
+			return
 		if clock < next_decision:
 			return
 		next_decision = clock + rng.randf_range(0.04, 0.22)

@@ -40,6 +40,9 @@ var mode := "arena"
 var minutes := 5.0
 var shot_every := 60.0
 var summary: Array[String] = []
+## Breadcrumbs (<out>/crumbs.txt, flushed): the last game state before a hang or a crash.
+var _crumbs: FileAccess = null
+var _crumb_n := 0
 
 
 func run(pt: Playtest) -> void:
@@ -55,6 +58,7 @@ func run(pt: Playtest) -> void:
 		for s in which.split(","):
 			elements.append(ElementDefs.from_id(StringName(s)))
 	errlog = U.ErrorLog.install()
+	_crumbs = FileAccess.open(p.out_dir.path_join("crumbs.txt"), FileAccess.WRITE)
 	for e: int in elements:
 		rng.seed = seed_v + e * 101
 		if mode == "world":
@@ -216,10 +220,14 @@ func _arena(e: int) -> void:
 			# The pause menu: the monkey closes it again (its own deadline) - keep its clock running.
 			monkey.call("step", DT)
 			watch.call("tick", 0.0)
+			_crumb_n += 1
+			if _crumb_n % 60 == 0:
+				_mark("%s t=%.2f paused" % [tag, t])
 			continue
 		t += DT
 		monkey.call("step", DT)
 		watch.call("tick", DT)
+		_crumb(tag, t, pl, c, monkey)
 		if t >= next_group:
 			next_group = t + 3.0
 			var alive := 0
@@ -263,6 +271,7 @@ func _arena(e: int) -> void:
 
 func _arena_event(arena: Node, pl: PlayerCharacter, c: Companion, e: int) -> void:
 	var k := rng.randi() % 11
+	_mark("arena event %d" % k)
 	match k:
 		9, 10:
 			# Walk up to the companion and get on (then the monkey rides / hops off).
@@ -376,6 +385,7 @@ func _world(e: int) -> void:
 		t += DT
 		monkey.call("step", DT)
 		watch.call("tick", DT)
+		_crumb(tag, t, pl, pl.get_companion() as Companion, monkey)
 		if t >= next_spawn and director != null:
 			next_spawn = t + 4.0
 			var alive := 0
@@ -405,8 +415,29 @@ func _world(e: int) -> void:
 	await _finish_element(tag, pl, watch, monkey)
 
 
+func _mark(s: String) -> void:
+	if _crumbs != null:
+		_crumbs.store_line(s)
+		_crumbs.flush()
+
+
+func _crumb(tag: String, t: float, pl: PlayerCharacter, c: Companion, monkey: Object) -> void:
+	_crumb_n += 1
+	if _crumbs == null or _crumb_n % 3 != 0:
+		return
+	var ab := pl.controller.current if pl.controller else null
+	var cm := "-"
+	if c != null and is_instance_valid(c):
+		cm = "%s%s" % [c.get_mode_name(), ("/" + c.burrow.phase_name()) if c.burrow != null and c.burrow.is_active() else ""]
+	_crumbs.store_line("%s t=%.2f %s ab=%s(%.2f) pos=%s comp=%s held=%s" % [tag, t, pl.get_state_name(),
+			String(ab.def.id) if ab != null else "-", ab.time if ab != null else 0.0, pl.global_position.snapped(Vector3.ONE * 0.1), cm,
+			str((monkey.get("held") as Dictionary).keys())])
+	_crumbs.flush()
+
+
 func _world_event(w: WorldScene, pl: PlayerCharacter) -> void:
 	var k := rng.randi() % 7
+	_mark("world event %d" % k)
 	match k:
 		0:
 			if pl.is_alive():

@@ -7,7 +7,7 @@ saves in odd states, time-scale leaks, pooling leaks and per-frame costs; then *
 fuzz sessions** per element in the enemy arena and in the real world with an invariant
 watchdog and an engine-error collector (every error / warning counted as a bug). Every
 suspicion was reproduced (test or fuzz), fixed at its root with the smallest change, and kept
-as a regression test (`tests/unit/test_bughunt_gameplay.gd`, 14 tests; each fails on the old
+as a regression test (`tests/unit/test_bughunt_gameplay.gd`, 15 tests; each fails on the old
 code except `test_interact_with_a_freed_interactable`, a guard kept for a refuted suspicion).
 
 | # | Bug | Verdict | Fix (file) |
@@ -23,6 +23,7 @@ code except `test_interact_with_a_freed_interactable`, a guard kept for a refute
 | 9 | Enemy hearing a fight it cannot see: ALERT until the 12 s safety timeout (engine warning), then RETURN -> ALERT forever | confirmed (fuzz) | new noises don't restart the give-up clock (`enemy_brain.gd`) |
 | 10 | World respawn sequence overtaken by the auto-respawn backstop: two respawns for one death | confirmed (fuzz) | teleport only when already revived (`respawn_system.gd`) |
 | 11 | Earth Pillar self-lift under a roof / arch / cave ceiling: the bender is carried through it and pops out on top | confirmed | headroom cast before the lift (`earth_pillar.gd`) |
+| 12 | Enemy knocked into a pool / pit chases the player on the rim by sliding along the wall forever | confirmed (fuzz) | walled-in detection: hop out, give up the chase (`enemy_brain.gd`, `enemy_base.gd`) |
 
 Refuted suspicions and checks that came out clean are listed at the end.
 
@@ -69,7 +70,9 @@ Refuted suspicions and checks that came out clean are listed at the end.
 
 Plays the fixed cases with the real player (rendered, InputMap actions): Water Jet on a dummy,
 Tidal Torrent among four dummies, riding into a cinematic, hopping off the polar bear dog at sea,
-letting go of the sky bison and saving while falling. Observer + player-view screenshots.
+letting go of the sky bison and saving while falling, Earth Pillar self-lift under a low roof and
+under the open sky. Observer + player-view screenshots
+(`tools/playtest.sh bughunt_gameplay_regressions <out> 960x540`, `PART=` to pick parts).
 
 ---
 
@@ -215,6 +218,24 @@ against `Layers.WORLD` before the lift; the column and the lift stop 5 cm below 
 (`:181`), and with less than `MIN_SELF_LIFT` (0.6 m, `:17`) there is no self-lift - the column
 erupts ahead as a tap would (`:164`). Open sky: unchanged 3 m.
 
+### 12. Enemies walled in a pool / pit
+
+**Found by the final arena fuzz** (`enemy_stuck_chasing`: a Firebender Soldier in the air session
+and a Rogue Waterbender in the earth session, both at y -1.7 - the floor of the arena pool).
+Enemies have no step-up and CHASE has no timeout; knocked into the pool (air blasts, earth
+boulders) they chased the player standing on the rim. The whisker avoidance turns them along the
+wall, so they slid back and forth at 2-4 m/s (`_track_stuck` measures speed, so it never even
+saw them as stuck) - forever, or until the player walked away. The same holds below a quay or in
+any pit deeper than the step height.
+**Evidence.** `test_enemy_hops_out_of_a_pit` (a brawler inside a 1.25 m wall, the player 9 m
+away): on the old code it oscillated along the inner wall for the whole 12 s (x between -0.8 and
+-1.8 at z -2.64, CHASE); now it hops out after ~2 s and attacks.
+**Fix.** `src/enemies/enemy_brain.gd:843` `_track_walled()` (from `_track_stuck` in CHASE / RETURN /
+PATROL): 1 s windows; against a wall for most of a window without getting 0.5 m closer = walled.
+Each walled window hops toward the goal (`EnemyBase.hop_toward`, `enemy_base.gd:569`, ~2.3 m apex,
+up to 3 per spell), and a chase walled in for 7 windows is given up (RETURN keeps its own snap
+home / 40 s timeout).
+
 ---
 
 ## Fuzz sessions
@@ -239,6 +260,8 @@ erupts ahead as a tap would (`:164`). Open sky: unchanged 3 m.
 | Pooling leaks | clean: node counts plateau at ~1 200-1 300 in 6-minute arena sessions (pools fill as new techniques are used), no orphan nodes |
 | Companion assist landing hits while the player is dead | by design: its move is credited to the player and finishes |
 | Enemy RETURN 40 s safety timeout (Dai Li agent, renegade airbender) | harness-made: the fuzz spawned enemies with a 60 m leash (long walks home); with the default leash it did not recur |
+| "Audio loop alive 40 s" (`fire_loop` in the world sessions) | not a leak: the interactive world fires (braziers, campfires) loop while near; the watchdog now only flags bending loops that keep following the player |
+| Player DEAD for > 12 s in the world | by design: the world's respawn backstop is 15 s and the sequence waits for the respawn point's ground; the cap now follows the backstop (and the double respawn behind it is bug 10) |
 | Player inside their own Earth Wall / pillar (`player_embedded`) | by design: constructs never collide with their caster (an eruption at the feet must not trap them) |
 | Enemies striking through walls | clean: melee / ranged strikes check line of sight (`EnemyBase` LOS ray) |
 | Per-frame allocations in hot paths | reviewed: projectile casts reuse their shape / params, player aim is a ray per ability tick, group scans are 10-15 Hz or per pulse; physics frame time measured in the fuzz (sessions table) |

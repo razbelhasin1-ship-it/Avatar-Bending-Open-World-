@@ -313,6 +313,25 @@ func test_suspicion_gives_up_under_continuous_noise() -> void:
 	expect(max_alert < 9.0, "never reached the 12 s ALERT safety timeout (longest %.1f s)" % max_alert)
 
 
+## An enemy knocked into the arena pool chased the player on the rim by running into the pool
+## wall forever (the fuzz's enemy_stuck_chasing): enemies have no step-up, CHASE has no timeout.
+## Walled in by a 1.25 m wall (over its step height, under its eyes: it still sees the player)
+## it now hops out toward its goal.
+func test_enemy_hops_out_of_a_pit() -> void:
+	EnemySim.begin()
+	var p := PlayerSim.player(self, E.FIRE, Vector3(0, 0, -9))
+	var e := EnemySim.enemy(self, &"bandit_brawler", Vector3.ZERO, p)
+	for w: Array in [[Vector3(0, 0.625, -3.2), Vector3(6.8, 1.25, 0.4)], [Vector3(0, 0.625, 3.2), Vector3(6.8, 1.25, 0.4)],
+			[Vector3(-3.2, 0.625, 0), Vector3(0.4, 1.25, 6.8)], [Vector3(3.2, 0.625, 0), Vector3(0.4, 1.25, 6.8)]]:
+		PlayerSim.box(self, w[0], w[1])
+	await EnemySim.settle(self)
+	e.brain.engage(p)
+	var outside := func() -> bool: return absf(e.global_position.x) > 3.6 or absf(e.global_position.z) > 3.6
+	var out := await EnemySim.step_until([p, e], outside, 60 * 12)
+	EnemySim.end()
+	expect(out >= 0, "got out over the wall (at %s, %s)" % [e.global_position.snapped(Vector3.ONE * 0.1), e.get_state_name()])
+
+
 # --- focus / hitstop exploits --------------------------------------------------------------------
 
 func _ring_of_dummies(center: Vector3, n: int, r: float) -> Array[TrainingDummy]:

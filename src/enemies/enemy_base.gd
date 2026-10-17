@@ -31,6 +31,8 @@ const STATE_NAMES: Array[String] = ["Idle", "Patrol", "Alert", "Chase", "Strafe"
 const STATE_TIMEOUT := {State.ALERT: 12.0, State.ATTACK: 7.0, State.BLOCK: 3.0, State.DODGE: 1.5, State.RECOVER: 3.0,
 	State.STAGGER: 3.0, State.KNOCKDOWN: 4.0, State.GETUP: 1.6, State.RETURN: 40.0, State.FLEE: 12.0}
 const GRAVITY := 20.0
+## Vertical speed of hop_toward (apex ~2.3 m with GRAVITY).
+const HOP_SPEED := 9.5
 ## Telegraph multiplier for attacks started outside the player's view.
 const FLANK_TELEGRAPH := 1.45
 const ACCEL := 22.0
@@ -560,6 +562,20 @@ func steer_dir(dir: Vector3, speed: float) -> void:
 
 func stop_moving() -> void:
 	desired_velocity = Vector3.ZERO
+
+
+## Hops up toward `goal` to get over a low wall it is walled in by (a pool rim, a quay edge, a
+## ledge; the brain decides when): only from the floor and outside actions. Clears about 2.2 m.
+func hop_toward(goal: Vector3) -> bool:
+	if not is_on_floor() or actions.is_busy() or (controller != null and controller.is_busy()):
+		return false
+	var d := Vector3(goal.x - global_position.x, 0.0, goal.z - global_position.z)
+	if d.length_squared() < 0.01:
+		return false
+	d = d.normalized() * 3.5
+	velocity = Vector3(d.x, HOP_SPEED, d.z)
+	_fall_speed = 0.0
+	return true
 
 
 ## Pushes the direction away from allies closer than 1.4 m.

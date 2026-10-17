@@ -8,7 +8,9 @@ extends RefCounted
 ##   sea     the polar bear dog swimming far out at sea, F to hop off: the rider lands in the
 ##           water beside it (was: an arc to dry land hundreds of metres away)
 ##   flight  sky bison: take off, climb, let go, save while falling: the save holds solid ground
-## PART=jet,torrent,ride,sea,flight (default all).
+##   pillar  Earth Pillar self-lift under a low roof: a shorter column, the bender stays under
+##           it (was: carried through the roof); then the full 3 m under the open sky
+## PART=jet,torrent,ride,sea,flight,pillar (default all).
 
 const E := ElementDefs.Element
 
@@ -19,7 +21,7 @@ var cam: Camera3D
 func run(pt: Playtest) -> void:
 	p = pt
 	var only := OS.get_environment("PART")
-	for part in ["jet", "torrent", "ride", "sea", "flight"]:
+	for part in ["jet", "torrent", "ride", "sea", "flight", "pillar"]:
 		if only == "" or only.split(",").has(part):
 			p.note("--- %s ---" % part)
 			await call("_" + part)
@@ -321,3 +323,61 @@ func _flight() -> void:
 	await p.wait_until(func() -> bool: return pl.motor.on_floor, 20.0)
 	await p.wait_game(1.0)
 	await p.screenshot("flight_3_landed")
+
+
+# --- Earth Pillar self-lift under a roof ---------------------------------------------------------------------
+
+## A visible static slab (a roof / arch stand-in) on the world layer.
+func _slab(parent: Node, pos: Vector3, size: Vector3) -> StaticBody3D:
+	var sb := StaticBody3D.new()
+	sb.collision_layer = Layers.WORLD
+	sb.position = pos
+	var cs := CollisionShape3D.new()
+	var b := BoxShape3D.new()
+	b.size = size
+	cs.shape = b
+	sb.add_child(cs)
+	var mi := MeshInstance3D.new()
+	var m := BoxMesh.new()
+	m.size = size
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(0.56, 0.43, 0.32)
+	m.material = mat
+	mi.mesh = m
+	sb.add_child(mi)
+	parent.add_child(sb)
+	return sb
+
+
+func _self_lift(pl: PlayerCharacter, at: Vector3) -> float:
+	pl.controller.cooldowns.clear()
+	pl.teleport(Transform3D(Basis.IDENTITY, at))
+	pl.camera_rig.snap_behind(pl)
+	await p.wait_game(0.6)
+	p.hold(&"ability_1")
+	await p.wait_game(0.8)
+	p.release(&"ability_1")
+	await p.wait_game(1.6)
+	return pl.global_position.y - at.y
+
+
+func _pillar() -> void:
+	var arena := await _arena(E.EARTH)
+	var pl: PlayerCharacter = arena.get("player")
+	for d: TrainingDummy in arena.get("dummies"):
+		d.queue_free()
+	pl.controller.set_slot(&"technique_1", AbilityRegistry.get_def(&"earth_pillar"))
+	pl.resources.infinite_chi = true
+	var at := Vector3(0, 0, 9)
+	var roof := _slab(arena, at + Vector3(0, 3.0, 0), Vector3(5, 0.4, 5))   # underside at 2.8 m
+	var y: float = await _self_lift(pl, at)
+	await _obs("pillar_1_under_roof", at + Vector3.UP * 1.6, Vector3(1, 0, 0.45), 7.5, 0.4)
+	pl.camera_rig.make_current()
+	p.note("self-lift under a 2.8 m roof: feet at %.2f m, head at %.2f m" % [y, y + PlayerCharacter.CAPSULE_HEIGHT])
+	p.check(y > 0.5 and y + PlayerCharacter.CAPSULE_HEIGHT <= 2.85, "rode a shorter column and stayed under the roof (feet %.2f m)" % y)
+	var at2 := at + Vector3(-7, 0, 0)
+	var y2: float = await _self_lift(pl, at2)
+	await _obs("pillar_2_open_sky", at2 + Vector3.UP * 1.8, Vector3(1, 0, 0.45), 8.5, 0.8)
+	pl.camera_rig.make_current()
+	p.check(y2 > 2.6, "under the open sky the full lift (%.2f m)" % y2)
+	roof.queue_free()

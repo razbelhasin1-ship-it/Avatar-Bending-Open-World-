@@ -17,6 +17,10 @@ extends RefCounted
 
 const S := EnemyBase.State
 const THINK := 0.16
+## Hops over a low wall per walled-in spell (see _track_walled).
+const MAX_HOPS := 3
+## Walled-in seconds (1 s windows) before a chase is given up.
+const CHASE_GIVE_UP := 7
 const ALLY_CALL_RADIUS := 22.0
 const MELEE_ROLES: Array[StringName] = [&"brawler", &"skirmisher", &"defender", &"captain", &"beast"]
 ## Seconds an off-screen enemy keeps circling into view before it may attack anyway.
@@ -43,6 +47,11 @@ var _spotted_beat := 0.0
 var _block_hold := 0.0
 var _getup_len := 0.7
 var _stuck_t := 0.0
+var _hops := 0
+var _walled := 0
+var _win_t := 0.0
+var _win_wall := 0.0
+var _win_d := INF
 var _retreat_t := 0.0
 var _feint_t := 0.0
 var _seen_threats: Dictionary = {}
@@ -736,6 +745,9 @@ func _go_home() -> void:
 	target = null
 	_reengage_grace = 2.0
 	_stuck_t = 0.0
+	_hops = 0
+	_walled = 0
+	_win_d = INF
 	e.set_state(S.RETURN)
 
 
@@ -807,9 +819,10 @@ func on_state_timeout(s: int) -> void:
 			e.vanish()
 
 
-## Stuck while walking somewhere: flip the strafe side, and when going home for a
-## long time with the player far away, snap home.
+## Stuck while walking somewhere: flip the strafe side, hop over a low wall, and when going
+## home for a long time with the player far away, snap home.
 func _track_stuck(delta: float, goal: Vector3) -> void:
+	_track_walled(delta, goal)
 	var moving := Vector2(e.velocity.x, e.velocity.z).length() > 0.35
 	if e.desired_velocity.length() < 0.5 or moving:
 		_stuck_t = maxf(0.0, _stuck_t - delta)
@@ -820,6 +833,33 @@ func _track_stuck(delta: float, goal: Vector3) -> void:
 	if _stuck_t > 4.0 and e.state == S.RETURN and not e.near_player(25.0):
 		e.global_position = goal
 		_stuck_t = 0.0
+
+
+## Against a wall without getting closer to the goal (knocked into a pool or a pit, below a quay
+## or a ledge it cannot step onto): the whiskers only slide it back and forth along the wall.
+## Measured in 1 s windows: a walled window hops up and over toward the goal (a few tries), and
+## a chase that stays walled in is given up (bughunt_gameplay: an enemy in the arena pool chased
+## the player on the rim by running along the pool wall forever).
+func _track_walled(delta: float, goal: Vector3) -> void:
+	_win_t += delta
+	if e.is_on_wall():
+		_win_wall += delta
+	if _win_t < 1.0:
+		return
+	var d := e.flat_distance(goal)
+	var walled := e.desired_velocity.length() > 0.5 and _win_wall > 0.5 and _win_d - d < 0.5
+	_win_t = 0.0
+	_win_wall = 0.0
+	_win_d = d
+	if not walled:
+		_walled = 0
+		_hops = 0
+		return
+	_walled += 1
+	if _hops < MAX_HOPS and e.hop_toward(goal):
+		_hops += 1
+	if _walled >= CHASE_GIVE_UP and e.state == S.CHASE:
+		_go_home()
 
 
 static func _valid(n: Node3D) -> bool:
