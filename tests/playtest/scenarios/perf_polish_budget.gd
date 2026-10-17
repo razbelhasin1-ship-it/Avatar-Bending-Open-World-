@@ -98,8 +98,64 @@ func _spawn(e: int, hour: float) -> Dictionary:
 	cam.set_yaw(yaw0 + PI * 0.5 * worst_i)
 	await p.wait_game(0.6)
 	await p.screenshot("budget_%s_%s_%s_worst" % [ElementDefs.id_of(e), report["renderer"], report["preset"]])
+	var breakdown: Array = []
+	if OS.get_environment("BREAKDOWN") != "":
+		breakdown = await _breakdown(w)
 	cam.set_yaw(yaw0)
-	return {"views": views, "worst": _strip(worst), "worst_view": worst_i, "load_report": w.load_report}
+	return {"views": views, "worst": _strip(worst), "worst_view": worst_i, "load_report": w.load_report, "breakdown": breakdown}
+
+
+## Renderer-measured cost of each part of the view (BREAKDOWN=1): hides one group at a time
+## (terrain, water, each content provider, NPCs, player, companion) and records the drop in draw
+## calls / primitives. Unlike the census this includes mesh LOD selection.
+func _breakdown(w: PlayableScene) -> Array:
+	var groups := {}
+	if w.renderer:
+		groups["terrain"] = [w.renderer.clipmap]
+		groups["water"] = [w.renderer.water]
+	if w.content:
+		for c in w.content.get_children():
+			var parts := String(c.name).split("_")
+			if parts.size() < 3:
+				continue
+			var key := "_".join(parts.slice(0, parts.size() - 2))
+			if not groups.has(key):
+				groups[key] = []
+			(groups[key] as Array).append(c)
+	groups["npcs"] = p.get_tree().get_nodes_in_group(&"npc")
+	groups["player"] = [p.player()]
+	groups["companion"] = [w.companion_root]
+	var base := await _snapshot()
+	var out: Array = []
+	for key: String in groups:
+		var nodes: Array = []
+		for n: Variant in groups[key]:
+			if n is Node3D and (n as Node3D).visible:
+				nodes.append(n)
+		if nodes.is_empty():
+			continue
+		for n: Node3D in nodes:
+			n.visible = false
+		var s := await _snapshot()
+		for n: Node3D in nodes:
+			n.visible = true
+		var row := {"group": key, "draw_calls": int(base["draw_calls"]) - int(s["draw_calls"]),
+				"primitives": int(base["primitives"]) - int(s["primitives"]),
+				"shadow_primitives": int(base["shadow_primitives"]) - int(s["shadow_primitives"])}
+		if int(row["draw_calls"]) != 0 or int(row["primitives"]) != 0:
+			out.append(row)
+	out.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return int(a["primitives"]) > int(b["primitives"]))
+	p.note("   breakdown (renderer, total %d draws, %dk prims):" % [base["draw_calls"], int(base["primitives"]) / 1000])
+	for r: Dictionary in out:
+		p.note("     %-40s draws %4d   prims %6dk   shadow %5dk" % [r["group"], r["draw_calls"], int(r["primitives"]) / 1000,
+				int(r["shadow_primitives"]) / 1000])
+	return out
+
+
+func _snapshot() -> Dictionary:
+	for i in 3:
+		await RenderingServer.frame_post_draw
+	return PerfProbe.frame_stats(p.get_viewport())
 
 
 func _strip(s: Dictionary) -> Dictionary:

@@ -39,6 +39,13 @@ static func take(root: Node, camera: Camera3D) -> Dictionary:
 			continue
 		if gi.visibility_range_begin > 0.0 and d < gi.visibility_range_begin - gi.visibility_range_begin_margin:
 			continue
+		# HLOD: only drawn while the visibility parent is hidden for being closer than its begin
+		if not gi.visibility_parent.is_empty():
+			var par := gi.get_node_or_null(gi.visibility_parent) as GeometryInstance3D
+			if par != null and par.visible:
+				var pd := cam_pos.distance_to((par.global_transform * par.get_aabb()).get_center())
+				if not (par.visibility_range_begin > 0.0 and pd < par.visibility_range_begin):
+					continue
 		if not aabb_in_frustum(aabb, planes):
 			continue
 		var info := _draw_info(gi, tri_cache)
@@ -153,6 +160,10 @@ static func group_of(n: Node, root: Node) -> String:
 static func lod_tag(node_name: String) -> String:
 	if node_name.contains("_glow"):
 		return "glow"
+	if node_name.contains("_lod0m"):
+		return "lod0_mid"
+	if node_name.contains("_lod0q"):
+		return "lod0_fine"
 	if node_name.contains("_lod0"):
 		return "lod0"
 	if node_name.contains("_lod1"):

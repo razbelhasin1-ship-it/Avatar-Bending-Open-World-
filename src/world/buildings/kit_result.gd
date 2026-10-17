@@ -81,10 +81,18 @@ func make_body(layer: int = Layers.WORLD) -> StaticBody3D:
 func add_to_payload(p: CellPayload, t: Transform3D, opts: Dictionary = {}) -> void:
 	if not surfaces.is_empty():
 		var surf: Array = []
+		# "outline": false = materials without the ink outline pass (distant LODs, perf_polish)
+		var outline: bool = opts.get("outline", true)
+		# "lods": true = automatic LOD index buffers (MeshLods, worker-safe), perf_polish
+		var lods: bool = opts.get("lods", false)
 		for s: Array in surfaces:
-			surf.append([s[0], NationPalette.material(s[1])])
+			if lods:
+				surf.append([s[0], NationPalette.material(s[1], outline), MeshLods.for_arrays(s[0])])
+			else:
+				surf.append([s[0], NationPalette.material(s[1], outline)])
 		p.add_mesh_surfaces(surf, t, {"shadow": opts.get("shadow", true), "vis_end": opts.get("vis_end", 0.0),
-			"vis_begin": opts.get("vis_begin", 0.0), "margin": opts.get("margin", 10.0), "tag": opts.get("tag", &"")})
+			"vis_begin": opts.get("vis_begin", 0.0), "margin": opts.get("margin", 10.0), "tag": opts.get("tag", &""),
+			"fade": opts.get("fade", 0), "vis_parent": opts.get("vis_parent", &"")})
 	if opts.get("collision", true):
 		if not boxes.is_empty():
 			var bx: Array = []

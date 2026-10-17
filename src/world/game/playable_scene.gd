@@ -203,12 +203,21 @@ func _boot() -> void:
 	if _exiting:
 		return
 	_set_progress(0.35)
+	# perf_polish: the bending FX pipelines compile behind the loading screen while the content
+	# streams (ShaderWarmup), instead of hitching the first cast of every technique.
+	var warm := ShaderWarmup.start(self, element, {"skip": bool(options.get("no_warmup", false))})
 	var tcont := Time.get_ticks_msec()
 	load_report["content_settled"] = await _wait_content(float(options.get("content_timeout", 25.0)))
 	load_report["content_s"] = (Time.get_ticks_msec() - tcont) / 1000.0
 	if _exiting:
 		return
 	_set_progress(0.9)
+	if is_instance_valid(warm):
+		await warm.wait_done(ShaderWarmup.MAX_SECONDS)
+		if _exiting:
+			return
+		load_report["warmup"] = warm.report
+		warm.queue_free()
 	spawn = ground_transform(spawn)
 	_spawn_player(spawn)
 	for i in 3:

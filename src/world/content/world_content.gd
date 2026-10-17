@@ -60,8 +60,17 @@ var _timer := 0.0
 var _was_settled := true
 var _stats := {}
 var _defaults_registered := false
+## Night-only MultiMeshes (payload "night_only": settlement night glows): hidden while the sun is
+## up, so they are not even submitted by day (perf_polish; the glow shader already collapses them).
+var _night_only: Array[MultiMeshInstance3D] = []
+var _is_night := true
+var _night_timer := 0.0
 
 const POOL_LIMIT := 384
+## Sun luminance (world_sun_color . (0.3, 0.5, 0.2)) below which night-only content shows; the
+## night glow shader starts fading in under 0.42. Hysteresis band above it.
+const NIGHT_SHOW_LUM := 0.46
+const NIGHT_HIDE_LUM := 0.5
 
 
 func _init() -> void:
@@ -349,6 +358,10 @@ func _process(delta: float) -> void:
 	_main_work(t0, frame_budget_usec)
 	_build_inline(frame_budget_usec - (Time.get_ticks_usec() - t0))
 	colliders.update(_focus_pos, delta)
+	_night_timer -= delta
+	if _night_timer <= 0.0:
+		_night_timer = 0.5
+		_update_night()
 	var used := Time.get_ticks_usec() - t0
 	_stats["main_usec_last"] = used
 	_stats["main_usec_max"] = maxi(int(_stats["main_usec_max"]), used)
@@ -600,6 +613,9 @@ func _release_now(cell: ContentCell) -> void:
 		var node := n as Node
 		if node.get_parent():
 			node.get_parent().remove_child(node)
+		if n is MultiMeshInstance3D and n.get_meta(&"night_only", false):
+			_night_only.erase(n)
+			n.set_meta(&"night_only", false)
 		if n is MultiMeshInstance3D and _mmi_pool.size() < POOL_LIMIT:
 			_mmi_pool.append(n)
 		elif n is MeshInstance3D and _mesh_pool.size() < POOL_LIMIT:
@@ -665,7 +681,11 @@ func spawn_multimesh(cell: ContentCell, d: Dictionary) -> MultiMeshInstance3D:
 	mmi.material_override = d.get("material")
 	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if d.get("shadow", false) else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	mmi.set_meta(&"casts", bool(d.get("shadow", false)))
-	mmi.visible = true
+	var night_only: bool = d.get("night_only", false)
+	mmi.set_meta(&"night_only", night_only)
+	mmi.visible = _is_night or not night_only
+	if night_only:
+		_night_only.append(mmi)
 	_apply_vis(mmi, d)
 	mmi.layers = int(d.get("layers", 1))
 	mmi.transform = Transform3D.IDENTITY
@@ -681,7 +701,8 @@ func spawn_mesh(cell: ContentCell, d: Dictionary) -> MeshInstance3D:
 	var mi: MeshInstance3D = _mesh_pool.pop_back() if not _mesh_pool.is_empty() else MeshInstance3D.new()
 	var mesh := ArrayMesh.new()
 	for s: Array in d["surfaces"]:
-		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, s[0])
+		# optional third entry: LOD index buffers {lod_size: indices} (MeshLods, perf_polish)
+		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, s[0], [], s[2] if s.size() > 2 else {})
 		if s[1]:
 			mesh.surface_set_material(mesh.get_surface_count() - 1, s[1])
 	mi.mesh = mesh
@@ -690,9 +711,17 @@ func spawn_mesh(cell: ContentCell, d: Dictionary) -> MeshInstance3D:
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if d.get("shadow", true) else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	mi.layers = int(d.get("layers", 1))
 	_apply_vis(mi, d)
+	mi.visibility_parent = NodePath()
 	if String(d.get("tag", &"")) != "":
 		mi.name = String(d["tag"])
 	cell.root.add_child(mi, true)
+	# HLOD (payload "vis_parent" = tag of an earlier mesh of the cell): this mesh only shows while
+	# that parent is hidden for being closer than its visibility_range_begin (perf_polish).
+	var parent_tag := String(d.get("vis_parent", &""))
+	if parent_tag != "":
+		var parent := cell.root.get_node_or_null(NodePath(parent_tag)) as GeometryInstance3D
+		if parent != null:
+			mi.visibility_parent = mi.get_path_to(parent)
 	cell.pooled.append(mi)
 	return mi
 
@@ -703,7 +732,7 @@ static func _apply_vis(gi: GeometryInstance3D, d: Dictionary) -> void:
 	var m := float(d.get("margin", 0.0))
 	gi.visibility_range_begin_margin = m if gi.visibility_range_begin > 0.0 else 0.0
 	gi.visibility_range_end_margin = m if gi.visibility_range_end > 0.0 else 0.0
-	gi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
+	gi.visibility_range_fade_mode = int(d.get("fade", GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED)) as GeometryInstance3D.VisibilityRangeFadeMode
 
 
 ## Always-on static collision for a cell (trimesh faces and boxes, relative to the root).
@@ -728,6 +757,33 @@ func spawn_static_bodies(cell: ContentCell, list: Array[Dictionary]) -> void:
 				cs.transform = b[0]
 				body.add_child(cs)
 		cell.root.add_child(body)
+
+
+# --- Day / night ----------------------------------------------------------------------------------
+
+## True while night-only content is shown (dusk to dawn; always true without a sky).
+func is_night() -> bool:
+	return _is_night
+
+
+## Re-reads the sun (world_sun_color, set by the sky) and shows / hides night-only MultiMeshes when
+## the state flips. Called twice a second from _process; tests may call it directly.
+func _update_night() -> void:
+	var sun: Variant = WorldShaderGlobals.get_value(&"world_sun_color")
+	var night := true
+	if sun is Color:
+		var c: Color = sun
+		var lum := c.r * 0.3 + c.g * 0.5 + c.b * 0.2
+		night = lum < (NIGHT_HIDE_LUM if _is_night else NIGHT_SHOW_LUM)
+	if night == _is_night:
+		return
+	_is_night = night
+	for i in range(_night_only.size() - 1, -1, -1):
+		var mmi := _night_only[i]
+		if not is_instance_valid(mmi):
+			_night_only.remove_at(i)
+			continue
+		mmi.visible = night
 
 
 # --- Settings ------------------------------------------------------------------------------------

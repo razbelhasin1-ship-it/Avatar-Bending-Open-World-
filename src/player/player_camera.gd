@@ -26,6 +26,13 @@ const BASE_DISTANCE := 4.3
 const PIVOT_HEIGHT := 1.55
 const SHOULDER := 0.42
 const LOCK_SHOULDER := 0.95
+## Lock-on close-quarters framing (perf_polish): below LOCK_CLOSE_FAR m the view swings up to
+## LOCK_SWING_DEG off the player->target axis (full at LOCK_CLOSE_NEAR), pulls back and lifts.
+const LOCK_CLOSE_NEAR := 2.2
+const LOCK_CLOSE_FAR := 4.8
+const LOCK_SWING_DEG := 30.0
+const LOCK_CLOSE_PULLBACK := 0.9
+const LOCK_CLOSE_LIFT_DEG := 6.0
 const PITCH_MIN := deg_to_rad(-38.0)
 const PITCH_MAX := deg_to_rad(72.0)
 const MOUSE_RAD_PER_PX := 0.0026
@@ -49,6 +56,12 @@ var auto_capture := true
 var input_enabled := true
 ## Extra FOV (sprint kick etc.), degrees.
 var fov_offset := 0.0
+## Fades characters that stand between the camera and the player (perf_polish).
+var occluders: OccluderFader = null
+## Lock-on on a close target: side (+1 right / -1 left) the camera swings to, 0 = not close.
+var lock_side := 0.0
+## 0..1 how much of the close-quarters framing is applied (smoothed).
+var lock_close := 0.0
 
 var _override: Node3D = null
 var _pivot := Vector3.ZERO
@@ -81,6 +94,12 @@ func _init() -> void:
 func _ready() -> void:
 	physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 	camera.fov = Settings.fov()
+	# NPCs / companions / wildlife between the lens and the player fade instead of hiding them
+	# (perf_polish, src/perf/occluder_fader.gd).
+	occluders = OccluderFader.new()
+	occluders.name = "OccluderFader"
+	occluders.rig = self
+	add_child(occluders)
 	Events.look_input.connect(_on_look_input)
 	Events.camera_shake.connect(_on_shake)
 	Events.camera_impulse.connect(impulse)
@@ -223,11 +242,23 @@ func _process(delta: float) -> void:
 		if to.length() > 0.3:
 			# Camera forward (-sin yaw, 0, -cos yaw) points from the player at the target.
 			var want_yaw := atan2(-to.x, -to.z)
-			yaw = lerp_angle(yaw, want_yaw, 1.0 - exp(-real_dt * 5.0))
 			var sep := to.length()
-			base_dist += clampf(sep * 0.18, 0.0, 2.5)
+			# Close quarters (perf_polish): a melee attacker within ~4.5 m stood right behind the
+			# player model seen from straight behind. Swing the view off the axis (to the side the
+			# camera already leans to, kept until the target backs off past 5.5 m: no flip-flop),
+			# pull back and lift a little, and aim between the two, so both stay readable.
+			var close_w := 1.0 - smoothstep(LOCK_CLOSE_NEAR, LOCK_CLOSE_FAR, sep)
+			if close_w > 0.01 and lock_side == 0.0:
+				lock_side = 1.0 if angle_difference(want_yaw, yaw) >= -0.05 else -1.0
+			elif close_w <= 0.01 and sep > LOCK_CLOSE_FAR + 0.7:
+				lock_side = 0.0
+			lock_close = lerpf(lock_close, close_w, 1.0 - exp(-real_dt * 4.0))
+			want_yaw += lock_side * deg_to_rad(LOCK_SWING_DEG) * lock_close
+			yaw = lerp_angle(yaw, want_yaw, 1.0 - exp(-real_dt * 5.0))
+			base_dist += clampf(sep * 0.18, 0.0, 2.5) + LOCK_CLOSE_PULLBACK * lock_close
 			var dy := (lock.global_position.y - tpos.y)
 			var want_pitch := clampf(deg_to_rad(12.0) - atan2(dy, maxf(sep, 1.0)) * 0.6, deg_to_rad(-10.0), deg_to_rad(40.0))
+			want_pitch += deg_to_rad(LOCK_CLOSE_LIFT_DEG) * lock_close
 			pitch = lerpf(pitch, want_pitch, 1.0 - exp(-real_dt * 3.0))
 			# Wider over-the-shoulder offset so the player never hides the target.
 			shoulder = maxf(shoulder, LOCK_SHOULDER)
@@ -236,6 +267,9 @@ func _process(delta: float) -> void:
 		var hv := Vector3(v.x, 0, v.z)
 		if hv.length() > 2.0:
 			yaw = lerp_angle(yaw, atan2(-hv.x, -hv.z), 1.0 - exp(-real_dt * 1.2))
+	if lock == null:
+		lock_side = 0.0
+		lock_close = 0.0
 	var pivot_target := tpos + Vector3.UP * height
 	if not _pivot_init:
 		_pivot = pivot_target
@@ -273,7 +307,8 @@ func _process(delta: float) -> void:
 	_imp_pos = _imp_pos.limit_length(0.6)
 	var look_at_pos := pivot - Vector3.UP * 0.05
 	if lock != null:
-		look_at_pos = pivot.lerp(BendingContext.target_point(lock), 0.3)
+		# up close the view aims between the two (perf_polish), further off at the 30 % point
+		look_at_pos = pivot.lerp(BendingContext.target_point(lock), 0.3 + 0.15 * lock_close)
 	var xf := Transform3D(Basis.IDENTITY, cam_pos + _imp_pos)
 	xf = xf.looking_at(look_at_pos, Vector3.UP)
 	xf = _apply_shake(xf, real_dt)

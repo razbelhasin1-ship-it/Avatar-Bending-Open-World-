@@ -42,6 +42,7 @@ float scales_pattern(vec2 p) {
 }
 
 void fragment() {
+	CREATURE_OCCLUSION_DISCARD
 	vec3 c = albedo.rgb * COLOR.rgb;
 	vec3 m = creature_mark_mask(UV);
 	c = creature_apply_marks(c, m);

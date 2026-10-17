@@ -63,7 +63,8 @@ func add_multimesh(mesh: Mesh, material: Material, buffer: PackedFloat32Array, c
 	var d := {"mesh": mesh, "material": material, "buffer": buffer, "count": count, "custom": opts.get("custom", true),
 		"aabb": aabb, "shadow": opts.get("shadow", false), "vis_begin": float(opts.get("vis_begin", 0.0)),
 		"vis_end": float(opts.get("vis_end", 0.0)), "margin": float(opts.get("margin", 0.0)),
-		"layers": int(opts.get("layers", 1)), "tag": opts.get("tag", &""), "sorted": opts.get("sorted", false)}
+		"layers": int(opts.get("layers", 1)), "tag": opts.get("tag", &""), "sorted": opts.get("sorted", false),
+		"fade": int(opts.get("fade", 0)), "night_only": bool(opts.get("night_only", false))}
 	multimeshes.append(d)
 	instance_count += count
 
@@ -85,7 +86,8 @@ func add_mesh_surfaces(surfaces: Array, t: Transform3D = Transform3D.IDENTITY, o
 		return
 	meshes.append({"surfaces": keep, "transform": t, "shadow": opts.get("shadow", true),
 		"vis_begin": float(opts.get("vis_begin", 0.0)), "vis_end": float(opts.get("vis_end", 0.0)),
-		"margin": float(opts.get("margin", 0.0)), "tag": opts.get("tag", &""), "layers": int(opts.get("layers", 1))})
+		"margin": float(opts.get("margin", 0.0)), "tag": opts.get("tag", &""), "layers": int(opts.get("layers", 1)),
+		"fade": int(opts.get("fade", 0)), "vis_parent": opts.get("vis_parent", &"")})
 	instance_count += 1
 
 
