@@ -35,6 +35,9 @@ var faces := PackedVector3Array()
 var lights: Array[Dictionary] = []
 ## Named points/transforms (doors, interior centres, NPC spots) in kit space: name -> Transform3D.
 var markers: Dictionary = {}
+## Recorded open fires (braziers, torches, lanterns, campfires) for WorldFires, kit space:
+## {"position" (flame base), "kind" (&"brazier" &"torch" &"lantern" &"campfire"), "radius"}.
+var fires: Array[Dictionary] = []
 ## Current local frame (push/pop).
 var xform := Transform3D.IDENTITY
 ## Slight per-piece colour jitter (0 = exact palette colours).
@@ -526,6 +529,10 @@ func lantern(pos: Vector3, opts: Dictionary = {}) -> void:
 			gb.uv = Vector2(0, 1)
 			gb.box(Transform3D(Basis(), pos + Vector3(0, 0.05, -0.12)), Vector3(0.24, 0.3, 0.24), glow)
 			light_pos = pos + Vector3(0, 0.05, -0.2)
+	# Flame-lit lanterns and wall torches answer to bending (WorldFires); ice lanterns do not burn.
+	if style != &"ice" and lod == 0:
+		add_fire(light_pos if style != &"wall" else pos + Vector3(0, 0.05, -0.12), &"torch" if style == &"wall" else &"lantern",
+				0.3 if style == &"wall" else (0.32 if style == &"paper" else 0.36))
 	if opts.get("light", true):
 		add_light(light_pos, glow, float(opts.get("range", 9.0)), float(opts.get("energy", 1.6)))
 
@@ -550,6 +557,8 @@ func brazier(pos: Vector3, opts: Dictionary = {}) -> void:
 			var b := pos + Vector3(cos(a) * r * 0.3, h + 0.28, sin(a) * r * 0.3)
 			gb.cone(b, b + Vector3(0, 0.45 + 0.15 * k, 0), r * 0.32, 5, fire)
 	collide_box(pos + Vector3(0, (h + 0.3) * 0.5, 0), Vector3(r * 1.6, h + 0.3, r * 1.6))
+	if lod == 0:
+		add_fire(pos + Vector3(0, h + 0.3, 0), &"brazier", r * 1.05)
 	if opts.get("light", true):
 		add_light(pos + Vector3(0, h + 0.7, 0), fire, float(opts.get("range", 11.0)), float(opts.get("energy", 2.2)))
 
@@ -557,6 +566,14 @@ func brazier(pos: Vector3, opts: Dictionary = {}) -> void:
 ## Records a budgeted point light (kit space). priority: higher stays on when over budget.
 func add_light(pos: Vector3, color: Color, range_m: float = 9.0, energy: float = 1.6, priority: int = 0) -> void:
 	lights.append({"position": xform * pos, "color": color, "range": range_m, "energy": energy, "priority": priority})
+
+
+## Records an open fire for WorldFires (firebending lights it, water / wind put it out): `pos`
+## is the base of the flame (the coal bed / wick, kit space), `radius` how far its glow
+## geometry reaches sideways. Braziers and lanterns record themselves; recipes with their own
+## flame geometry (fire pits) call this for it. LOD0 only (the interactive range).
+func add_fire(pos: Vector3, kind: StringName = &"campfire", radius: float = 0.5) -> void:
+	fires.append({"position": xform * pos, "kind": kind, "radius": radius})
 
 
 ## Hanging banner: `t` origin = top centre, hangs along -Y, faces -Z. opts: role, alt_role
@@ -660,4 +677,5 @@ func build() -> KitResult:
 	r.faces = faces
 	r.lights = lights
 	r.markers = markers
+	r.fires = fires
 	return r

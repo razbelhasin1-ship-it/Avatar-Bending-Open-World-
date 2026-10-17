@@ -15,6 +15,9 @@ const MAX_DISTANCE := 70.0
 
 static var _instance: LightBudget = null
 static var _lights: Array = []           # weakrefs to OmniLight3D
+## Optional filter `func(world_pos: Vector3) -> bool`: true keeps that light off (WorldFires:
+## the light of a brazier / lantern / campfire that has been put out).
+static var suppress: Callable = Callable()
 
 var _timer := 0.0
 
@@ -61,6 +64,12 @@ static func _ensure_manager() -> void:
 	_instance = LightBudget.new()
 	_instance.name = "LightBudget"
 	tree.root.add_child.call_deferred(_instance)
+
+
+## Re-picks the enabled lights at once (a fire was put out / lit).
+static func refresh() -> void:
+	if _instance and is_instance_valid(_instance) and _instance.is_inside_tree():
+		_instance.update_now()
 
 
 ## Live registered light count (stats).
@@ -125,6 +134,9 @@ func update_now() -> void:
 			continue
 		var d := cam.global_position.distance_to(l.global_position) if cam else 0.0
 		var dk := 1.0 if l.get_meta(&"interior", false) else dark
+		if suppress.is_valid() and d < MAX_DISTANCE and bool(suppress.call(l.global_position)):
+			l.visible = false
+			continue
 		if d < MAX_DISTANCE and dk > 0.02:
 			cand.append([d - float(l.get_meta(&"priority", 0)) * 10.0, l, d, dk])
 		else:

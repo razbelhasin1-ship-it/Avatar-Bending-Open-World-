@@ -26,16 +26,40 @@ const VARIANTS := {
 	&"water_shield": {"params": {"redirect": false}},
 	&"flow_slide": {},
 	&"ice_shards": {"cooldown": 7.0, "params": {"speed": 21.0}, "hit": {"damage": 5.0}},
+	# Element techniques (wave 4): the same scripts, a little weaker and on longer cooldowns
+	# than the player's, so an enemy bender's technique is a readable event, not a barrage.
+	&"fire_burst": {"cooldown": 8.0, "hit": {"damage": 11.0, "status": {"burn": 2.5}},
+		"params": {"inner_hit": {"reaction": HitInfo.Reaction.KNOCKDOWN, "damage": 13.0, "lift": 3.0, "stun": 0.8}}},
+	&"fire_ring": {"cooldown": 9.0, "hit": {"damage": 12.0, "status": {"burn": 2.5}}},
+	&"fire_whip": {"cooldown": 7.0, "hit": {"damage": 11.0, "status": {"burn": 2.5}},
+		"params": {"tip_hit": {"damage": 15.0, "reaction": HitInfo.Reaction.KNOCKBACK, "force": 9.0, "lift": 1.5, "poise": 40.0}}},
+	&"earth_pillar": {"cooldown": 8.0, "hit": {"damage": 11.0}, "params": {"lifetime": 6.0}},
+	&"earth_stomp": {"cooldown": 8.0, "hit": {"damage": 10.0}},
+	&"earth_spikes": {"cooldown": 10.0, "hit": {"damage": 12.0}},
+	&"water_surge": {"cooldown": 9.0, "hit": {"damage": 13.0}, "params": {"speed": 12.0}},
+	&"ice_trap": {"cooldown": 10.0, "hit": {"damage": 6.0, "stun": 1.1, "status": {"frozen": 1.1, "chill": 2.0}},
+		"params": {"stun": 1.1, "armed_time": 2.5}},
+	&"ice_wall": {"cooldown": 14.0, "params": {"distance": 3.0, "hp": 110.0, "lifetime": 7.0}},
+	&"air_combo": {},
+	&"air_blast": {},
+	&"air_shield": {"params": {"redirect": false}},
+	&"air_dash": {},
+	&"air_push": {"cooldown": 7.0},
+	&"air_sweep": {"cooldown": 8.0, "hit": {"damage": 11.0}},
+	&"wind_blade": {"cooldown": 6.0, "hit": {"damage": 12.0}, "params": {"speed": 26.0}},
 }
 
-## Element slot loadouts (light, heavy, defense, dodge + technique_1).
+## Element slot loadouts: light, heavy, defense, dodge + technique_1..4 (the techniques an
+## archetype's "bending" attacks may name by slot; unused slots cost nothing).
 const LOADOUTS := {
 	ElementDefs.Element.FIRE: {&"light": &"fire_combo", &"heavy": &"fire_blast", &"defense": &"flame_guard", &"dodge": &"fire_step",
-		&"technique_1": &"flame_sweep"},
+		&"technique_1": &"flame_sweep", &"technique_2": &"fire_burst", &"technique_3": &"fire_ring", &"technique_4": &"fire_whip"},
 	ElementDefs.Element.EARTH: {&"light": &"earth_punch", &"heavy": &"earth_boulder", &"defense": &"earth_shield", &"dodge": &"earth_slide",
-		&"technique_1": &"earth_wall"},
+		&"technique_1": &"earth_wall", &"technique_2": &"earth_pillar", &"technique_3": &"earth_stomp", &"technique_4": &"earth_spikes"},
 	ElementDefs.Element.WATER: {&"light": &"water_whip", &"heavy": &"water_blast", &"defense": &"water_shield", &"dodge": &"flow_slide",
-		&"technique_1": &"ice_shards"},
+		&"technique_1": &"ice_shards", &"technique_2": &"water_surge", &"technique_3": &"ice_trap", &"technique_4": &"ice_wall"},
+	ElementDefs.Element.AIR: {&"light": &"air_combo", &"heavy": &"air_blast", &"defense": &"air_shield", &"dodge": &"air_dash",
+		&"technique_1": &"air_push", &"technique_2": &"air_sweep", &"technique_3": &"wind_blade"},
 }
 
 static var _cache: Dictionary = {}

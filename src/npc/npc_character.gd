@@ -267,14 +267,15 @@ func _snap_to_ground(initial: bool) -> void:
 			_ground_y = p.y
 
 
-## Settlement plans do not all agree on which way an anchor yaw faces (some interiors treat +Z as
-## forward), so a named or indoor NPC whose facing runs into a wall within 4 m while its back is
-## open turns around for good (home and facing) instead of staring at the wall. Runs once, as soon
-## as there is ground collision under the NPC (the settlement's collision streams in later).
+## Safety net for named NPCs: one whose facing runs into a wall within 4 m while its back is
+## open turns around for good (home and facing) instead of staring at the wall (door-front
+## quest-giver anchors face their building; see docs/qa/integration_fixes.md). Interior anchors
+## follow the -Z contract at the source now, so crowd NPCs indoors no longer need it. Runs once,
+## as soon as there is ground collision under the NPC (the settlement's collision streams in later).
 func ensure_open_facing() -> void:
 	if _facing_checked or not is_inside_tree():
 		return
-	if npc_id == &"" and not bool(record.get("interior", false)):
+	if npc_id == &"":
 		_facing_checked = true
 		return
 	if not _ground_ok:

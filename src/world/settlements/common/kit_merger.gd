@@ -19,6 +19,8 @@ var boxes: Array = []
 var faces := PackedVector3Array()
 var lights: Array[Dictionary] = []
 var markers: Dictionary = {}
+## Open fires (BuildingKit.fires) merged with their transforms (follow the "lights" option).
+var fires: Array[Dictionary] = []
 var triangle_count := 0
 
 
@@ -73,6 +75,10 @@ func add(res: KitResult, t: Transform3D = Transform3D.IDENTITY, opts: Dictionary
 			var d := l.duplicate()
 			d["position"] = t * (l["position"] as Vector3)
 			lights.append(d)
+		for f: Dictionary in res.fires:
+			var df := f.duplicate()
+			df["position"] = t * (f["position"] as Vector3)
+			fires.append(df)
 	if opts.get("markers", false):
 		var pre := String(opts.get("marker_prefix", ""))
 		for k: StringName in res.markers:
@@ -110,5 +116,6 @@ func to_result(aabb: AABB = AABB()) -> KitResult:
 	r.faces = faces
 	r.lights = lights
 	r.markers = markers
+	r.fires = fires
 	r.triangle_count = triangle_count
 	return r

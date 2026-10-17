@@ -88,6 +88,10 @@ func build_cell(cell: ContentCell) -> void:
 		p.add_call(func(c: ContentCell) -> void:
 			for l: Dictionary in lights:
 				c.root.add_child(LightBudget.make_light(l)))
+	# the LOD0 open fires (braziers, torches, lanterns, fire pits) answer to bending (WorldFires)
+	if not r0.fires.is_empty():
+		var fires: Array = r0.fires.duplicate()
+		p.add_call(func(c: ContentCell) -> void: WorldFires.register(c.root, fires))
 	var extras: Array = []
 	for i in plan.cell_pieces(cell.coord):
 		var pc: Dictionary = plan.pieces[i]

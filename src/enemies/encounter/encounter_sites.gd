@@ -39,7 +39,7 @@ const PATROLS := [
 	{"id": &"fn_saltspark_road_pirates", "name": "Pirate Raiders", "road": &"fn_harbor_saltspark", "from": 0.45, "to": 0.58, "faction": &"pirates",
 		"level": 1, "respawn": 360.0, "roster": [&"pirate_cutlass", &"pirate_cutlass", &"pirate_archer"]},
 	{"id": &"wl_north_road_bandits", "name": "Road Bandits", "road": &"bss_north", "from": 0.55, "to": 0.65, "faction": &"bandits",
-		"level": 1, "respawn": 360.0, "roster": [&"bandit_brawler", &"bandit_skirmisher", &"bandit_archer"]},
+		"level": 1, "respawn": 360.0, "roster": [&"air_renegade", &"bandit_brawler", &"bandit_skirmisher", &"bandit_archer"]},
 ]
 
 const DENS := [

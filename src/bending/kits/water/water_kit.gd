@@ -126,6 +126,24 @@ static func defs() -> Array[AbilityDef]:
 	return out
 
 
+## Ready-made EnemyActions attack entries (kind &"bending") for enemy waterbenders whose
+## controller has these techniques in the named slots (EnemyAbilities.LOADOUTS does):
+##   archetype["attacks"].append(WaterKit.enemy_attacks()[&"water_surge"])
+## Ice Wall is a reactive cover move (tag &"cover": raised when the player charges a heavy).
+static func enemy_attacks() -> Dictionary:
+	return {
+		&"water_surge": {"id": &"water_surge", "kind": &"bending", "clip": &"water_surge_heave", "windup": 0.14, "approach": 0.14, "telegraph": 0.45,
+			"range": Vector2(3.0, 10.0), "cooldown": 8.0, "weight": 0.9, "glint": &"hands", "needs_los": true, "bending": {"slot": &"technique_2"},
+			"recover": 0.6, "armor": 25.0},
+		&"ice_trap": {"id": &"ice_trap", "kind": &"bending", "clip": &"water_ice_trap", "windup": 0.2, "approach": 0.12, "telegraph": 0.4,
+			"range": Vector2(3.5, 12.0), "cooldown": 9.0, "weight": 0.8, "glint": &"hand_r", "needs_los": true, "bending": {"slot": &"technique_3"},
+			"recover": 0.55},
+		&"ice_wall": {"id": &"ice_wall", "kind": &"bending", "clip": &"water_ice_wall", "windup": 0.18, "approach": 0.12, "telegraph": 0.2,
+			"range": Vector2(4.0, 30.0), "cooldown": 14.0, "weight": 0.0, "glint": &"hands", "bending": {"slot": &"technique_4"},
+			"recover": 0.4, "tag": &"cover"},
+	}
+
+
 ## The technique tree for the skill-tree UI: tiers of {id, tier, branch, column,
 ## requires (prerequisite id), level, practice, trainer, cost}, starters first.
 static func tree() -> Array[Dictionary]:

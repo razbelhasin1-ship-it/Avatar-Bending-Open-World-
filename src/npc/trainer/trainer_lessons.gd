@@ -11,7 +11,9 @@ extends RefCounted
 ##   "spar": "Spar with Kallik"}
 ## A technique may carry its own lesson: AbilityDef.unlock["lesson"] = a BendingChallenge spec.
 
-const SPAR_BASE := {&"water": &"water_pirate", &"earth": &"earth_rogue", &"fire": &"fire_soldier", &"air": &"bandit_skirmisher"}
+## Sparring partners copy an element bender (every one bends, the air one too: the temple's
+## sparring monk, EnemyArchetypes.air_sparring_monk, with the Air techniques).
+const SPAR_BASE := {&"water": &"water_pirate", &"earth": &"earth_rogue", &"fire": &"fire_soldier", &"air": &"air_sparring_monk"}
 const SPAR_LOOK := {
 	&"water": {"preset": &"water_tribe", "style": &"water", "body": "female", "seed": 2},
 	&"earth": {"preset": &"earth_kingdom", "style": &"earth", "body": "male", "seed": 3},
@@ -119,8 +121,6 @@ static func ensure_spar_archetypes() -> void:
 		a["xp"] = 0
 		a["health"] = 70.0
 		a["flee"] = {"health": 0.3, "flee": 0.0, "surrender": 1.0}
-		if nation == &"air":
-			a["props"] = [[&"staff", &"hand_r"]]
 		EnemyArchetypes.register(id, a)
 
 

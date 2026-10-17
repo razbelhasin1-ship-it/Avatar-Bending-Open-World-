@@ -11,6 +11,9 @@ var boxes: Array = []
 var faces := PackedVector3Array()
 var lights: Array[Dictionary] = []
 var markers: Dictionary = {}
+## Open fires (BuildingKit.add_fire): registered with WorldFires wherever the lights are made,
+## so braziers, torches, lanterns and campfires near the player answer to bending.
+var fires: Array[Dictionary] = []
 var aabb := AABB()
 var triangle_count: int = 0
 
@@ -49,6 +52,8 @@ func instantiate(opts: Dictionary = {}) -> Node3D:
 	if opts.get("lights", true):
 		for l in lights:
 			root.add_child(LightBudget.make_light(l))
+		if not fires.is_empty():
+			WorldFires.register(root, fires)
 	return root
 
 
@@ -104,6 +109,13 @@ func add_to_payload(p: CellPayload, t: Transform3D, opts: Dictionary = {}) -> vo
 				var d := l.duplicate()
 				d["position"] = t * (l["position"] as Vector3)
 				cell.root.add_child(LightBudget.make_light(d)))
+	if opts.get("fires", opts.get("lights", true)) and not fires.is_empty():
+		var fs: Array = []
+		for f: Dictionary in fires:
+			var df := f.duplicate()
+			df["position"] = t * (f["position"] as Vector3)
+			fs.append(df)
+		p.add_call(func(cell: ContentCell) -> void: WorldFires.register(cell.root, fs))
 
 
 ## Merges another result (transformed by t) into this one (e.g. a cell of buildings).
@@ -146,6 +158,10 @@ func merge(other: KitResult, t: Transform3D = Transform3D.IDENTITY) -> void:
 		lights.append(d)
 	for k: StringName in other.markers:
 		markers[k] = t * (other.markers[k] as Transform3D)
+	for f: Dictionary in other.fires:
+		var df := f.duplicate()
+		df["position"] = t * (f["position"] as Vector3)
+		fires.append(df)
 	triangle_count += other.triangle_count
 	var ob := t * other.aabb
 	aabb = ob if aabb.size == Vector3.ZERO else aabb.merge(ob)

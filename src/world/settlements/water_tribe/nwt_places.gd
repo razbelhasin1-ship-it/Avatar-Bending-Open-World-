@@ -227,6 +227,8 @@ static func family_home(kit: BuildingKit, _spec: Dictionary) -> void:
 		var gb := kit.g(&"glow")
 		gb.uv = Vector2(0, 1)
 		gb.cone(Vector3(0, y + 0.05, 0.6), Vector3(0, y + 0.75, 0.6), 0.4, 6, Color(1.0, 0.55, 0.2))
+		if kit.lod == 0:
+			kit.add_fire(Vector3(0, y + 0.05, 0.6), &"campfire", 0.45)
 		kit.beam(Vector3(-0.8, y, 0.6), Vector3(0, y + 1.6, 0.6), 0.05, 0.05, &"wood")
 		kit.beam(Vector3(0.8, y, 0.6), Vector3(0, y + 1.6, 0.6), 0.05, 0.05, &"wood")
 		kit.g().cylinder(Vector3(0, y + 0.9, 0.6), Vector3(0, y + 1.25, 0.6), 0.25, 0.3, 8, kit.col(&"metal"), 1)

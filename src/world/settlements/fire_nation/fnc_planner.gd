@@ -279,15 +279,18 @@ func _noble() -> void:
 		plan.add(&"kata_grounds", c, yaw, {"w": 40.0, "d": 34.0, "tag": KATA_TAG}, 1, "", 22.0)
 		plan.add_district(&"fnc_kata_grounds", "Flame Kata Grounds", c, 24.0)
 		plan.districts.push_front(plan.districts.pop_back())
-		plan.anchor(&"trainer", SettlementLayout.world(c, yaw, Vector3(0, 0.8, 14.0)), yaw + PI, {"tags": ["firebending", "master", "kata_grounds"]})
+		# The master stands on the dais (+Z end) facing down the yard; the students face him.
+		plan.anchor(&"trainer", SettlementLayout.world(c, yaw, Vector3(0, 0.8, 14.0)), yaw, {"tags": ["firebending", "master", "kata_grounds"]})
 		for k in 4:
-			plan.anchor(&"student", SettlementLayout.world(c, yaw, Vector3(-6.0 + k * 4.0, 0.1, 2.0)), yaw, {"tags": ["firebending", "kata_grounds"]})
+			plan.anchor(&"student", SettlementLayout.world(c, yaw, Vector3(-6.0 + k * 4.0, 0.1, 2.0)), yaw + PI, {"tags": ["firebending", "kata_grounds"]})
 		plan.data["kata"] = {"position": c, "yaw": yaw}
 	# the dojo and a noble's house (enterable)
-	_interior(&"fn_dojo", 44.0, 221.0, FnPlaces.DOJO_D, 14.0, [[&"trainer", Vector3(0, 1.5, 5.6), PI, ["firebending", "dojo_master"]],
-		[&"student", Vector3(-3.0, 0.9, -1.0), 0.0, ["firebending"]], [&"student", Vector3(3.0, 0.9, -1.0), 0.0, ["firebending"]]])
-	_interior(&"noble_interior", 102.0, 157.0, FnPlaces.NOBLE_D, 11.0, [[&"quest_giver", Vector3(0, 1.2, 1.4), PI, ["noble", "host"]],
-		[&"idle", Vector3(-2.0, 1.2, 0.6), PI * 0.5, ["noble", "guest"]], [&"worker", Vector3(3.6, 1.1, -2.0), 0.0, ["servant"]]])
+	# Interior facings follow the anchor contract (-Z-forward model, relative to the building):
+	# 0 faces the entrance, PI the back wall - masters face the room, students the master.
+	_interior(&"fn_dojo", 44.0, 221.0, FnPlaces.DOJO_D, 14.0, [[&"trainer", Vector3(0, 1.5, 5.6), 0.0, ["firebending", "dojo_master"]],
+		[&"student", Vector3(-3.0, 0.9, -1.0), PI, ["firebending"]], [&"student", Vector3(3.0, 0.9, -1.0), PI, ["firebending"]]])
+	_interior(&"noble_interior", 102.0, 157.0, FnPlaces.NOBLE_D, 11.0, [[&"quest_giver", Vector3(0, 1.2, 1.4), 0.0, ["noble", "host"]],
+		[&"idle", Vector3(-2.0, 1.2, 0.6), -PI * 0.5, ["noble", "guest"]], [&"worker", Vector3(3.6, 1.1, -2.0), PI, ["servant"]]])
 	for t: Array in [[250.0, 186.0], [330.0, 237.0]]:
 		var b := float(t[0])
 		var c := p3(float(t[1]), b, y)

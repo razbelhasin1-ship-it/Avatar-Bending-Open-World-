@@ -2,7 +2,8 @@
 // window positions (one MultiMesh per streamed cell; INSTANCE_CUSTOM.rgb = glow colour,
 // .a = size multiplier). Invisible by day (the quad collapses, no fragments); at dusk and night
 // they fade in and grow slightly with distance so a lit city still sparkles from kilometres.
-// Works on Forward+, Mobile and Compatibility.
+// A glow on a fire that is out (WorldFires fire_mask, same data as kit_glow) collapses too, so
+// the night glows always match the fires' lit state. Works on Forward+, Mobile and Compatibility.
 shader_type spatial;
 render_mode blend_add, unshaded, depth_draw_never, cull_disabled, shadows_disabled;
 
@@ -12,6 +13,8 @@ uniform float base_size = 0.45;
 uniform float grow = 0.009;
 uniform float max_size = 14.0;
 uniform float intensity = 1.6;
+uniform vec4 fire_mask[32];
+uniform int fire_mask_count = 0;
 
 varying vec3 v_col;
 varying float v_night;
@@ -24,6 +27,14 @@ void vertex() {
 	float size = min(base_size + dist * grow, max_size) * max(INSTANCE_CUSTOM.a, 0.2);
 	// day: collapse the quad (no fragments at all)
 	size *= step(0.01, v_night);
+	// a fire that is out has no glow (a brazier's sprite sits ~0.4 m above the flame base, a
+	// lantern's on it)
+	for (int i = 0; i < fire_mask_count; i++) {
+		vec4 m = fire_mask[i];
+		if (distance(center, m.xyz) < abs(m.w) + (m.w > 0.0 ? 0.9 : 0.3)) {
+			size = 0.0;
+		}
+	}
 	MODELVIEW_MATRIX = VIEW_MATRIX * mat4(INV_VIEW_MATRIX[0], INV_VIEW_MATRIX[1], INV_VIEW_MATRIX[2], MODEL_MATRIX[3]);
 	VERTEX *= size;
 	v_col = INSTANCE_CUSTOM.rgb;

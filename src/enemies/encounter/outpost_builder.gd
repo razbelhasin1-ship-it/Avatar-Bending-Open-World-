@@ -93,6 +93,8 @@ static func _fire_pit(ctx: Dictionary) -> void:
 	for k in 3:
 		var q := fp + Vector3(rng.randf_range(-0.2, 0.2), 0.15, rng.randf_range(-0.2, 0.2))
 		gb.cone(q, q + Vector3(0, 0.6 + 0.2 * k, 0), 0.24, 5, Color(1.0, 0.5, 0.12))
+	if kit.lod == 0:
+		kit.add_fire(fp + Vector3(0, 0.15, 0), &"campfire", 0.5)
 	kit.add_light(fp + Vector3(0, 1.1, 0), Color(1.0, 0.6, 0.3), 13.0, 2.4, 2)
 	(ctx["smoke"] as Array).append(fp + Vector3(0, 0.9, 0))
 

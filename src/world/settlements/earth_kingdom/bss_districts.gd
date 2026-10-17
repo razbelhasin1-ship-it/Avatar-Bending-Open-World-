@@ -134,12 +134,15 @@ func _spawn_overlook() -> void:
 # --- interiors --------------------------------------------------------------------------------------
 
 func _interiors() -> void:
-	_interior(&"tea_shop", &"lower_ring", 261.0, 310.2, true, 9.5, [[&"quest_giver", Vector3(-1.0, 0.6, 3.2), PI, ["tea_master"]],
-		[&"worker", Vector3(5.4, 0.6, 3.6), PI, ["tea_shop", "cook"]], [&"idle", Vector3(-3.6, 0.6, -1.2), 0.0, ["tea_shop", "customer"]],
+	# Facings follow the anchor contract (-Z-forward model, relative to the building): 0 faces
+	# the entrance, PI the back wall. The tea master, cook and earthbending master face the room;
+	# students face the master; customers face their table / the counter.
+	_interior(&"tea_shop", &"lower_ring", 261.0, 310.2, true, 9.5, [[&"quest_giver", Vector3(-1.0, 0.6, 3.2), 0.0, ["tea_master"]],
+		[&"worker", Vector3(5.4, 0.6, 3.6), 0.0, ["tea_shop", "cook"]], [&"idle", Vector3(-3.6, 0.6, -1.2), PI, ["tea_shop", "customer"]],
 		[&"idle", Vector3(0.6, 0.6, -1.6), PI, ["tea_shop", "customer"]], [&"idle", Vector3(3.8, 0.6, 2.4), PI * 0.5, ["tea_shop", "customer"]]])
-	_interior(&"training_hall", &"middle_ring", 296.0, 216.5, true, 15.0, [[&"trainer", Vector3(0, 1.4, 6.4), PI, ["earthbending", "master"]],
-		[&"student", Vector3(-3.0, 0.7, -1.0), 0.0, ["earthbending"]], [&"student", Vector3(0.0, 0.7, -2.5), 0.0, ["earthbending"]],
-		[&"student", Vector3(3.0, 0.7, -1.0), 0.0, ["earthbending"]]])
+	_interior(&"training_hall", &"middle_ring", 296.0, 216.5, true, 15.0, [[&"trainer", Vector3(0, 1.4, 6.4), 0.0, ["earthbending", "master"]],
+		[&"student", Vector3(-3.0, 0.7, -1.0), PI, ["earthbending"]], [&"student", Vector3(0.0, 0.7, -2.5), PI, ["earthbending"]],
+		[&"student", Vector3(3.0, 0.7, -1.0), PI, ["earthbending"]]])
 
 
 func _interior(kind: StringName, tier: StringName, b: float, r: float, facing_in: bool, rad: float, anchors: Array) -> void:

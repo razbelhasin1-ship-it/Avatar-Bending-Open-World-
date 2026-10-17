@@ -20,6 +20,11 @@ static var _glow_mat: ShaderMaterial
 static var _glow_mesh: QuadMesh
 
 
+## The shared night-glow material (null before prepare()); WorldFires sets its fire mask.
+static func glow_material() -> ShaderMaterial:
+	return _glow_mat
+
+
 ## Creates every shared material (call on the main thread before cells build).
 static func prepare() -> void:
 	NationPalette.prepare_materials()

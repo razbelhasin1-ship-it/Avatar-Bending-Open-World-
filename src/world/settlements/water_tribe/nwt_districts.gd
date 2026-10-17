@@ -113,11 +113,14 @@ func _landmarks() -> void:
 		for sx: float in [-1.0, 1.0]:
 			plan.anchor(&"guard_post", Vector3(gp.x, y, gp.z) + Vector3(tang.x, 0, tang.y) * 9.0 * sx + Basis(Vector3.UP, yaw) * Vector3(4.0, 0, 0),
 					yaw if sx > 0.0 else yaw + PI, {"tags": ["gate", String(g.get("id", ""))]})
-	# enterable interiors
-	_interior(&"healer_hut", &"upper", -16.0, 536.0, 11.0, [[&"healer", Vector3(0, 0.3, 2.4), PI], [&"idle", Vector3(3.8, 0.3, 0.0), -PI * 0.5]])
-	_interior(&"training_hall", &"upper", 31.0, 534.0, 15.0, [[&"trainer", Vector3(0, 0.8, 6.0), PI],
-		[&"student", Vector3(-2.5, 0.3, -1.0), 0.0], [&"student", Vector3(2.5, 0.3, -1.0), 0.0], [&"student", Vector3(0.0, 0.3, -3.2), 0.0]])
-	_interior(&"family_home", &"middle", -42.0, 449.0, 7.5, [[&"home", Vector3(0, 0.3, -1.5), PI], [&"idle", Vector3(-2.6, 0.3, -0.4), PI * 0.5]])
+	# enterable interiors. Anchor facings are relative to the building and follow the anchor
+	# contract (a -Z-forward model): 0 faces the entrance (local -Z), PI faces the back wall.
+	# The healer and the master stand at the back facing the room, students face the master,
+	# idlers by a side wall face the middle of the room, the resident by the door faces the fire.
+	_interior(&"healer_hut", &"upper", -16.0, 536.0, 11.0, [[&"healer", Vector3(0, 0.3, 2.4), 0.0], [&"idle", Vector3(3.8, 0.3, 0.0), PI * 0.5]])
+	_interior(&"training_hall", &"upper", 31.0, 534.0, 15.0, [[&"trainer", Vector3(0, 0.8, 6.0), 0.0],
+		[&"student", Vector3(-2.5, 0.3, -1.0), PI], [&"student", Vector3(2.5, 0.3, -1.0), PI], [&"student", Vector3(0.0, 0.3, -3.2), PI]])
+	_interior(&"family_home", &"middle", -42.0, 449.0, 7.5, [[&"home", Vector3(0, 0.3, -1.5), PI], [&"idle", Vector3(-2.6, 0.3, -0.4), -PI * 0.5]])
 	# council halls
 	for b in [-62.0, 64.0]:
 		var pos := P.p3(531.0, b, P.h(&"upper"))

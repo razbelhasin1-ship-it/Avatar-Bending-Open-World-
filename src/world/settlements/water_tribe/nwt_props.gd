@@ -313,6 +313,8 @@ static func fire_pit(kit: BuildingKit, v: int) -> void:
 		gb.cone(Vector3(0, 0.2, 0), Vector3(0, 1.2, 0), 0.45, 6, fire)
 		gb.cone(Vector3(0.2, 0.2, 0.1), Vector3(0.25, 0.9, 0.1), 0.25, 5, fire * 1.1)
 		gb.cone(Vector3(-0.2, 0.2, -0.1), Vector3(-0.25, 0.85, -0.1), 0.25, 5, fire * 1.1)
+		if kit.lod == 0:
+			kit.add_fire(Vector3(0, 0.2, 0), &"campfire", 0.55)
 		if kit.lod == 0 and v % 2 == 0:
 			for k in 3:
 				var a := TAU * k / 3.0

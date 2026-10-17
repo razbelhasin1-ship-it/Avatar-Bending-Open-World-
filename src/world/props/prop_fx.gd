@@ -107,6 +107,9 @@ static func particles(kind: StringName, color: Color = Color(-1, 0, 0)) -> GPUPa
 	p.draw_pass_1 = q
 	p.preprocess = p.lifetime
 	p.visibility_aabb = AABB(Vector3(-15, -3, -15), Vector3(30, 40, 30))
+	if kind == &"smoke" or kind == &"embers":
+		# a fire's smoke / embers stop while WorldFires has that fire put out
+		p.add_to_group(&"fire_fx")
 	return p
 
 
