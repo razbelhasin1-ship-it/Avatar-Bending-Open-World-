@@ -141,6 +141,60 @@ func _build_info() -> void:
 	_info_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(_info_title)
 	v.add_child(_info_body)
+	_build_journey_row()
+
+
+# --- Journey Book hook (progression_ui): shown only when the scene has a JourneyBook --------------
+
+const JOURNEY_PAGES := [["skills", "SKILLS", "icon_skills"], ["map", "MAP", "icon_map"], ["journal", "JOURNAL", "icon_journal"],
+	["inventory", "INVENTORY", "icon_bag"], ["character", "CHARACTER", "icon_character"]]
+var journey_buttons: Array[Button] = []
+var _journey_row: HBoxContainer
+
+
+func _build_journey_row() -> void:
+	_journey_row = HBoxContainer.new()
+	_journey_row.name = "JourneyRow"
+	_journey_row.anchor_left = 1.0
+	_journey_row.anchor_right = 1.0
+	_journey_row.offset_left = -780
+	_journey_row.offset_right = -110
+	_journey_row.offset_top = 590
+	_journey_row.offset_bottom = 590 + UiTheme.touch_height(104)
+	_journey_row.add_theme_constant_override(&"separation", 8)
+	_journey_row.visible = false
+	root.add_child(_journey_row)
+	for spec: Array in JOURNEY_PAGES:
+		var b := Button.new()
+		b.name = "Journey_%s" % spec[0]
+		b.text = spec[1]
+		b.icon = UiTheme.icon(spec[2])
+		b.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		b.vertical_icon_alignment = VERTICAL_ALIGNMENT_TOP
+		b.expand_icon = false
+		b.add_theme_constant_override(&"icon_max_width", 34)
+		b.add_theme_font_size_override(&"font_size", UiTheme.SIZE_TINY - 2)
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.custom_minimum_size = Vector2(0, UiTheme.touch_height(104))
+		UiFx.wire(b, {"press_sound": UiFx.CONFIRM})
+		var page := StringName(spec[0])
+		b.pressed.connect(func() -> void: open_journey(page))
+		_journey_row.add_child(b)
+		journey_buttons.append(b)
+
+
+func _journey_book() -> Node:
+	var b := get_tree().get_first_node_in_group(&"journey_book") if is_inside_tree() else null
+	return b if b != null and bool(b.get("enabled")) else null
+
+
+## Leaves the pause menu for a Journey Book page; closing the book comes back here.
+func open_journey(page: StringName) -> void:
+	var book := _journey_book()
+	if book == null or _leaving:
+		return
+	resume()
+	book.call(&"open", page, {"from_pause": true, "pause_menu": self})
 
 
 func _refresh_info() -> void:
@@ -162,6 +216,8 @@ func _refresh_info() -> void:
 		if not info.is_empty():
 			lines.append("Last saved  %s" % String(info.get("saved_at", "")).replace("T", "  "))
 	_info_body.text = "\n".join(lines)
+	if _journey_row:
+		_journey_row.visible = _journey_book() != null
 	options[1].disabled = not can_save()
 	options[1].modulate.a = 0.4 if options[1].disabled else 1.0
 	options[1].tooltip_text = "Progress is not saved in the training grounds." if GameState.is_tutorial else ""

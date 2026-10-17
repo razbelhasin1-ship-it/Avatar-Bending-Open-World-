@@ -61,6 +61,7 @@ var _fade: Tween
 var _busy_reason := ""
 var _level_seal: Label
 var _points_label: Label
+var _return_menu: Node = null
 
 
 func _ready() -> void:
@@ -304,6 +305,7 @@ func open(page_id: StringName = &"", args: Dictionary = {}) -> bool:
 		return false
 	is_open = true
 	return_to_pause = bool(args.get("from_pause", false))
+	_return_menu = args.get("pause_menu") as Node if args.get("pause_menu") is Node else null
 	_prev_mouse = Input.mouse_mode
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	_release_gameplay_actions()
@@ -345,9 +347,10 @@ func close() -> void:
 	closed.emit()
 	if return_to_pause:
 		return_to_pause = false
-		var pm := _pause_menu()
+		var pm := _return_menu if is_instance_valid(_return_menu) else _pause_menu()
 		if pm != null and not bool(pm.get("is_open")):
 			pm.call_deferred(&"open")
+	_return_menu = null
 
 
 func toggle(page_id: StringName) -> void:

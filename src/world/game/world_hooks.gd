@@ -20,6 +20,7 @@ const HOOK_PATHS: Array[String] = [
 	"res://src/npc/world_hook.gd",
 	"res://src/enemies/world_hook.gd",
 	"res://src/world/settlements/world_hook.gd",
+	"res://src/ui/progression/world_hook.gd",
 ]
 
 
