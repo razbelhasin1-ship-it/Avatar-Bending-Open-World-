@@ -116,8 +116,12 @@ func _landmarks() -> void:
 		if dip > 0.8:
 			var span := dip_end + 2.0
 			var bc := Vector2(gp.x, gp.z) + tang * (span * 0.5 - 1.0)
-			plan.add(&"canal_bridge", Vector3(bc.x, y, bc.y), yaw, {"span": span, "width": 10.0, "hump": 0.3, "v": 0}, 1, "", span * 0.5 + 2.5)
-			plan.data.get_or_add("gate_bridges", []).append(Vector3(bc.x, y, bc.y))
+			# the deck ends level with the ground outside (a thin deck edge above the ground is a
+			# lip the player stops at; the tier floor rising onto the inner end is walkable)
+			var oe := Vector2(gp.x, gp.z) + tang * (span + 1.2)
+			var by := minf(y, WorldData.get_height(oe.x, oe.y) - 0.02)
+			plan.add(&"canal_bridge", Vector3(bc.x, by, bc.y), yaw, {"span": span, "width": 10.0, "hump": 0.3, "v": 0}, 1, "", span * 0.5 + 2.5)
+			plan.data.get_or_add("gate_bridges", []).append(Vector3(bc.x, by, bc.y))
 		var mt := L.tier(&"middle")
 		var r0 := float(mt["r_inner"]) + 1.0
 		var r1 := float(mt["r_outer"]) - 3.0

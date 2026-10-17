@@ -112,7 +112,10 @@ every land gate on the cut. Outside the east gate the terrain has a 1.7 m ditch 
 passage's outer half (16.0 -> 14.2 within 2 m, back to 15.9 at 10 m out) whose inner bank is
 ~42 degrees (surface normal y 0.74): too steep to walk or jump up. Any dip deeper than 0.8 m
 within 16 m outside a gate now gets a low `canal_bridge` (10 m wide, from the gate floor over the
-dip). Re-walk: both gates REACHED. Test: `test_water_tribe_land_gates_are_open` (no wall in
+dip), its deck level with the ground at its outer end (a first version 0.11 m above it stopped
+the walker for 1.5 s at the deck's thin edge - the motor's step-up needs a steep face; the tier
+floor rising 0.1 m onto the inner end is a walkable slope). Re-walk: both gates REACHED, 0 blocks,
+the walker 1.9 m over the ditch on the deck. Test: `test_water_tribe_land_gates_are_open` (no wall in
 either passage, ground or a bridge under it from 12 m in to 14 m out).
 
 ### 3. Air Temple stairs

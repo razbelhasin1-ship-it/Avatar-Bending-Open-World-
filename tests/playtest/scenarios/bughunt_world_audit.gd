@@ -431,6 +431,8 @@ func _walk(c: Dictionary, L: RingLayout, label: String, start: Vector3, aim: Cal
 		t += 0.1
 		var now := pl.global_position
 		var r := L.polar(now.x, now.z).x
+		if OS.get_environment("PROFILE") != "" and int(roundf(t * 10.0)) % 5 == 0:
+			_log("  %s t %.1f at (%.1f, %.2f, %.1f) floor %s ground %.2f" % [label, t, now.x, now.y, now.z, pl.motor.on_floor, WorldData.get_height(now.x, now.z)])
 		if now.distance_to(last) > 25.0:
 			_finding("walk %s: jumped %.0f m in one step at r=%.0f (fall net / rescue?) from (%.0f, %.1f, %.0f) to (%.0f, %.1f, %.0f)" % [label,
 				now.distance_to(last), r, last.x, last.y, last.z, now.x, now.y, now.z])
