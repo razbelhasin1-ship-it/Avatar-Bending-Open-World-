@@ -141,11 +141,11 @@ func _finish_element(tag: String, pl: PlayerCharacter, watch: Object, monkey: Ob
 	p.check(w.is_empty(), "%s: no invariant violations (%s)" % [tag, ", ".join(w.keys())])
 	var states: Dictionary = watch.get("states_seen")
 	var abil: Dictionary = watch.get("abilities_seen")
-	var line := "%s: %.0f s game, states %s, abilities %d (%s), hits landed %d, taken %d, deaths %d, mounts %d, max proj %d, constructs %d, fx %d, enemies %d, live proj at end %d, inputs %s, nodes %s" % [
+	var line := "%s: %.0f s game, states %s, abilities %d (%s), hits landed %d, taken %d, deaths %d, mounts %d, max proj %d, constructs %d, fx %d, enemies %d, live proj at end %d, physics p50/p99/max %s, inputs %s, nodes %s" % [
 		tag, float(watch.get("clock")), str(states.keys()), abil.size(), ", ".join(abil.keys().map(func(k: StringName) -> String: return String(k))),
 		int(watch.get("hits_landed")), int(watch.get("hits_taken")), int(watch.get("deaths")), int(watch.get("mounts")),
 		int(watch.get("max_live_projectiles")), int(watch.get("max_live_constructs")), int(watch.get("max_fx_alive")), int(watch.get("max_enemies")),
-		live_proj, str(monkey.get("counts")), str(watch.get("node_samples"))]
+		live_proj, watch.call("phys_report"), str(monkey.get("counts")), str(watch.get("node_samples"))]
 	summary.append(line)
 	p.note(line)
 	var errs: Array = errlog.get("errors")

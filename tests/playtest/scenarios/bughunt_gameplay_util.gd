@@ -229,6 +229,8 @@ class Watch extends RefCounted:
 	var deaths := 0
 	var mounts := 0
 	var node_samples: Array = []
+	## Physics process time per frame (ms): every sample, for the report (p50 / p99 / max).
+	var phys_ms: PackedFloat32Array = PackedFloat32Array()
 	var _idle_frames := 0
 	var _busy_free_frames := 0
 	var _dead_mismatch := 0
@@ -315,6 +317,7 @@ class Watch extends RefCounted:
 		_companion_checks(dt)
 		_embed_checks(dt)
 		_cd_prev = pl.controller.cooldowns.duplicate()
+		phys_ms.append(float(Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS)) * 1000.0)
 		if clock >= _next_node_sample:
 			_next_node_sample = clock + 20.0
 			node_samples.append([snappedf(clock, 0.1), int(Performance.get_monitor(Performance.OBJECT_NODE_COUNT)),
@@ -603,6 +606,14 @@ class Watch extends RefCounted:
 			var d := AbilityRegistry.get_def(id)
 			flag("cooldown_bypass", "%s started with %.2f s of cooldown left (cooldown %.1f)" % [id, left, d.cooldown if d else 0.0])
 		_cd_last[id] = clock
+
+	## "p50 / p99 / max" physics ms over the session.
+	func phys_report() -> String:
+		if phys_ms.is_empty():
+			return "-"
+		var a := phys_ms.duplicate()
+		a.sort()
+		return "%.2f / %.2f / %.2f ms" % [a[int(a.size() * 0.5)], a[mini(a.size() - 1, int(a.size() * 0.99))], a[a.size() - 1]]
 
 	func report() -> String:
 		var lines: Array[String] = []

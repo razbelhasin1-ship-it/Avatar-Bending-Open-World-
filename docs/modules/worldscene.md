@@ -146,7 +146,9 @@ Total <= ~10.6 s.
 * `Events.player_died` -> 2.2 s -> fade -> `player.respawn_at(point, 0.5)` at the nearest of:
   the home spawn, the spawn of any visited capital, discovered shrines / villages / harbors /
   training grounds (snapped to `WorldData.get_safe_ground`). Nothing else changes (no progress
-  lost). The player's own 15 s auto-respawn stays as a backstop.
+  lost). The player's own 15 s auto-respawn stays as a backstop. If the backstop revives the
+  player while the fade waits for the respawn point's ground, `_place` only teleports (one
+  `player_respawned` per death; wave 4 bug hunt, `docs/qa/bughunt_gameplay.md` #10).
 * Net (5 Hz): non-finite position, beyond +-4060 m (open sea edge), below -300 m, or 30 m
   under the terrain with nothing solid below (caves are fine) -> fade back to the last safe
   ground (`PlayerMotor.last_safe_position`). WorldRenderer's 1.5 m collision net still runs.
