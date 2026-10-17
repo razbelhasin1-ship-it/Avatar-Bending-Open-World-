@@ -374,6 +374,10 @@ func _combat() -> void:
 		if def == null:
 			continue
 		await _ticks_until(func() -> bool: return not pl.controller.is_busy() and pl.get_state() == S.LOCOMOTION, 4.0)
+		# Each technique on a bandit back on its feet: the previous one may have launched it
+		# (Earth Pillar), and a ground shockwave (Earth Stomp) misses airborne targets by design.
+		await _ticks_until(func() -> bool:
+			return not is_instance_valid(en) or not en.is_alive() or (en.is_on_floor() and en.state != EnemyBase.State.KNOCKDOWN), 4.0)
 		await _approach(en)
 		_keep_alive()
 		pl.resources.set_chi(PlayerResources.CHI_MAX)

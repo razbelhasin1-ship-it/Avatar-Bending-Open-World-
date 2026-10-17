@@ -8,10 +8,13 @@ a step says "harness" (placing the player next to a target, a heal to keep a lon
 Every log was scanned for `ERROR` / `WARNING` / `SCRIPT ERROR`. Bugs were fixed at their root
 (in any module), each with a regression test that fails without the fix.
 
-* Tests: `tests/unit/test_flow_qa.gd` (7 tests).
+* Tests: `tests/unit/test_flow_qa.gd` (13 tests).
 * Playtests: `tests/playtest/scenarios/flow_qa_menus.gd`, `flow_qa_journey.gd` (`ELEMENT=`),
-  `flow_qa_travel.gd` (`ELEMENT=fire|air`), `flow_qa_mobile.gd` (`MOBILE=1 RENDERER=mobile`),
-  and the fixed `worldscene_tutorial.gd`.
+  `flow_qa_travel.gd` (`ELEMENT=fire|air`, `PART=fly` for the flight only),
+  `flow_qa_confirms.gd`, `flow_qa_mobile.gd` (`MOBILE=1 RENDERER=mobile`), and the fixed
+  `worldscene_tutorial.gd` (`ELEMENT=`). Each flow playtest saves into its own folder
+  (`user://saves_flow_qa_*`): `user://saves_test` is shared by every agent's runs on the
+  machine, and a save appearing there mid-run changes what ENTER THE WORLD does.
 * Run on the shared CI container: llvmpipe software Vulkan, 4 cores shared with two other
   agents' Godot runs, 960×540 (phone run 1600×720). Load times are software-rendering numbers.
 
