@@ -17,7 +17,7 @@ static func prepare() -> void:
 
 ## Launches a gust from `from` along `dir`. cfg: radius, grow (radius gained
 ## over the range), speed, range, low (stay near the ground), opacity, env (world
-## reaction strength along the path, 0 = none).
+## reaction strength along the path, 0 = none), core (radius that meets terrain / walls).
 static func gust(ab: BendingAbility, from: Vector3, dir: Vector3, cfg: Dictionary, h: Dictionary) -> BendingProjectile:
 	var ctx := ab.ctx
 	var speed := float(cfg.get("speed", 30.0))
@@ -40,8 +40,11 @@ static func gust(ab: BendingAbility, from: Vector3, dir: Vector3, cfg: Dictionar
 	puffer.radius = radius + grow * 0.5
 	if puffer.power > 0.0 and ctx.is_valid():
 		puffer.impulse = AirWindField.add(ctx.caster, from, puffer.radius + 1.2, 10.0 + 14.0 * puffer.power, AirWindField.DIRECTIONAL, d, INF)
+	# Bodies meet the whole (growing) gust; the ground and walls only its core, so a low or
+	# wide gust skims the floor instead of dying on it (cfg "core", default 0.25 m).
 	var p := BendingProjectile.launch(ctx, from, d, speed, h, {
 		"radius": radius, "radius_growth": grow / maxf(travel, 0.05), "max_radius": radius + grow, "range": range_m,
+		"world_radius": minf(float(cfg.get("core", 0.25)), radius),
 		"pierce": true, "attack_id": ab.attack_id, "ability_id": ab.def.id, "impact_size": 0.6 + grow * 0.3,
 		"deflectable": false, "visual": null, "on_step": puffer.step, "on_finish": puffer.done,
 	})

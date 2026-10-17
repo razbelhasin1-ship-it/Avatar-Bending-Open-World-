@@ -220,17 +220,24 @@ func from_dict(d: Dictionary) -> bool:
 	var eq: Array = d.get("equipped_abilities", [])
 	for i in ABILITY_SLOTS:
 		equipped_abilities[i] = StringName(str(eq[i])) if i < eq.size() and eq[i] != null else &""
-	inventory = _dict(d.get("inventory"))
+	inventory = _ints(_dict(d.get("inventory")))
 	currency = int(d.get("currency", 0))
 	quests = _dict(d.get("quests"))
+	for q: Variant in quests:
+		var rec: Variant = quests[q]
+		if rec is Dictionary:
+			for key: String in ["stage", "log", "objectives"]:
+				if (rec as Dictionary).has(key):
+					rec[key] = _ints(rec[key])
 	tracked_quest = StringName(str(d.get("tracked_quest", "")))
 	discovered_pois = _dict(d.get("discovered_pois"))
 	world_flags = _dict(d.get("world_flags"))
-	stats = _dict(d.get("stats"))
-	ability_practice = _dict(d.get("ability_practice"))
+	stats = _ints(_dict(d.get("stats")))
+	ability_practice = _ints(_dict(d.get("ability_practice")))
 	var comp := _dict(d.get("companion"))
 	for k: String in comp:
 		companion[k] = comp[k]
+	companion["bond"] = _ints(companion.get("bond", 0))
 	if companion.get("type", "") == "":
 		companion["type"] = String(ElementDefs.get_data(element).get("companion", ""))
 	var p: Variant = d.get("player_position")
@@ -247,3 +254,23 @@ func from_dict(d: Dictionary) -> bool:
 
 static func _dict(v: Variant) -> Dictionary:
 	return (v as Dictionary).duplicate(true) if v is Dictionary else {}
+
+
+## JSON has one number type: a save brings every count back as a float (2 -> 2.0). Whole
+## numbers in the integer-valued records (inventory, stats, practice, quest stages / logs /
+## objective progress) are turned back into ints, so `[0, 1].has(1)` style lookups and
+## printed counts behave exactly as before the save (Array.has(1) is false for [1.0]).
+static func _ints(v: Variant) -> Variant:
+	if v is float and is_finite(v) and float(v) == floorf(v) and absf(v) < 9.0e15:
+		return int(v)
+	if v is Array:
+		var a: Array = (v as Array).duplicate()
+		for i in a.size():
+			a[i] = _ints(a[i])
+		return a
+	if v is Dictionary:
+		var d: Dictionary = (v as Dictionary).duplicate()
+		for k: Variant in d:
+			d[k] = _ints(d[k])
+		return d
+	return v

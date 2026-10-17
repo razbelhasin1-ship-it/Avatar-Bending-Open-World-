@@ -10,7 +10,8 @@ extends Node3D
 ##
 ## * Hits damageables of the opposing team via BendingHits.deliver (once per
 ##   attack_id; pierce keeps flying through targets).
-## * Stops on terrain and constructs (WORLD | CONSTRUCT) -> on_impact + world VFX.
+## * Stops on terrain and constructs (WORLD | CONSTRUCT) -> on_impact + world VFX
+##   ("world_radius": a smaller core sphere for that test, e.g. wide air gusts).
 ## * Deflectable: defenders call redirect(dir, team, source) (air / water
 ##   parries send it back). The HitInfo carries meta &"projectile" = this node.
 ## * Aim assist: launch() leads a locked/soft target (lead 0..1) and may home
@@ -29,6 +30,10 @@ var radius := 0.25
 ## Radius growth per second (expanding gusts).
 var radius_growth := 0.0
 var max_radius := 4.0
+## Radius of the sphere that meets terrain and constructs (SOLID); < 0: `radius`. A wide,
+## growing gust hits bodies with its full radius but only stops where its core meets the
+## ground or a wall (a 0.75 m kick gust 0.5 m above the floor otherwise died after 0.5 m).
+var world_radius := -1.0
 var max_distance := 30.0
 var traveled := 0.0
 var gravity := 0.0
@@ -94,6 +99,7 @@ func _setup(p_ctx: BendingContext, from: Vector3, dir: Vector3, speed: float, h:
 	radius = float(opts.get("radius", 0.25))
 	radius_growth = float(opts.get("radius_growth", 0.0))
 	max_radius = float(opts.get("max_radius", 4.0))
+	world_radius = float(opts.get("world_radius", -1.0))
 	max_distance = float(opts.get("range", 30.0))
 	gravity = float(opts.get("gravity", 0.0))
 	pierce = bool(opts.get("pierce", false))
@@ -144,6 +150,11 @@ func _physics_process(delta: float) -> void:
 ## Advances the projectile by `delta` (public for tests).
 func step(delta: float) -> void:
 	if not alive:
+		return
+	# The caster was freed mid-flight (a despawned enemy, a torn-down scene): every hit is
+	# built from it, so the projectile ends quietly instead of raising script errors.
+	if ctx == null or not is_instance_valid(ctx.caster):
+		_finish()
 		return
 	age += delta
 	if age > max_age or traveled > max_distance:
@@ -209,12 +220,25 @@ func step(delta: float) -> void:
 
 
 func _cast(motion: Vector3) -> Dictionary:
+	if world_radius < 0.0 or world_radius >= radius:
+		return _cast_sphere(motion, radius, _mask())
+	# Bodies with the full radius, terrain / constructs with the core: the nearer contact wins.
+	var bodies := _cast_sphere(motion, radius, _mask() & ~Layers.SOLID)
+	if not bodies.is_empty() and bodies.get("collider") == null:
+		bodies = {}
+	var world := _cast_sphere(motion, world_radius, _mask() & Layers.SOLID)
+	if bodies.is_empty() or (not world.is_empty() and float(world["fraction"]) < float(bodies["fraction"])):
+		return world
+	return bodies
+
+
+func _cast_sphere(motion: Vector3, r: float, mask: int) -> Dictionary:
 	var space := get_world_3d().direct_space_state
-	_shape.radius = radius
+	_shape.radius = r
 	_params.shape = _shape
 	_params.transform = Transform3D(Basis.IDENTITY, global_position)
 	_params.motion = motion
-	_params.collision_mask = _mask()
+	_params.collision_mask = mask
 	_params.collide_with_areas = true
 	_params.collide_with_bodies = true
 	_params.exclude = _exclude

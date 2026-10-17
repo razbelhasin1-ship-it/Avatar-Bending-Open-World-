@@ -307,6 +307,16 @@ Measured in `test_integration_fixes.gd::test_enemy_techniques_cast_and_land` (ea
 on the player at its range, tell 0.35-0.47 s before the strike) and the
 `integration_fixes_enemies` playtest (variety per duel + group, token cap).
 
+## Wave 4 (flow_qa)
+
+* **The brain reads every element's charged heavy** (`EnemyBrain._threats()`): the evade on a
+  close heavy release and the cover wall against a charging heavy asked `is ChargeAbility`,
+  which Earth Boulder (its own lift -> hold -> throw machine) and Lightning are not, so an
+  earthbender player's charged boulder never made a rogue raise its Earth Wall. The brain now
+  reads the release contract by duck typing (`current.get(&"charging")`, `get(&"released")`),
+  the same fields the tutorial reads (docs/modules/bending_earth.md). Regression:
+  `tests/unit/test_flow_qa.gd::test_enemies_see_every_element_charge_a_heavy`.
+
 ## Changes outside the module
 
 * `src/player/player_targeting.gd`: `_valid()` takes an untyped argument so a lock / soft target

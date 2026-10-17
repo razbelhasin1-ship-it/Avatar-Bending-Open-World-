@@ -263,18 +263,31 @@ func _on_ability_started(a: BendingAbility) -> void:
 
 
 func _on_ability_ended(a: BendingAbility, _cancelled: bool) -> void:
-	if not (a is ChargeAbility):
-		return
-	var c := a as ChargeAbility
-	if c.charging:
-		return       # cancelled before the release: not a strike
+	var strike := heavy_strike_of(a)
+	if strike.is_empty():
+		return       # not a heavy, or cancelled before the release: not a strike
 	match _kind():
 		&"heavy":
-			if c.tapped:
+			if bool(strike["tapped"]):
 				add_progress(1.0)
 		&"charge":
-			if not c.tapped and c.charge >= CHARGE_MIN:
+			if not bool(strike["tapped"]) and float(strike["charge"]) >= CHARGE_MIN:
 				add_progress(1.0)
+
+
+## {tapped, charge} of a heavy-slot ability that released its strike, else {}. Heavies follow
+## ChargeAbility's release contract (`released`, `tapped`, `charge`) whether or not they extend
+## it: Earth Boulder is its own state machine (lift -> hold -> throw), so a class check alone
+## never counted Earth's heavy or charged strike (the tutorial's lessons stalled for Earth).
+static func heavy_strike_of(a: BendingAbility) -> Dictionary:
+	if a == null or a.def == null or a.def.slot != AbilityDef.Slot.HEAVY:
+		return {}
+	var released: Variant = a.get(&"released")
+	if not (released is bool) or not bool(released):
+		return {}
+	var tapped: Variant = a.get(&"tapped")
+	var charge: Variant = a.get(&"charge")
+	return {"tapped": bool(tapped) if tapped is bool else true, "charge": float(charge) if charge is float else 0.0}
 
 
 func _on_hit_landed(hit: HitInfo, target_node: Node, result: int) -> void:

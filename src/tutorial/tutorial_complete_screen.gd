@@ -2,7 +2,8 @@ class_name TutorialCompleteScreen
 extends CanvasLayer
 ## End of the training grounds: "TRAINING COMPLETE" over the blurred arena with the element's
 ## emblem, lessons mastered / skipped, and two choices - ENTER THE WORLD (a new journey as that
-## element) or MAIN MENU. Mouse, keyboard, controller and touch (88 px+ targets).
+## element) or MAIN MENU. Mouse, keyboard, controller and touch (88 px+ targets). With a journey
+## on disk, ENTER THE WORLD asks before a new journey replaces it.
 
 signal enter_world
 signal main_menu
@@ -13,6 +14,8 @@ var title: Label
 var body: Label
 var emblem: TextureRect
 var element: int = ElementDefs.Element.WATER
+## The open "replace your journey?" question (null when none).
+var confirm: ConfirmDialog = null
 
 var _busy := false
 
@@ -135,7 +138,28 @@ func _on_enter() -> void:
 	if _busy:
 		return
 	_busy = true
+	if SaveSystem.has_any_save() and not await _confirm_new_journey():
+		_busy = false
+		UiFx.focus_silently(options[0])
+		return
 	enter_world.emit()
+
+
+## A new journey is autosaved over the existing one once the arrival ends: the training grounds
+## are reachable with a journey on disk (main menu -> TUTORIAL), so ask first, like the main
+## menu's NEW JOURNEY does. KEEP JOURNEY is focused (the safe answer). True = begin anew.
+func _confirm_new_journey() -> bool:
+	var info := SaveSystem.get_save_info(SaveSystem.latest_slot())
+	var saved := "%s · Level %d" % [ElementDefs.display_name(int(info.get("element", -1))), int(info.get("level", 1))] if not info.is_empty() else "your saved journey"
+	confirm = ConfirmDialog.new()
+	confirm.name = "ConfirmNewJourney"
+	root.add_child(confirm)
+	confirm.ask("A NEW JOURNEY", "Begin a new journey as a %s? Your journey on disk (%s) is replaced once the new one is saved.\nKeep it to continue it from the main menu." % [ElementDefs.display_name(element), saved],
+			[[&"keep", "KEEP JOURNEY"], [&"new", "BEGIN ANEW"]])
+	var id: StringName = await confirm.answered
+	confirm.queue_free()
+	confirm = null
+	return id == &"new"
 
 
 func _on_menu() -> void:

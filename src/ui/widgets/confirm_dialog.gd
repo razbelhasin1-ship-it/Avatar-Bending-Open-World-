@@ -62,9 +62,33 @@ func ask(title: String, text: String, choices: Array) -> void:
 		var id: StringName = spec[0]
 		UiFx.wire(b, {"press_sound": UiFx.CONFIRM})
 		b.pressed.connect(func() -> void: _answer(id))
+		b.name = "Choice%d" % i
 		_row.add_child(b)
 		buttons[id] = b
+	_trap_focus()
 	open()
+
+
+## Keyboard / pad focus stays on the answers: left / right cycle through them, up / down and
+## Tab stay in the row. Without explicit neighbours Godot picks the nearest focusable control in
+## the direction, which can be a widget BEHIND the dim (a settings toggle next to APPLY): the
+## press then changed a setting the player could not see and focus left the question.
+func _trap_focus() -> void:
+	var row: Array[Button] = []
+	for c in _row.get_children():
+		if c is Button and not c.is_queued_for_deletion():
+			row.append(c as Button)
+	var n := row.size()
+	for i in n:
+		var b := row[i]
+		var prev := NodePath("../" + String(row[(i - 1 + n) % n].name))
+		var next := NodePath("../" + String(row[(i + 1) % n].name))
+		b.focus_neighbor_left = prev
+		b.focus_neighbor_right = next
+		b.focus_neighbor_top = NodePath(".")
+		b.focus_neighbor_bottom = NodePath(".")
+		b.focus_previous = prev
+		b.focus_next = next
 
 
 func _initial_focus() -> Control:

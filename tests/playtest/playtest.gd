@@ -41,8 +41,10 @@ func _ready() -> void:
 	DirAccess.make_dir_recursive_absolute(out_dir)
 	await get_tree().process_frame
 	var script := load(scenario_path) as GDScript
-	if script == null:
-		failures.append("cannot load scenario %s" % scenario_path)
+	# A scenario with a parse error loads as a GDScript that cannot be instantiated: fail at once
+	# instead of erroring in new() and idling until the run's timeout.
+	if script == null or not script.can_instantiate():
+		failures.append("cannot load scenario %s (parse error?)" % scenario_path)
 		_finish()
 		return
 	var scenario: Object = script.new()

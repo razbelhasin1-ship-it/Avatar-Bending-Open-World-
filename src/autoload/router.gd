@@ -21,6 +21,10 @@ var _layer: CanvasLayer
 var _fade: ColorRect
 var _label: Label
 var _hold_count := 0
+## True between the scene swap and the end of the fade-in (requests are queued then).
+var _swapped := false
+## The latest request made by the new scene during its fade-in ({} = none).
+var _queued: Dictionary = {}
 
 
 func _ready() -> void:
@@ -48,10 +52,17 @@ func _ready() -> void:
 
 
 ## Changes scene with a fade. `loading_text` is shown while loading.
+## A request made while a transition runs is dropped if it comes from the outgoing scene (before
+## the swap), but a request from the NEW scene during its fade-in (Back pressed on a keyboard or
+## pad, which the fade does not block) runs as soon as the fade-in ends: dropping it left menus
+## that set their own busy flag before routing waiting forever.
 func goto(path: String, p_params: Dictionary = {}, fade_time: float = 0.45, loading_text: String = "") -> void:
 	if is_transitioning:
+		if _swapped:
+			_queued = {"path": path, "params": p_params, "fade": fade_time, "text": loading_text}
 		return
 	is_transitioning = true
+	_swapped = false
 	params = p_params
 	_fade.mouse_filter = Control.MOUSE_FILTER_STOP
 	_label.text = loading_text
@@ -77,6 +88,8 @@ func goto(path: String, p_params: Dictionary = {}, fade_time: float = 0.45, load
 	_hold_count = 0
 	get_tree().change_scene_to_packed(packed)
 	current_path = path
+	_queued = {}
+	_swapped = true
 	await get_tree().process_frame
 	await get_tree().process_frame
 	while _hold_count > 0:
@@ -86,6 +99,11 @@ func goto(path: String, p_params: Dictionary = {}, fade_time: float = 0.45, load
 	await _tween_fade(0.0, fade_time * 1.4)
 	_fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	is_transitioning = false
+	_swapped = false
+	if not _queued.is_empty():
+		var q := _queued
+		_queued = {}
+		goto(String(q["path"]), q["params"], float(q["fade"]), String(q["text"]))
 
 
 ## Keep the screen black after the scene swap until release_fade() is called.

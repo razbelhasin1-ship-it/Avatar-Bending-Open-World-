@@ -253,3 +253,17 @@ practice never counts for them; armor on an AI caster times out after 25 s.
 * Audio uses the existing earth bending sound map (`BendingSounds`: `stomp`, `launch`,
   `spikes`, `armor`, `debris`, `wall`, `wall_break`, `impact`, `special`, `cast_light` /
   `cast_heavy`); the grab's clench is layered from `wall` + `impact` (no dedicated sound).
+
+## Wave 4 (flow_qa)
+
+* **Earth Boulder follows the heavy release contract.** Every other element's heavy extends
+  `ChargeAbility`; Earth Boulder is its own lift -> hold -> throw state machine, so code that
+  asked "was this heavy tapped / charged / released?" with `is ChargeAbility` never counted
+  Earth (the training grounds' *Heavy Strike* and *Charged Strike* lessons could not be
+  completed by an earthbender). `earth_boulder.gd` now exposes the same public fields:
+  `charging` (true until the throw starts), `released` (the boulder was hurled), `tapped`
+  (thrown with less than `TAP_CHARGE` = 0.15 charge) next to its existing `charge`. Readers
+  use them by duck typing (`TutorialDirector.heavy_strike_of(ability)`; the enemy brain's
+  evade / cover reactions read `charging` / `released`, docs/modules/enemies.md).
+  Regression: `tests/unit/test_flow_qa.gd::test_tutorial_light_heavy_charge_sprint_lessons_complete_for_every_element`,
+  `test_heavy_strike_report_for_charge_abilities_and_earth_boulder`. See `docs/qa/flow_qa.md`.

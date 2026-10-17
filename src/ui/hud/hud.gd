@@ -451,6 +451,7 @@ func apply_touch_layout(on: bool, left_handed: bool = false) -> void:
 	toasts.offset_top = 150 if on else 36
 	toasts.offset_bottom = 430 if on else 420
 	toasts.max_visible = 3 if on else 4
+	quest.settle()
 	quest.anchor_left = 0.0 if on else 1.0
 	quest.anchor_right = 0.0 if on else 1.0
 	quest.offset_left = 40.0 if on else -480.0

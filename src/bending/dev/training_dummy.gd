@@ -188,10 +188,13 @@ func receive_hit(hit: HitInfo) -> int:
 	return result
 
 
+## Floating readout: damage, the reaction it caused (none named for a damage-only hit: the
+## training grounds showed "2  None"), the result when not a plain hit, the combo count.
 func _show(hit: HitInfo, result: int) -> void:
-	var r := String(HitInfo.Reaction.keys()[hit.reaction]).capitalize()
 	var res := String(Combat.Result.keys()[result]).capitalize()
-	var line := "%d  %s" % [int(round(hit.damage)), r]
+	var line := "%d" % int(round(hit.damage))
+	if hit.reaction != HitInfo.Reaction.NONE:
+		line += "  %s" % String(HitInfo.Reaction.keys()[hit.reaction]).capitalize()
 	if result != Combat.Result.HIT:
 		line += "  (%s)" % res
 	if combo > 1:

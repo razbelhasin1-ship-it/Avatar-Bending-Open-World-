@@ -10,9 +10,18 @@ extends BendingAbility
 
 enum Phase { LIFT, HOLD, THROW }
 
+## Thrown with less charge than this = a tapped heavy.
+const TAP_CHARGE := 0.15
+
 var phase := Phase.LIFT
 var charge := 0.0
 var hold_t := 0.0
+## Same release contract as ChargeAbility (read by the tutorial lessons and AI): `charging`
+## until the throw starts, `released` once the boulder is hurled, `tapped` when it was thrown
+## without holding (charge below TAP_CHARGE).
+var charging := true
+var released := false
+var tapped := true
 var _riser: EarthCommon.RockRiser = null
 var _radius := 0.55
 var _thrown := false
@@ -83,6 +92,8 @@ func update(delta: float) -> void:
 				_radius = r
 			if not input_held or hold_t >= def.max_hold:
 				phase = Phase.THROW
+				charging = false
+				tapped = charge < TAP_CHARGE
 				ctx.face_dir = ctx.aim_flat()
 				ctx.face_rate = 1440.0
 				play_clip(param("throw_clip", &"earth_throw"), {"start": float(param("throw_start", 0.55)), "speed": float(param("throw_speed", 1.2)), "blend_in": 0.06})
@@ -97,6 +108,7 @@ func update(delta: float) -> void:
 
 func _throw() -> void:
 	_thrown = true
+	released = true
 	ctx.face_dir = Vector3.ZERO
 	var speed := float(param("speed", 24.0)) + charge * 4.0
 	var rock: MeshInstance3D = null

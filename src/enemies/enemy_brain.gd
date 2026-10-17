@@ -611,7 +611,8 @@ func _threats() -> bool:
 		var cur := pc.controller.current
 		var kind := pc.controller.current_kind()
 		var close := e.flat_distance_to(pc) < 6.5
-		var released := cur is ChargeAbility and (cur as ChargeAbility).released
+		# The release contract (ChargeAbility, Earth Boulder, Lightning): `released` / `charging`.
+		var released: bool = cur != null and cur.get(&"released") == true
 		var slow := (kind == &"technique" and cur.time < 0.25) or (released and not _player_charge_seen)
 		if released:
 			_player_charge_seen = true
@@ -624,7 +625,7 @@ func _threats() -> bool:
 	else:
 		_player_charge_seen = false
 	# Earth wall for cover when the player charges a heavy at range.
-	if pc != null and pc.controller != null and pc.controller.current is ChargeAbility and (pc.controller.current as ChargeAbility).charging:
+	if pc != null and pc.controller != null and pc.controller.current != null and pc.controller.current.get(&"charging") == true:
 		for a: Dictionary in e.attacks:
 			if a.get("tag", &"") == &"cover" and e.actions.can_use(a, e.flat_distance_to(pc), true):
 				if AttackTokens.request(e, target, true):
