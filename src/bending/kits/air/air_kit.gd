@@ -48,7 +48,7 @@ static func defs() -> Array[AbilityDef]:
 			"hit": {"damage": 14.0, "reaction": R.STAGGER, "force": 8.5, "stun": 0.5, "poise": 25.0, "heavy": true},
 			"params": {"hold_clip": &"air_charge_hold", "release_clip": &"air_charge_release", "release_start": 0.1,
 				"tap_clip": &"air_blast", "tap_start": 0.28, "tap_time": 0.2, "min_windup": 0.1, "charge_chi": 14.0, "walk_scale": 0.35,
-				"dive_height": 2.4, "dive_speed": 24.0, "dive_radius": 3.8, "dive_max": 1.6,
+				"dive_height": 2.4, "dive_speed": 24.0, "dive_radius": 3.8, "dive_max": 1.6, "dive_reach": 8.0, "dive_steer": 16.0,
 				"dive_hit": {"damage": 18.0, "reaction": R.KNOCKDOWN, "force": 10.0, "lift": 2.5, "stun": 1.1, "poise": 42.0, "heavy": true}},
 			"fx": {"vfx": &"air_gust", "sfx": &"cast_heavy", "charge": &"charge_loop"}, "script_path": DIR + "air_blast.gd"}),
 		AbilityDef.make({"id": &"air_shield", "element": E, "slot": AbilityDef.Slot.DEFENSE, "display_name": "Air Shield",
@@ -71,8 +71,8 @@ static func defs() -> Array[AbilityDef]:
 			"icon": ICONS + "ability_air_push.svg", "chi_cost": 16.0, "cooldown": 4.0, "clip": &"air_push_release", "clip_speed": 1.15,
 			"startup": 0.12, "active": 0.22, "recovery": 0.35, "charge_time": 0.8, "max_hold": 2.0, "starter": true, "poise_armor": 15.0,
 			"unlock": {"level": 1, "tier": 1, "branch": &"gale", "column": 0},
-			"hit": {"damage": 8.0, "reaction": R.KNOCKBACK, "force": 10.0, "lift": 1.5, "poise": 26.0, "heavy": true},
-			"params": {"hold_clip": &"air_push_gather", "release_start": 0.1, "release_speed": 1.15, "radius": 4.4, "radius_full": 6.8, "close": 2.0, "close_full": 3.0, "front_time": 0.2,
+			"hit": {"damage": 8.0, "reaction": R.KNOCKBACK, "force": 10.0, "lift": 1.5, "poise": 34.0, "heavy": true},
+			"params": {"hold_clip": &"air_push_gather", "release_start": 0.1, "release_speed": 1.15, "radius": 4.4, "radius_full": 6.8, "close": 2.4, "close_full": 3.2, "front_time": 0.2,
 				"front_time_full": 0.28, "charge_chi": 10.0, "tap_time": 0.18, "in_air": true, "ai_hold": 0.0,
 				"close_hit": {"damage": 12.0, "reaction": R.KNOCKDOWN, "force": 11.0, "lift": 2.5, "stun": 1.0, "poise": 40.0}},
 			"fx": {"vfx": &"air_wave", "sfx": &"push"}, "script_path": DIR + "air_push.gd"}),
@@ -159,3 +159,48 @@ static func enemy_attacks() -> Dictionary:
 			"range": Vector2(2.0, 12.0), "cooldown": 22.0, "weight": 0.5, "glint": &"hands", "ring": 7.5, "needs_los": true,
 			"bending": {"slot": &"signature"}, "recover": 0.7, "armor": 60.0},
 	}
+
+
+## Slot loadout of an air-bending enemy (enemy-tuned copies via EnemyAbilities.variant;
+## EnemyAbilities.LOADOUTS has no Air entry, so EnemyBase leaves the slots empty).
+const ENEMY_LOADOUT := {&"light": &"air_combo", &"heavy": &"air_blast", &"defense": &"air_shield", &"dodge": &"air_dash",
+	&"technique_1": &"air_push", &"technique_3": &"wind_blade"}
+
+
+## A sparring airbender (Air Nomads field no soldiers: the temple's sparring monks
+## duel visitors, rogues are rare). Register it, spawn it, then equip the controller:
+##   EnemyArchetypes.register(&"air_sparring_monk", AirKit.enemy_archetype())
+##   var e := EnemyBase.create(&"air_sparring_monk"); add_child(e)
+##   AirKit.equip_enemy(e.controller)
+static func enemy_archetype() -> Dictionary:
+	var at := enemy_attacks()
+	return {
+		"display_name": "Sparring Airbender", "role": &"bender", "faction": &"air_acolytes", "element": E,
+		"look": {"preset": &"air_nomad", "style": &"air"}, "props": [],
+		"health": 80.0, "poise": 22.0, "poise_resist": 6.0, "mass": 0.8, "speed": {"walk": 1.8, "run": 5.4, "strafe": 2.8},
+		"engage": Vector2(3.0, 8.0), "aggression": 0.55, "xp": 28,
+		"dodge": {"chance": 0.45, "bending": true, "cooldown": 2.0},
+		"block": {"chance": 0.3, "bending": true, "projectiles": true, "arc": 100.0},
+		"attacks": [
+			{"id": &"air_jabs", "kind": &"bending", "clip": &"combo_air_1", "windup": 0.18, "approach": 0.12, "telegraph": 0.38,
+				"range": Vector2(1.5, 7.0), "cooldown": 1.5, "weight": 1.0, "glint": &"hand_l", "needs_los": true,
+				"bending": {"slot": &"light", "steps": 2}, "recover": 0.45},
+			{"id": &"air_blast", "kind": &"bending", "clip": &"air_blast", "windup": 0.35, "approach": 0.14, "telegraph": 0.45,
+				"range": Vector2(4.0, 18.0), "cooldown": 4.0, "weight": 0.7, "glint": &"hands", "needs_los": true,
+				"bending": {"slot": &"heavy", "tap": true}, "recover": 0.5},
+			at[&"air_push"], at[&"wind_blade"],
+		],
+		"loot": [],
+	}
+
+
+## Loads ENEMY_LOADOUT (enemy-tuned, unregistered copies) into an enemy's controller.
+static func equip_enemy(bc: BendingController, combo_steps: int = 2) -> void:
+	if bc == null:
+		return
+	AirCommon.prepare()
+	for slot: StringName in ENEMY_LOADOUT:
+		var d := EnemyAbilities.variant(ENEMY_LOADOUT[slot], combo_steps if slot == &"light" else 0)
+		if d != null:
+			bc.set_slot(slot, d)
+	bc.reset_cooldowns()
