@@ -378,6 +378,12 @@ func _combat() -> void:
 		# (Earth Pillar), and a ground shockwave (Earth Stomp) misses airborne targets by design.
 		await _ticks_until(func() -> bool:
 			return not is_instance_valid(en) or not en.is_alive() or (en.is_on_floor() and en.state != EnemyBase.State.KNOCKDOWN), 4.0)
+		# Harness: each technique on its own. A pillar / wall left by the previous one blocks a
+		# ground shockwave's line of sight by design ("walls stop it").
+		for cst in BendingConstruct.live.duplicate():
+			if is_instance_valid(cst):
+				(cst as BendingConstruct).crumble()
+		await p.wait_game(0.3)
 		await _approach(en)
 		_keep_alive()
 		pl.resources.set_chi(PlayerResources.CHI_MAX)
@@ -666,7 +672,24 @@ func _save_menu_continue() -> void:
 	var cen2 := _census()
 	p.check(cen2["player"] == 1 and cen2["companion"] == 1 and cen2["world_scene"] == 1 and cen2["journey_book"] <= 1 and cen2["cameras_current"] == 1, "%s one of each after the round trip %s" % [el, str(cen2)])
 	p.check(_held().is_empty(), "%s no held input after continue" % el)
-	# input works after the round trip: walk and strike
+	# input works after the round trip: walk and strike. Like a player, turn toward open space
+	# first (the restored camera may face the wall the journey stopped next to).
+	var space := pl.get_world_3d().direct_space_state
+	var best_yaw := pl.camera_rig.yaw
+	var best_free := -1.0
+	for k in 8:
+		var yaw := pl.camera_rig.yaw + TAU * k / 8.0
+		var dir := Vector3(-sin(yaw), 0.0, -cos(yaw))
+		var q := PhysicsRayQueryParameters3D.create(pl.global_position + Vector3.UP, pl.global_position + Vector3.UP + dir * 8.0)
+		var exr: Array[RID] = [pl.get_rid()]
+		q.exclude = exr
+		var h := space.intersect_ray(q)
+		var room := 8.0 if h.is_empty() else (h["position"] as Vector3).distance_to(pl.global_position + Vector3.UP)
+		if room > best_free + 0.5:
+			best_free = room
+			best_yaw = yaw
+	pl.camera_rig.set_yaw(best_yaw)
+	await p.wait_game(0.2)
 	var at := pl.global_position
 	p.note("%s after continue: state %s, floor %s, swimming %s, input %s, camera yaw %.2f, companion %.1f m" % [el, pl.get_state_name(),
 			pl.motor.on_floor, pl.motor.swimming, pl.input.enabled, pl.camera_rig.yaw,

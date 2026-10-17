@@ -84,11 +84,25 @@ bandit → companion follow → (water: footprints) → save → menu → CONTIN
 | Water | `water_tribe`, polar bear dog, *Born of the Tide* (Anaaya, stage 0 → 1) | Water Whip 3 hits / 33 dmg; Water Blast hit (push); Ice Shards 2 hits; Ice Wall wall + hit; Water Surge hit (push) | defeated (killed) in 12 s, +22 XP | all fields equal, one of each, moves + bends | all 14 lessons |
 | Earth | `earth_kingdom`, badgermole, *Stone Beneath the Sky* (Lin) | Earth Punch 4 hits / 46 dmg; Earth Boulder dodged by the bandit (enemies now read the earth heavy, #9); Earth Pillar pillar + launch 14 dmg; Earth Stomp TBD; Earth Wall wall | defeated (killed) in 10 s, +22 XP | all fields equal, one of each, moves + bends | all 14 lessons (was: heavy + charge never completed, #1) |
 | Fire | `fire_nation`, dragon, *A Spark Returns* (Kaida) | Fire Jabs 3 hits / 25 dmg; Fire Blast hit 17; Fire Burst hit 18; Flame Sweep hit | defeated (killed) TBD | TBD | all 14 lessons |
-| Air | `air_temple`, sky bison, *The First Breath* (Pasang) | TBD (Air Combo was 1 hit for 3 presses before #7) | TBD | TBD | all 16 lessons (was: Strike Combo never completed, #7) |
+| Air | `air_temple`, sky bison, *The First Breath* (Pasang) | Air Combo 3 hits / 26 dmg (1 hit before #7); Air Blast hit 14; Air Push hit 8; Air Sweep hit 14 | defeated (fled) in 10 s, +11 XP | all fields equal, one of each, walks 6.9 m + bends | all 16 lessons (was: Strike Combo never completed, #7) |
 
 ## Log scan
 
-TBD
+Every final run's log (menus, confirms, the four tutorials, the four journeys, travel with
+ferry / map / flights, phone) was grepped for `ERROR`, `WARNING`, `SCRIPT ERROR`,
+`Failed to load`, `Cannot open`, `Node not found`:
+
+* `SCRIPT ERROR`: 0 in every final run. (Two intermediate runs showed a compile error I had
+  introduced in `enemy_brain.gd` — an inferred Variant — caught by the scan, fixed in the next
+  commit, and `tools/check.sh` is now run before every batch; the unit run showed the freed-caster
+  error, fixed as #11.)
+* At start-up, once per run: `Condition "status < 0" is true. Returning: ERR_CANT_OPEN` from
+  the audio server — the container has no sound device.
+* At quit, once per run: `N ObjectDB instances were leaked at exit` (20–22 for menu / tutorial /
+  travel runs, 36–40 for the long journeys) and `resources still in use at exit`. Static caches
+  (pools, registries, themes) still referenced when the engine shuts down; no effect while
+  playing. Left as is (engine-level, every module).
+* No `Failed to load`, `Cannot open`, `Node not found` or resource / script warning anywhere.
 
 ## Found, not fixed (owners)
 
