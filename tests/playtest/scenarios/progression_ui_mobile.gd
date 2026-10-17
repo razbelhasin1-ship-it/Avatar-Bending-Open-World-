@@ -112,7 +112,34 @@ func run(pt: Playtest) -> void:
 	await _tap(book.root.find_child("Tab_journal", true, false) as Button)
 	await p.wait(0.6)
 	p.check(book.page == &"journal", "tapping the JOURNAL tab")
+	_check_touch_sizes(book)
 	await p.screenshot("mobile_journal")
+	# inventory: tap a tile, it shows in the detail panel
+	GameState.add_item(&"healing_salve", 2)
+	GameState.add_item(&"sea_prunes", 3)
+	await _tap(book.root.find_child("Tab_inventory", true, false) as Button)
+	await p.wait(0.6)
+	p.check(book.page == &"inventory", "tapping the INVENTORY tab")
+	var ip := book.current_page() as InventoryPage
+	var tile := book.root.find_child("Item_sea_prunes", true, false) as Control
+	var pl := p.player() as PlayerCharacter
+	if pl:
+		pl.health.health = pl.health.max_health * 0.5
+	if tile:
+		await _tap(tile)
+		await p.wait(0.3)
+	p.check(ip != null and ip.selected == &"sea_prunes" and GameState.item_count(&"sea_prunes") == 3, "a first tap selects an item tile (does not use it)")
+	if tile:
+		await _tap(tile)
+		await p.wait(0.3)
+	p.check(GameState.item_count(&"sea_prunes") == 2, "a second tap on the selected tile uses it")
+	_check_touch_sizes(book)
+	await p.screenshot("mobile_inventory")
+	# character
+	await _tap(book.root.find_child("Tab_character", true, false) as Button)
+	await p.wait(1.2)
+	p.check(book.page == &"character", "tapping the CHARACTER tab")
+	await p.screenshot("mobile_character")
 	# tap outside the sheet (the dimmed margin) closes
 	var bd := book.root.get_node("Backdrop") as Control
 	t.down(1, t.to_screen(bd, Vector2(8, bd.size.y * 0.5)))

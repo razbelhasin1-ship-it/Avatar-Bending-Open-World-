@@ -110,7 +110,49 @@ static func places() -> Array[Dictionary]:
 		_places.append({"id": pid, "kind": &"poi", "type": t, "name": String(p.get("name", "")), "region": StringName(p.get("region", &"")),
 			"position": p.get("position", Vector3.ZERO), "radius": float(p.get("radius", 20.0)),
 			"description": String(p.get("description", "")), "icon": String(POI_ICONS.get(t, "map_landmark"))})
+	# a village / port record and the discovery POI on the same spot are one place on the map:
+	# the record keeps the marker (and fast travel), the POI its discovery ("merged_into")
+	for v in _places:
+		if v["kind"] != &"village" and v["kind"] != &"port":
+			continue
+		var want: StringName = &"dock" if v["kind"] == &"port" else (&"camp" if v["type"] == &"camp" else &"village")
+		var best := {}
+		var best_d := 140.0
+		for q in _places:
+			if q["kind"] != &"poi" or q["type"] != want or q.has("merged_into"):
+				continue
+			var d := (q["position"] as Vector3).distance_to(v["position"])
+			if d < best_d:
+				best_d = d
+				best = q
+		if not best.is_empty():
+			best["merged_into"] = v["id"]
+			v["twin"] = best["id"]
+			if String(v["description"]) == "":
+				v["description"] = best["description"]
+	# a harbour town and its port under the same name: the port (quay landing, ferries) stands
+	# for both
+	for pt in _places:
+		if pt["kind"] != &"port":
+			continue
+		for v in _places:
+			if v["kind"] == &"village" and not v.has("merged_into") and String(v["name"]) == String(pt["name"]) \
+					and (v["position"] as Vector3).distance_to(pt["position"]) < 600.0:
+				v["merged_into"] = pt["id"]
+				pt["absorbs"] = v["id"]
+				if String(pt["description"]) == "":
+					pt["description"] = v["description"]
+				break
 	return _places
+
+
+## The place the map shows for `p` (a POI merged into its village / port record -> that record).
+static func shown_place(p: Dictionary) -> Dictionary:
+	if p.has("merged_into"):
+		var m := place_by_id(StringName(p["merged_into"]))
+		if not m.is_empty():
+			return m
+	return p
 
 
 static func place_by_id(id: StringName) -> Dictionary:
@@ -122,16 +164,8 @@ static func place_by_id(id: StringName) -> Dictionary:
 
 ## The POI that stands for a village / port record (same spot), if any.
 static func _twin_poi(p: Dictionary) -> Dictionary:
-	var best := {}
-	var best_d := 140.0
-	for q in places():
-		if q["kind"] != &"poi" or (q["type"] != &"village" and q["type"] != &"dock"):
-			continue
-		var d := (q["position"] as Vector3).distance_to(p["position"])
-		if d < best_d:
-			best_d = d
-			best = q
-	return best
+	places()
+	return place_by_id(StringName(p["twin"])) if p.has("twin") else {}
 
 
 ## Whether the player knows a place (it is shown with its name / can be travelled to).
@@ -153,6 +187,8 @@ static func is_known(p: Dictionary) -> bool:
 			if not twin.is_empty() and GameState.discovered_pois.has(String(twin["id"])):
 				return true
 			if p["kind"] == &"port":
+				if p.has("absorbs") and is_known(place_by_id(StringName(p["absorbs"]))):
+					return true
 				var sid := StringName(p.get("settlement", &""))
 				return visited.has(String(sid)) or sid == home_city_id()
 	return false

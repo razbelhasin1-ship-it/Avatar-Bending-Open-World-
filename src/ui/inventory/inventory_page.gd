@@ -38,6 +38,10 @@ var _effect: Label
 var _value: Label
 var _use: Button
 var _detail: PanelContainer
+## Frame the selection last changed (a click / tap that focuses a tile only selects it).
+var _select_frame := -1
+## The tile press under way began on the already-selected tile (a second press uses it).
+var _press_uses := false
 
 
 func _build() -> void:
@@ -292,17 +296,26 @@ func _tile(id: StringName) -> Button:
 			b.draw_string(UiTheme.title_font(700, 2), Vector2(10, 22), "QUEST", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, UiTheme.SEAL.lightened(0.3)))
 	UiFx.wire(b)
 	b.focus_entered.connect(func() -> void:
+		if selected != id:
+			_select_frame = Engine.get_process_frames()
 		selected = id
 		_show(id)
 		for t in tiles:
 			t.queue_redraw())
 	b.mouse_exited.connect(b.queue_redraw)
+	# a click / tap focuses (selects) the tile in the same frame it goes down: only a press that
+	# starts on the tile already selected uses it (Enter / A on a focused tile always does)
+	b.button_down.connect(func() -> void:
+		_press_uses = selected == id and _select_frame != Engine.get_process_frames())
 	b.pressed.connect(func() -> void:
-		if selected == id and TradeGoods.is_usable(id):
+		if _press_uses and selected == id and TradeGoods.is_usable(id):
 			use_selected()
 		else:
+			if selected != id:
+				_select_frame = Engine.get_process_frames()
 			selected = id
-			_show(id))
+			_show(id)
+		_press_uses = false)
 	return b
 
 

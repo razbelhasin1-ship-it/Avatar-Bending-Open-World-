@@ -445,6 +445,7 @@ func show_page(id: StringName, args: Dictionary = {}) -> void:
 		old.on_close()
 		old.visible = false
 	page = id
+	set_status("")
 	var p := get_page(id)
 	if p == null:
 		return

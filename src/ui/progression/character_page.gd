@@ -318,7 +318,7 @@ func _record_rows() -> Array:
 		if String((GameState.quests[k] as Dictionary).get("state", "")) == "completed":
 			quests_done += 1
 	return [
-		["Time travelled", SaveChooser.format_play_time(GameState.play_time)],
+		["Time on the road", _play_time(GameState.play_time)],
 		["Places discovered", "%d" % GameState.discovered_pois.size()],
 		["World explored", "%d%%" % int(round(MapModel.revealed_ratio() * 100.0))],
 		["Quests completed", "%d" % quests_done],
@@ -329,6 +329,17 @@ func _record_rows() -> Array:
 		["Techniques used", "%d" % int(s.get("abilities_used", 0))],
 		["Coins", "%d" % GameState.currency],
 	]
+
+
+## "2 hr 36 min" / "14 min" / "just begun" (the values use the small-caps face, so units are
+## spelled out rather than a lone "m" that reads as metres).
+static func _play_time(seconds: float) -> String:
+	var minutes := int(seconds / 60.0)
+	if minutes < 1:
+		return "just begun"
+	if minutes < 60:
+		return "%d min" % minutes
+	return "%d hr %d min" % [floori(minutes / 60.0), minutes % 60]
 
 
 func _refresh_companion() -> void:

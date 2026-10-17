@@ -77,6 +77,9 @@ func bolt(from: Vector3, to: Vector3) -> void:
 	b.visible = true
 	b.global_position = from
 	b.scale = Vector3.ONE * 0.6
+	var trail := b.get_node_or_null(^"Trail") as GPUParticles3D
+	if trail:
+		trail.emitting = true
 	_live.append({"node": b, "t": 0.0, "dur": 0.42, "kind": &"bolt", "from": from, "to": to})
 	fired += 1
 
@@ -111,6 +114,9 @@ func _process(delta: float) -> void:
 			mat.albedo_color.a = (1.0 - u) * _alpha()
 		if u >= 1.0:
 			n.visible = false
+			var trail := n.get_node_or_null(^"Trail") as GPUParticles3D
+			if trail:
+				trail.emitting = false
 			_live.remove_at(i)
 
 
@@ -131,6 +137,11 @@ func _alpha() -> float:
 
 func _emissive() -> bool:
 	return element == ElementDefs.Element.FIRE or element == ElementDefs.Element.WATER
+
+
+## Additive blending glows on dark stages; water's stage is pale ice, so water mixes instead.
+func _additive() -> bool:
+	return element == ElementDefs.Element.FIRE
 
 
 static func _dot() -> Texture2D:
@@ -154,43 +165,64 @@ func _make_burst() -> GPUParticles3D:
 	var p := GPUParticles3D.new()
 	p.one_shot = true
 	p.emitting = false
-	p.amount = 28
-	p.lifetime = 0.55
+	p.amount = 40
+	p.lifetime = 0.6
 	p.explosiveness = 0.92
 	p.local_coords = false
+	var heavy := element == ElementDefs.Element.EARTH or element == ElementDefs.Element.WATER
+	p.process_material = _particles(1.4, 3.8, Vector3(0, -6.0 if heavy else 0.8, 0), 180.0, 0.14)
+	p.draw_pass_1 = _particle_quad(0.26 if element != ElementDefs.Element.AIR else 0.34)
+	add_child(p)
+	return p
+
+
+## A short-lived particle trail that follows a travelling bolt (world-space particles).
+func _make_trail() -> GPUParticles3D:
+	var p := GPUParticles3D.new()
+	p.emitting = false
+	p.amount = 36
+	p.lifetime = 0.38
+	p.local_coords = false
+	p.process_material = _particles(0.2, 0.9, Vector3(0, -2.0 if element == ElementDefs.Element.WATER else 0.4, 0), 180.0, 0.08)
+	p.draw_pass_1 = _particle_quad(0.22 if element != ElementDefs.Element.AIR else 0.3)
+	return p
+
+
+func _particles(vmin: float, vmax: float, gravity: Vector3, spread: float, radius: float) -> ParticleProcessMaterial:
 	var pm := ParticleProcessMaterial.new()
 	pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
-	pm.emission_sphere_radius = 0.12
+	pm.emission_sphere_radius = radius
 	pm.direction = Vector3(0, 1, 0)
-	pm.spread = 180.0
-	pm.initial_velocity_min = 1.2
-	pm.initial_velocity_max = 3.4
-	pm.gravity = Vector3(0, -6.0 if element == ElementDefs.Element.EARTH or element == ElementDefs.Element.WATER else 0.8, 0)
+	pm.spread = spread
+	pm.initial_velocity_min = vmin
+	pm.initial_velocity_max = vmax
+	pm.gravity = gravity
 	pm.damping_min = 1.5
 	pm.damping_max = 3.0
-	pm.scale_min = 0.5
-	pm.scale_max = 1.2
+	pm.scale_min = 0.6
+	pm.scale_max = 1.3
 	var ramp := Gradient.new()
 	var c := _color()
-	ramp.set_color(0, Color(c.lightened(0.35), 1.0))
+	ramp.set_color(0, Color(c if _additive() else c.lightened(0.3), 1.0))
 	ramp.set_color(1, Color(c, 0.0))
 	var rt := GradientTexture1D.new()
 	rt.gradient = ramp
 	pm.color_ramp = rt
-	p.process_material = pm
+	return pm
+
+
+func _particle_quad(size: float) -> QuadMesh:
 	var q := QuadMesh.new()
-	q.size = Vector2(0.16, 0.16) if element != ElementDefs.Element.AIR else Vector2(0.24, 0.24)
+	q.size = Vector2(size, size)
 	var m := StandardMaterial3D.new()
 	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD if _emissive() else BaseMaterial3D.BLEND_MODE_MIX
+	m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD if _additive() else BaseMaterial3D.BLEND_MODE_MIX
 	m.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
 	m.vertex_color_use_as_albedo = true
 	m.albedo_texture = _dot()
 	q.material = m
-	p.draw_pass_1 = q
-	add_child(p)
-	return p
+	return q
 
 
 func _make_bolt() -> MeshInstance3D:
@@ -219,11 +251,14 @@ func _make_bolt() -> MeshInstance3D:
 			s.radial_segments = 16
 			s.rings = 8
 			n.mesh = s
-	if _emissive():
+	if _additive():
 		m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
 	n.material_override = m
 	n.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	n.visible = false
+	var trail := _make_trail()
+	trail.name = "Trail"
+	n.add_child(trail)
 	add_child(n)
 	return n
 
@@ -240,7 +275,7 @@ func _make_ring() -> MeshInstance3D:
 	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	m.albedo_color = Color(_color(), _alpha())
-	if _emissive():
+	if _additive():
 		m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
 	n.material_override = m
 	n.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF

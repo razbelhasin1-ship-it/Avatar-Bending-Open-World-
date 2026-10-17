@@ -409,6 +409,20 @@ func test_map_knowledge_and_fast_travel_guard_rails() -> void:
 	expect(MapModel.is_known(port), "discovering the dock makes the port known")
 	var qt := MapModel.travel_transform(port)
 	expect(qt.origin.distance_to(port["position"]) < 1.0, "port travel lands on the quay")
+	# a village / port record and its discovery POI on the same spot are one marker
+	var dock := MapModel.place_by_id(&"ek_full_moon_bay")
+	expect_eq(StringName(dock.get("merged_into", &"")), &"port_full_moon_bay", "the dock POI merges into its port")
+	expect_eq(StringName(MapModel.shown_place(dock)["id"]), &"port_full_moon_bay", "shown as the port")
+	var names := {}
+	var dupes: Array[String] = []
+	for pl in MapModel.places():
+		if pl.has("merged_into") or pl["kind"] == &"city":
+			continue
+		var key := "%s@%d,%d" % [pl["name"], int((pl["position"] as Vector3).x / 200.0), int((pl["position"] as Vector3).z / 200.0)]
+		if names.has(key):
+			dupes.append("%s (%s/%s %s + %s)" % [pl["name"], pl["kind"], pl["type"], pl["id"], names[key]])
+		names[key] = "%s/%s %s" % [pl["kind"], pl["type"], pl["id"]]
+	expect(dupes.is_empty(), "no place is marked twice on the map %s" % str(dupes))
 
 
 func test_map_visits_and_reveal_survive_a_save() -> void:
@@ -568,6 +582,23 @@ func test_inventory_uses_a_consumable_on_the_player() -> void:
 	expect_eq(GameState.item_count(&"arctic_moss"), 1, "nothing consumed")
 	page.selected = &"waterskin"
 	expect(not page.use_selected(), "supplies are not usable")
+	# a click / tap on a tile that is not selected only selects it; the next press uses it
+	p.health.health = p.health.max_health - 40.0
+	page.selected = &"waterskin"
+	page.refresh()
+	await frames(1)
+	var tile := page.find_child("Item_arctic_moss", true, false) as Button
+	expect(tile != null, "moss tile")
+	if tile:
+		tile.grab_focus()
+		tile.button_down.emit()
+		tile.pressed.emit()
+		expect_eq(page.selected, &"arctic_moss", "the press selected the moss")
+		expect_eq(GameState.item_count(&"arctic_moss"), 1, "... without using it")
+		await frames(1)
+		tile.button_down.emit()
+		tile.pressed.emit()
+		expect_eq(GameState.item_count(&"arctic_moss"), 0, "a second press on the selected tile uses it")
 	page.set_view(&"discoveries")
 	await frames(1)
 	expect(_all_text(page).contains("places discovered"), "discoveries view")
@@ -594,6 +625,9 @@ func test_character_page_and_companion_bond() -> void:
 	expect(t.contains("LEVEL 4") and t.contains("XP"), "level + experience")
 	expect(t.contains("FAMILIAR"), "bond tier shown")
 	expect(t.contains("Airbender of the Air Nomads"), "title from the element")
+	expect_eq(CharacterPage._play_time(30.0), "just begun", "play time under a minute")
+	expect_eq(CharacterPage._play_time(14.0 * 60.0), "14 min", "minutes")
+	expect_eq(CharacterPage._play_time(2.6 * 3600.0), "2 hr 36 min", "hours + minutes")
 	b.close()
 
 

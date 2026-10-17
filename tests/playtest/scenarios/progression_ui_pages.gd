@@ -48,6 +48,8 @@ func run(pt: Playtest) -> void:
 			side += 1
 	await p.load_scene("res://scenes/dev/combat_arena.tscn", {"element": e})
 	await p.wait(1.5)
+	# the arena flattens WorldData for its courtyard; the map / discoveries need the world's records
+	WorldData.use_flat_world(false)
 	var book := (load("res://scenes/ui/journey_book.tscn") as PackedScene).instantiate() as JourneyBook
 	p.scene().add_child(book)
 	var layer := CanvasLayer.new()
@@ -92,6 +94,22 @@ func run(pt: Playtest) -> void:
 	await p.wait(0.4)
 	p.check(jp.filter == &"completed", "Tab shows completed quests")
 	await p.screenshot("pages_%s_journal_completed" % tag)
+	# back to the active list: SHOW ON MAP for the tracked quest opens the map on its marker
+	await _key(KEY_TAB)
+	await p.wait(0.3)
+	jp.selected = focused_q
+	jp.refresh()
+	jp.show_on_map()
+	await p.wait(0.8)
+	p.check(book.page == &"map", "SHOW ON MAP turns to the map page")
+	var mp := book.current_page() as WorldMapPage
+	var card_id: StringName = mp.card_place.get("id", &"") if mp else &""
+	p.check(card_id == focused_q, "the map card shows the quest (%s)" % card_id)
+	await p.wait(0.6)
+	await p.screenshot("pages_%s_map_quest" % tag)
+	book.show_page(&"map", {"place": MapModel.home_city_id()})
+	await p.wait(0.8)
+	await p.screenshot("pages_%s_map_home" % tag)
 	# inventory
 	book.show_page(&"inventory")
 	await p.wait(0.6)

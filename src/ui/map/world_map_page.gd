@@ -28,6 +28,7 @@ var _region: Label
 var _explored: Label
 var _sticky := false
 var _pan_hold := 0.0
+var _avoid: Array[Control] = []
 
 
 func _build() -> void:
@@ -103,6 +104,8 @@ func _build_map_controls(holder: Control) -> void:
 		b.draw.connect(func() -> void: _draw_map_button(b, kind))
 		b.pressed.connect(_on_map_button.bind(kind))
 		tr.add_child(b)
+	# map labels keep clear of these panels (handed to the overlay on open)
+	_avoid = [tl, tr]
 
 
 func _on_map_button(kind: String) -> void:
@@ -237,6 +240,7 @@ func on_open(args: Dictionary) -> void:
 		MapModel.note_position(pl.global_position)
 	canvas.refresh_reveal()
 	canvas.overlay.player = pl
+	canvas.overlay.avoid = _avoid
 	var comp: Variant = pl.call("get_companion") if pl != null and pl.has_method("get_companion") else null
 	canvas.overlay.companion = comp as Node3D if comp is Node3D and is_instance_valid(comp) else null
 	canvas.overlay.quest_markers = Quests.map_markers() if Quests != null else ([] as Array[Dictionary])
@@ -272,7 +276,7 @@ func on_open(args: Dictionary) -> void:
 				_sticky = true
 				return
 	if args.has("place"):
-		var p2 := MapModel.place_by_id(StringName(str(args["place"])))
+		var p2 := MapModel.shown_place(MapModel.place_by_id(StringName(str(args["place"]))))
 		if not p2.is_empty():
 			canvas.focus_on(p2["position"], 2.6, true)
 			canvas.select(p2)

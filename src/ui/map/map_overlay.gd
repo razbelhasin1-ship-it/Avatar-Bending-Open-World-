@@ -22,6 +22,8 @@ var pin: Dictionary = {}
 var player: Node3D = null
 var companion: Node3D = null
 var show_routes := true
+## Controls laid over the map (info panel, zoom buttons ...): labels are kept off them.
+var avoid: Array[Control] = []
 
 var _t := 0.0
 var _pickables: Array[Dictionary] = []
@@ -61,6 +63,8 @@ func pickables() -> Array[Dictionary]:
 	_pickables.clear()
 	var view := Rect2(Vector2(-40, -40), canvas.size + Vector2(80, 80))
 	for p in MapModel.places():
+		if p.has("merged_into"):
+			continue
 		var known := MapModel.is_known(p)
 		if not known and p["kind"] != &"poi" and p["kind"] != &"city":
 			continue
@@ -91,6 +95,11 @@ func _draw() -> void:
 	_labels.clear()
 	_obstacles.clear()
 	_lettered_cities.clear()
+	var inv := get_global_transform().affine_inverse()
+	for c in avoid:
+		if is_instance_valid(c) and c.is_visible_in_tree():
+			_obstacles.append(inv * c.get_global_rect())
+	_obstacles.append(_scale_bar_rect())
 	if show_routes:
 		_draw_routes()
 	_draw_lettering(zk)
@@ -135,6 +144,9 @@ func _queue_label(anchor: Vector2, below: float, text: String, font: Font, fs: i
 		"alt": anchor + Vector2(-w * 0.5, -below - fs * 0.35)})
 
 
+## Places the frame's labels: highest priority first, under the marker or else above it, slid
+## inside the map edge; a label that still overlaps one already placed (or a panel over the
+## map) is dropped, except priority 0 (hovered / selected), which takes the freer spot.
 func _flush_labels() -> void:
 	_labels.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return int(a["prio"]) < int(b["prio"]))
 	var placed: Array[Rect2] = _obstacles.duplicate()
@@ -142,18 +154,25 @@ func _flush_labels() -> void:
 		var fs := int(l["fs"])
 		var w := float(l["w"])
 		var chosen := Vector2.INF
-		for cand: Vector2 in [l["pos"], l["alt"]]:
+		var fallback := Vector2.INF
+		for cand0: Vector2 in [l["pos"], l["alt"]]:
+			var cand := Vector2(clampf(cand0.x, 8.0, maxf(8.0, size.x - w - 8.0)), cand0.y)
+			if cand.y - fs < 2.0 or cand.y > size.y - 4.0:
+				continue
 			var r := Rect2(cand + Vector2(-4, -fs * 0.85), Vector2(w + 8, fs * 1.15))
+			if not fallback.is_finite():
+				fallback = cand
 			var hit := false
-			if int(l["prio"]) > 0:
-				for q in placed:
-					if q.intersects(r):
-						hit = true
-						break
+			for q in placed:
+				if q.intersects(r):
+					hit = true
+					break
 			if not hit:
 				chosen = cand
 				placed.append(r)
 				break
+		if not chosen.is_finite() and int(l["prio"]) == 0:
+			chosen = fallback if fallback.is_finite() else Vector2(clampf((l["pos"] as Vector2).x, 8.0, maxf(8.0, size.x - w - 8.0)), (l["pos"] as Vector2).y)
 		if chosen.is_finite():
 			_halo_text(chosen, l["text"], l["font"], fs, l["color"], HALO, 6)
 
@@ -356,17 +375,25 @@ func _draw_reticle() -> void:
 	draw_circle(c, 3.0, col, true, -1.0, true)
 
 
-func _draw_scale_bar() -> void:
+## The scale bar's length: a round distance at least 90 px long.
+func _scale_len_m() -> float:
 	var mpp := canvas.metres_per_px()
-	var nice := [100.0, 250.0, 500.0, 1000.0, 2000.0]
-	var len_m := 1000.0
-	for n: float in nice:
+	for n: float in [100.0, 250.0, 500.0, 1000.0, 2000.0]:
 		if n / mpp >= 90.0:
-			len_m = n
-			break
-	var px := len_m / mpp
+			return n
+	return 1000.0
+
+
+func _scale_bar_rect() -> Rect2:
 	var o := Vector2(28.0, canvas.size.y - 34.0)
-	draw_rect(Rect2(o - Vector2(10, 30), Vector2(px + 20, 42)), Color(HALO, 0.75))
+	return Rect2(o - Vector2(10, 30), Vector2(_scale_len_m() / canvas.metres_per_px() + 20, 42))
+
+
+func _draw_scale_bar() -> void:
+	var len_m := _scale_len_m()
+	var px := len_m / canvas.metres_per_px()
+	var o := Vector2(28.0, canvas.size.y - 34.0)
+	draw_rect(_scale_bar_rect(), Color(HALO, 0.75))
 	draw_line(o, o + Vector2(px, 0), INK, 3.0)
 	draw_line(o + Vector2(0, -7), o + Vector2(0, 5), INK, 2.0)
 	draw_line(o + Vector2(px, -7), o + Vector2(px, 5), INK, 2.0)
