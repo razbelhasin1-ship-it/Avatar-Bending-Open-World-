@@ -240,7 +240,8 @@ opens the book, and closing the book returns to the pause menu.
 
 ## Verification
 
-* `tools/check.sh`: OK.
+* `tools/check.sh`: OK. Full `tools/test.sh` (every module, after merging the latest
+  `wave3/bending_*` and `wave3/quests_npcs`): 418 tests, 0 failed.
 * `tools/test.sh test_progression_ui`: 16 tests, all pass. They cover: open, close and pause
   every way; refusals; tabs; the pause-menu row; tree layout for every element; requirements
   matching `can_unlock`; learning spends points; equip, swap and refusals; live player reload;
