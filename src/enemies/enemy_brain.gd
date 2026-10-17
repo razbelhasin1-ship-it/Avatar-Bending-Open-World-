@@ -159,9 +159,14 @@ func investigate(pos: Vector3) -> void:
 	if e.state in [S.DEAD, S.SURRENDER, S.FLEE] or e.perception.engaged:
 		return
 	_investigate_at = pos
+	# Already suspicious: a new noise moves the point of interest but does not restart the
+	# 7 s give-up clock. Continuous combat noise (hits every second nearby) used to keep an
+	# enemy that cannot see the player in ALERT until the 12 s state timeout (engine warning,
+	# then RETURN -> ALERT again, forever) (bughunt_gameplay).
+	if e.state == S.ALERT:
+		return
 	_investigate_t = 0.0
-	if e.state != S.ALERT:
-		e.set_state(S.ALERT)
+	e.set_state(S.ALERT)
 
 
 ## Fight `t`. `via_ally`: called out by an ally (no extra call, shorter beat).

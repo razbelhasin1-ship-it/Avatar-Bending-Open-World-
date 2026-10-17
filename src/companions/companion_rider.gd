@@ -325,7 +325,18 @@ func _ground_beside() -> Vector3:
 		var g := Vector3(p.x, gy, p.z)
 		if absf(gy - c.global_position.y) < 2.5 and CompanionNav.open_space(space, g, 0.35, ex) and CompanionNav.water_depth(p.x, p.z) < 1.0:
 			return g
-	return WorldData.get_safe_ground(c.global_position - right * off)
+	# Nothing dry beside it (swimming out at sea): WorldData's safe ground can be hundreds of
+	# metres away (or a far port), and the hop used to fly the rider there in one arc. Close dry
+	# ground is fine; otherwise the rider slips into the water beside the mount and swims
+	# (riders never drown) (bughunt_gameplay).
+	var side_p := c.global_position - right * off
+	var safe := WorldData.get_safe_ground(side_p)
+	var near := safe.is_finite() and Vector2(safe.x - c.global_position.x, safe.z - c.global_position.z).length() <= off + 8.0
+	var w := WorldData.get_water_height(side_p.x, side_p.z)
+	var in_water := c.motor.swimming or CompanionNav.water_depth(c.global_position.x, c.global_position.z) > 1.0
+	if near or not in_water or not is_finite(w):
+		return safe
+	return Vector3(side_p.x, w, side_p.z)
 
 
 func _launch_fx(at: Vector3) -> void:

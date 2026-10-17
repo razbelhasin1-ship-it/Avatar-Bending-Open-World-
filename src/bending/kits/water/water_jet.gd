@@ -107,7 +107,13 @@ func _pulse(from: Vector3, dir: Vector3) -> void:
 	pulses += 1
 	new_attack()
 	var h := hit_data()
-	var res := BendingHits.sweep(ctx, from, end_point, float(param("radius", 0.3)) * lerpf(0.8, 1.0, _size), h, attack_id, def.id, {"push": &"forward"})
+	# A sustained stream, like the tornado's pulses: no hitstop per pulse (it stuttered the game
+	# every 0.15 s) and Focus only every 4th pulse (one 3 s jet used to fill the signature bar).
+	var meta := {&"no_hitstop": true}
+	if pulses % 4 != 1:
+		meta[&"no_focus"] = true
+	var res := BendingHits.sweep(ctx, from, end_point, float(param("radius", 0.3)) * lerpf(0.8, 1.0, _size), h, attack_id, def.id,
+			{"push": &"forward", "meta": meta})
 	var n := BendingHits.count_landed(res)
 	landed += n
 	for r: Dictionary in res:

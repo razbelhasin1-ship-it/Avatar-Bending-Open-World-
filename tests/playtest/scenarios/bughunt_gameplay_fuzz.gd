@@ -101,8 +101,20 @@ func _shot(tag: String) -> void:
 func _finish_element(tag: String, pl: PlayerCharacter, watch: Object, monkey: Object) -> void:
 	monkey.call("release_all")
 	p.release_all()
+	# Queued input events (a last pause / map press) are handled first, then every menu closed
+	# through its own API and the rider helped down.
+	await p.frames(3)
+	for n: Node in p.get_tree().get_nodes_in_group(&"journey_book"):
+		if bool(n.get("is_open")):
+			n.call("close")
+	for n: Node in p.get_tree().root.find_children("*", "PauseMenu", true, false):
+		if bool(n.get("is_open")):
+			n.call("resume")
+	await p.frames(2)
 	if pl.get_tree().paused:
 		pl.get_tree().paused = false
+	if pl.get_state() == PlayerCharacter.State.MOUNTED and pl.mount_node != null and pl.mount_node.has_method("request_dismount"):
+		pl.mount_node.call("request_dismount")
 	# Settle with no input: everything must come back to rest by itself.
 	var back := false
 	for i in int(14.0 * 60.0):

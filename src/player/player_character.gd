@@ -475,8 +475,14 @@ func apply_saved_state() -> bool:
 # --- interaction / cinematic / mount hooks --------------------------------------------------------
 
 func try_interact() -> bool:
-	var it := interaction.current
-	if it == null or not it.can_interact(self):
+	# Untyped first: the picked interactable may have been freed since the last 10 Hz pick
+	# (a despawned NPC / picked-up prop) and a freed instance in a typed variable is an error.
+	var cur: Variant = interaction.current
+	if cur == null or not is_instance_valid(cur):
+		interaction.current = null
+		return false
+	var it := cur as Interactable
+	if not it.is_inside_tree() or not it.can_interact(self):
 		return false
 	var to := it.focus_point() - global_position
 	to.y = 0.0
@@ -543,8 +549,19 @@ func dismount(at: Vector3 = Vector3.INF) -> void:
 	if not pos.is_finite():
 		var base := mount_seat.global_position if mount_seat != null and is_instance_valid(mount_seat) else global_position
 		var side := (mount_seat.global_basis.x if mount_seat != null and is_instance_valid(mount_seat) else global_basis.x) * 1.8
-		pos = WorldData.get_safe_ground(base + side) if WorldData.has_world_data() else base + side
-		pos.y = maxf(pos.y, ctx.ground_y(base + side, 3.0, 12.0))
+		var want := base + side
+		pos = want
+		if WorldData.has_world_data():
+			# Out at sea the nearest safe ground can be far away (a port km off): slip into the
+			# water beside the mount instead (the player swims, never drowns) (bughunt_gameplay).
+			var safe := WorldData.get_safe_ground(want)
+			var w := WorldData.get_water_height(want.x, want.z)
+			var at_sea := is_finite(w) and w - WorldData.get_height(want.x, want.z) > 1.0
+			if safe.is_finite() and (not at_sea or Vector2(safe.x - want.x, safe.z - want.z).length() < 10.0):
+				pos = safe
+			elif at_sea:
+				pos = Vector3(want.x, w, want.z)
+		pos.y = maxf(pos.y, ctx.ground_y(want, 3.0, 12.0))
 	mount_node = null
 	mount_seat = null
 	collision_layer = Layers.PLAYER
