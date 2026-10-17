@@ -1,0 +1,350 @@
+# QA wave 4 — adversarial gameplay bug hunt (`bughunt_gameplay`)
+
+Focus: the player, bending (all four kits), enemies and companions. Method: read the code of
+those modules critically for stuck states, missing timeouts, freed-instance access, double /
+missed hits, Focus / chi / cooldown exploits, abilities in the wrong states, mount edge cases,
+saves in odd states, time-scale leaks, pooling leaks and per-frame costs; then **long randomized
+fuzz sessions** per element in the enemy arena and in the real world with an invariant
+watchdog and an engine-error collector (every error / warning counted as a bug). Every
+suspicion was reproduced (test or fuzz), fixed at its root with the smallest change, and kept
+as a regression test (`tests/unit/test_bughunt_gameplay.gd`, 16 tests; each fails on the old
+code except `test_interact_with_a_freed_interactable`, a guard kept for a refuted suspicion).
+
+| # | Bug | Verdict | Fix (file) |
+| --- | --- | --- | --- |
+| 1 | Cinematic / respawn / death while riding: collision stays off, rider falls through the floor (the training grounds end on the Ride lesson) | confirmed | dismount first (`player_character.gd`) |
+| 2 | Saddle positions (and mid-air release points) recorded as the last safe ground: saves made in flight continue in mid-air | confirmed | `PlayerMotor.carried`, `teleport(mark_safe)` |
+| 3 | Signatures refill the Focus they cost (Tidal Torrent: 100 Focus from 29 hits): endless signatures | confirmed | signature hits build no Focus (`bending_feedback.gd`) |
+| 4 | Water Jet: hitstop on every 0.15 s pulse (19 per jet) and +6 Focus per pulse (one jet = full bar) | confirmed | `no_hitstop`, Focus every 4th pulse; `BendingHits` opts `meta` |
+| 5 | Companion assist target freed while held: script error every tick (330 in a 3-minute session) | confirmed (fuzz) | untyped `_valid_enemy` (`companion_assist.gd`) |
+| 6 | Projectile whose caster was freed: script error every frame, the shot never lands | confirmed (fuzz) | `BendingContext.make_hit` / `forward` |
+| 7 | Air Tornado captive freed mid-spin: "Trying to cast a freed object" every frame | confirmed (fuzz) | validity check before the cast (`air_tornado.gd`) |
+| 8 | Hopping off a mount swimming at sea: arc to dry land 118 m away (up to 256 m / a port km off) | confirmed | slip into the water beside the mount (`companion_rider.gd`, `player_character.gd`) |
+| 9 | Enemy hearing a fight it cannot see: ALERT until the 12 s safety timeout (engine warning), then RETURN -> ALERT forever | confirmed (fuzz) | new noises don't restart the give-up clock (`enemy_brain.gd`) |
+| 10 | World respawn sequence overtaken by the auto-respawn backstop: two respawns for one death | confirmed (fuzz) | teleport only when already revived (`respawn_system.gd`) |
+| 11 | Earth Pillar self-lift under a roof / arch / cave ceiling: the bender is carried through it and pops out on top | confirmed | headroom cast before the lift (`earth_pillar.gd`) |
+| 12 | Enemy knocked into a pool / pit chases the player on the rim by sliding along the wall forever | confirmed (fuzz) | walled-in detection: hop out, give up the chase (`enemy_brain.gd`, `enemy_base.gd`) |
+
+Refuted suspicions and checks that came out clean are listed at the end.
+
+Verification: `tools/check.sh` OK; `tools/test.sh` 465 / 465 (one earlier full run had
+`test_audio::test_music_loop_has_no_gap_in_engine` fail once under CPU contention from other
+agents' rendered playtests - it passed alone and in the next full run; audio was not touched);
+regression playtest `bughunt_gameplay_regressions` all parts pass (rendered, 960x540); final fuzz
+sessions clean (see Fuzz sessions).
+
+---
+
+## Tools
+
+### Fuzz harness — `tests/playtest/scenarios/bughunt_gameplay_fuzz.gd` (+ `bughunt_gameplay_util.gd`)
+
+* **Monkey** (`util.Monkey`): random play through **InputMap actions only** (`Input.action_press` +
+  an `InputEventAction`, exactly the touch overlay / keyboard path): stick directions + sprint,
+  mouse look, light taps, heavy taps and holds up to 2 s, block holds, dodges, the four technique
+  slots (tap or hold), the signature, jump / glide, lock-on (and it seeks a lock so fights happen),
+  interact, mount / dismount / call, riding inputs (climb, dive / burrow, boost, hop off, strikes
+  that must be ignored), the pause menu and the Journey Book (map / skills / journal, closed again
+  with Back, the same key or Esc).
+* **Adversarial events** every 6-20 s: near death (1 HP, so the next blow kills mid-ability /
+  mid-guard), teleport into the pool (swimming with buffered presses), Focus refill, chi
+  starvation, infinite chi toggles, saves in whatever state (`SaveSystem.save_game` + read back),
+  the companion over the pool / against the arena walls then mount + hop off there, cheap shots
+  from behind (every reaction incl. LAUNCH / FREEZE / PULL), element hops mid-action (dev arena),
+  technique loadouts rotated through the element's whole tree via `GameState.equip_ability`
+  (the live reload path), and enemy groups replaced while they act (freed mid-attack).
+* **Watchdog** (`util.Watch`, every physics frame): player state caps (HitStun 2 s, Knockdown 4 s,
+  GetUp 1.2 s, Interacting 10 s, ability states = max_time + 1 s, Dead = the respawn backstop),
+  ability `time <= max_time`, no ability running in a free / dead / mounted / cinematic state,
+  i-frames / damage reduction / poise armor / gravity / chi upkeep reset when idle (toggles
+  excepted), chi / Focus / health ranges, finite position and velocity, collision layers restored
+  and no stale mount refs off the mount, no leftover camera override / mode, death bookkeeping,
+  `Engine.time_scale` back to 1 within the dilation cap, projectile age / counts, construct
+  counts, FX alive, bending loops that follow the player for > 40 s, double hits per attack id,
+  abilities started in a forbidden state or while paused, **cooldown bypasses** (started while the
+  controller still had it on cooldown), player capsule embedded in solid geometry, enemies over
+  their state caps / below the ground / stuck chasing, more attackers than tokens, companion mode
+  caps, mounted-but-not-ridden desyncs, double respawns, node / orphan / object counts every 20 s.
+* **ErrorLog** (`util.ErrorLog`, a `Logger` added with `OS.add_logger`): collects every engine
+  error and warning with the GDScript backtrace.
+* **Breadcrumbs** (`<out>/crumbs.txt`, flushed every 3 frames: player state, ability + time,
+  position, companion mode / burrow phase, held buttons; every event): the last state before a
+  hang or a crash. The hang of final session 8 (no output, 100 % CPU) was traced with them
+  (session 9) to the harness itself: the monkey toggled `pause` blindly, so a close press that landed on
+  an already closed menu reopened it and the game stayed paused for good. The monkey now only
+  closes menus while the tree is paused and makes no play decisions then.
+* Runs headless and fast: `godot --headless --fixed-fps 60 --path . res://tests/playtest/playtest.tscn
+  -- --test --scenario=bughunt_gameplay_fuzz` with `ELEMENT`, `MODE=arena|world`, `MINUTES`, `SEED`
+  (5 game minutes in the arena take ~1 min of wall time); rendered with `tools/playtest.sh` for
+  screenshots.
+
+### Regression playtest — `tests/playtest/scenarios/bughunt_gameplay_regressions.gd`
+
+Plays the fixed cases with the real player (rendered, InputMap actions): Water Jet on a dummy,
+Tidal Torrent among four dummies, riding into a cinematic, hopping off the polar bear dog at sea,
+letting go of the sky bison and saving while falling, Earth Pillar self-lift under a low roof and
+under the open sky. Observer + player-view screenshots
+(`tools/playtest.sh bughunt_gameplay_regressions <out> 960x540`, `PART=` to pick parts).
+
+---
+
+## Findings
+
+### 1. Riding into a cinematic / respawn / death leaves the rider half-mounted
+
+**Found** (code read, then reproduced). `PlayerCharacter.enter_cinematic()` (and `respawn_at`,
+`die`, `set_element`) changed the state away from MOUNTED without `dismount()`: collision layer and
+mask stayed 0, `mount_node` / `mount_seat` stayed set, the companion stayed RIDDEN. The training
+grounds end on the **Ride** lesson and `TutorialScene._on_finished` calls `enter_cinematic(600)`
+one second later, so the rider dropped through the floor behind the complete screen; after any
+cinematic the player kept falling (the fall net teleports them onto ground they then fall through
+again).
+**Evidence.** `test_cinematic_while_mounted_dismounts_cleanly` on the old code: layer 0, refs set,
+no `Events.dismounted`, AIRBORNE at y -20.5 after the cinematic; `test_respawn_while_mounted_dismounts`:
+the rider sank through the floor after a respawn.
+**Fix.** `src/player/player_character.gd:151` (`set_element`), `:408` (`die`), `:430` (`respawn_at`),
+`:502` (`enter_cinematic`): `if states.state == State.MOUNTED: dismount()` first (the companion
+cleans up on `Events.dismounted`). Regression playtest `bughunt_gameplay_regressions` PART=ride.
+
+### 2. The saddle becomes "safe ground": saves made in flight continue in mid-air
+
+**Found** (code read while checking WorldSaveGuard). `PlayerMotor.sense()` reads
+`body.is_on_floor()`, which keeps the value of the last `move_and_slide()`: while mounted no
+`move_and_slide` runs, so the body "stood on the floor" at every saddle position and
+`_last_safe` followed the saddle (40 m up on a sky bison). `teleport()` also marked any destination
+safe - including the mid-air point where a rider lets go of a flyer. `WorldSaveGuard` stores
+`last_safe_position()` for a mounted / airborne player, so an autosave (region change, 180 s timer)
+or a pause-menu save during a flight, or after a let-go, put the continue point in mid-air
+(over the sea: a long swim back).
+**Evidence.** `test_midair_dismount_is_not_safe_ground`: last safe ground = the release point 40 m
+up on the old code (and the seat while riding).
+**Fix.** `src/player/player_motor.gd:58` `carried` (set in `mount_on` `player_character.gd:530`,
+cleared in `dismount` `:565`): a carried body senses no floor (`player_motor.gd:87`).
+`teleport(xform, mark_safe := true)` (`player_motor.gd:462`, `player_character.gd:451`);
+`dismount()` passes false. The rendered regression playtest (PART=flight) then still saved
+**56 m above the terrain** after letting go of the sky bison: the first tick after the release
+read the stale `is_on_floor()` once more, before any `move_and_slide`. A teleport to a place not
+known to be ground now leaves the floor unknown until the next `move_and_slide`
+(`_floor_unknown`, `player_motor.gd:63` / `:405` / `:477`) - which also removes a stale "on the
+floor" tick in mid-air (a ground jump right after letting go). Riding a ground mount still
+carries the safe ground along: `PlayerCharacter.update_mounted` passes a carrier that stands on
+the floor (collision on, so not tunnelling) to `PlayerMotor.carrier_on_floor()`
+(`player_motor.gd:117`), which keeps it when it is dry and walkable - a save mid-ride continues
+where the mount's feet are, not where the ride began (`test_ground_ride_carries_safe_ground`;
+without it the safe point stayed at the mounting spot 15 m back). PART=flight of the regression
+playtest saves while falling and checks the stored position against the terrain.
+
+### 3. Signatures refill the Focus they cost
+
+**Found** (reading the feedback rules, then measured). Every landed hit of the player gives +6 /
++10 Focus (`BendingFeedback.on_result`), including the signature's own pulses. The Air Tornado
+tagged some pulses `no_focus`, the other signatures did not.
+**Evidence.** `test_signature_does_not_refill_focus` (4 dummies around the caster, old code):
+Tidal Torrent **+100 Focus from 29 hits** (the bar was full again when it ended), Inferno +100 from
+43, Earthquake +46 from 5, Air Tornado +10 from 33. A surrounded bender could chain signatures.
+**Fix.** `src/bending/bending_feedback.gd:33` / `:45` `is_signature(id)`: a SIGNATURE's hits build no
+Focus (enemy copies have their own ids and never give Focus anyway). PART=torrent.
+
+### 4. Water Jet: hitstop every pulse and a Focus farm
+
+**Found** (looking for sustained multi-hit moves without `no_hitstop`). The jet pulses every
+0.15 s with a fresh attack id; every landed pulse requested a 0.04 s hitstop (time scale 0.05),
+a camera shake and +6 Focus.
+**Evidence.** `test_water_jet_pulses_no_hitstop_spam_or_focus_farm` (old code): **19 hitstops** and
+**+100 Focus** from one 3 s jet on a single dummy.
+**Fix.** `src/bending/bending_hits.gd:199` - opts `meta` set on every HitInfo;
+`src/bending/kits/water/water_jet.gd:112` - every pulse `no_hitstop`, Focus only on every 4th pulse
+(`no_focus` otherwise): at most ~+30 per jet. Tidal Torrent's pull pulses also carry `no_hitstop`
+(`src/bending/kits/water/tidal_torrent.gd:135`). PART=jet of the regression playtest.
+
+### 5. Companion assist: freed target -> script error every tick
+
+**Found by the arena fuzz** (`SCRIPT ERROR: Invalid type in function '_valid_enemy'`: 330 in one
+3-minute air session, 893 over the first three sessions): the assist target is held across ticks; when it is freed (a fled enemy vanishing, a
+despawn, a cleared group) it was passed to the typed `_valid_enemy(e: Node3D)` from `_approach` /
+`_act_fire` every tick until the 9 s assist cap.
+**Fix.** `src/companions/companion_assist.gd:405` untyped `_valid_enemy(v: Variant)`.
+`test_companion_assist_survives_a_freed_target` (approach and mid-breath).
+
+### 6. Projectiles that outlive their caster
+
+**Found by the arena fuzz** (an archer's arrow in flight when the group was replaced).
+`BendingContext.make_hit()` passed the freed caster to `HitInfo.make(..., p_source: Node, ...)`:
+a script error every frame; the projectile never landed and stayed alive until its max age.
+**Fix.** `src/bending/bending_context.gd:304` (`make_hit` uses `caster if is_instance_valid(caster)
+else null`), `:127` (`forward()` without a caster). `test_projectile_outlives_its_caster`: the shot
+lands, the hit has no source.
+
+### 7. Air Tornado: captive freed mid-spin
+
+**Found by the arena fuzz** ("Trying to cast a freed object" in `air_tornado.gd` `_steer`, every
+frame of the tornado, and once in `_blow`). **Fix.** `src/bending/kits/air/air_tornado.gd:178`,
+`:222`: validity check before the cast. `test_tornado_survives_a_freed_captive`.
+
+### 8. Hopping off a mount that swims at sea
+
+**Found** (code read of `_ground_beside` / `WorldData.get_safe_ground`). With nothing dry within reach
+of the four sides, the hop-down target was `WorldData.get_safe_ground()`: a ring search up to 256 m,
+then the **nearest port quay** (kilometres). The polar bear dog, badgermole and sky bison all swim,
+so a rider pressing F out at sea arced across the water to a far shore. `PlayerCharacter.dismount()`
+without a position (external dismounts) had the same fallback.
+**Evidence.** `test_dismount_at_sea_stays_beside_the_mount` (real world map, open sea point):
+hop-down point **118 m** away, external dismount 122 m away (old code).
+**Fix.** `src/companions/companion_rider.gd:334-339`: dry ground within 8 m of the side is used, a
+mount in the water drops the rider into the water beside it (riders swim, never drown);
+`src/player/player_character.gd` `dismount()` does the same for the external fallback. PART=sea.
+
+### 9. Enemy suspicion loop under continuous combat noise
+
+**Found by the arena fuzz** (`WARNING: EnemyBase Pirate Crossbowman: state Alert timed out`).
+`EnemyBrain.investigate()` restarted the 7 s give-up clock on every new noise; an enemy hearing a
+fight it could not see (behind a pillar / wall) stayed suspicious until the 12 s ALERT safety
+timeout, went home and was pulled straight back by the next noise - forever, with a warning each
+time. **Fix.** `src/enemies/enemy_brain.gd:166`: a noise while already in ALERT only moves the point of
+interest. `test_suspicion_gives_up_under_continuous_noise` (old code: ALERT reached 12.0 s).
+
+### 10. Double respawn (world)
+
+**Found by the world fuzz** (`double_respawn`: `player_respawned` twice for one death). The world's
+respawn sequence (2.2 s beat, fade, wait for the respawn point's ground) can be overtaken by the
+player's own auto-respawn backstop (15 s in the world); `RespawnSystem._place` then called
+`respawn_at()` again (second event, health / chi reset twice). It needs a slow `wait_for_ground`
+(far respawn point streaming in) - the fuzz's fast-forwarded clock made it likely, a loaded phone
+could too.
+**Fix.** `src/world/game/respawn_system.gd:117-123`: if the player is already alive and not DEAD when
+the fade reaches the move, it only teleports (the move still happens under the black fade).
+`test_world_respawn_never_doubles_with_the_backstop` (old code: 2 respawns).
+
+### 11. Earth Pillar self-lift through ceilings
+
+**Found** (code read, hunting for positions set without a physics move). Holding the Earth Pillar
+button raises the column under the bender and lifts them 3 m by setting `global_position`
+directly every frame (`update` -> `_lift`), with no check of what is overhead. Under a roof, an
+arch, a bridge, a city gate or a cave ceiling (the world has caves, `cave_builder.gd`) the bender
+was carried into the ceiling and depenetrated on top of it - a way through roofs and walls, or
+stuck inside them.
+**Evidence.** `test_pillar_self_lift_stops_under_a_roof` (old code): under a slab with its underside
+at 2.8 m the bender ended **on top of the slab (y 3.19)**; in a 1.9 m tunnel even higher (y 5.3).
+**Fix.** `src/bending/kits/earth/earth_pillar.gd:133` `_headroom()`: the bender's capsule is cast up
+against `Layers.WORLD` before the lift; the column and the lift stop 5 cm below the ceiling
+(`:181`), and with less than `MIN_SELF_LIFT` (0.6 m, `:17`) there is no self-lift - the column
+erupts ahead as a tap would (`:164`). Open sky: unchanged 3 m.
+
+### 12. Enemies walled in a pool / pit
+
+**Found by the final arena fuzz** (`enemy_stuck_chasing`: a Firebender Soldier in the air session
+and a Rogue Waterbender in the earth session, both at y -1.7 - the floor of the arena pool).
+Enemies have no step-up and CHASE has no timeout; knocked into the pool (air blasts, earth
+boulders) they chased the player standing on the rim. The whisker avoidance turns them along the
+wall, so they slid back and forth at 2-4 m/s (`_track_stuck` measures speed, so it never even
+saw them as stuck) - forever, or until the player walked away. The same holds below a quay or in
+any pit deeper than the step height.
+**Evidence.** `test_enemy_hops_out_of_a_pit` (a brawler inside a 1.25 m wall, the player 9 m
+away): on the old code it oscillated along the inner wall for the whole 12 s (x between -0.8 and
+-1.8 at z -2.64, CHASE); now it hops out after ~2 s and attacks.
+**Fix.** `src/enemies/enemy_brain.gd:843` `_track_walled()` (from `_track_stuck` in CHASE / RETURN /
+PATROL): 1 s windows; blocked (against a wall or barely moving) for most of a window without
+getting 0.5 m closer = walled. Each walled window hops toward the goal (`EnemyBase.hop_toward`,
+`enemy_base.gd:569`, ~2.3 m apex, up to 3 per spell), and a chase walled in for 7 windows is
+given up (RETURN keeps its own snap home / 40 s timeout). Behind solid walls the existing
+lost-sight rule already ends a chase after 6 s; the give-up covers blockers sight passes
+(allies, the companion in the way). The final world session flagged one more case (a Renegade
+Airbender at the Fire Navy landing, 6 s without moving while it saw the player) before the
+give-up existed; `test_enemy_gives_up_a_walled_in_chase` (a 2.6 m fence on the enemy layer,
+too high to hop, sight passes) fails without it. The watchdog's stuck-chasing threshold now
+follows the give-up (`CHASE_GIVE_UP` + 3 s).
+
+---
+
+## Fuzz sessions
+
+All sessions headless with `--fixed-fps 60` (game time runs faster than real time), every element
+with its whole technique tree learned and the loadout rotated, its companion, the Monkey and the
+adversarial events. Wall times on the shared 4-core container (other agents' rendered playtests
+ran at the same time).
+
+| # | Session | Game time | Wall | Result -> what came of it |
+| --- | --- | --- | --- | --- |
+| 1 | arena, air (first harness) | 3 min | - | 330 x `_valid_enemy` script errors -> bug 5 (freed assist target) |
+| 2 | arena, air | 2 min | 42 s | 79 x "Trying to cast a freed object" -> bug 7 (freed tornado captive) |
+| 2b | arena, 4 elements, SEED 4242 | 4 x 3 min | 222 s | the bug 5 errors again in fire / water (253 + 310); `hit_from_inactive_player` (companion credit, by design: excluded). Bug 6 (freed caster) came from an intermediate arena run whose log was not kept |
+| 3 | arena, 4 elements, SEED 777 | 4 x 6 min | 413 s | ALERT timeout warning -> bug 9; end-state checks hit a queued pause / a mounted player (harness: menus closed through their API, dismount retried) |
+| 4 | world, earth | 1 min | 75 s | `cooldown_bypass` (Earth Armor clears its own cooldown when donned: by design); mounted at the end (harness) |
+| 5 | world, 4 elements, SEED 99 | 4 x 5 min | 951 s | DEAD over 12 s (world backstop is 15 s: cap fixed), "audio loop alive 40 s" (world fires: refuted), RETURN timeouts (harness leash) |
+| 6 | world, 4 elements, SEED 4321 | 4 x 5 min | 942 s | `double_respawn` -> bug 10; `player_embedded` in the player's own Earth construct (by design: excluded); no engine errors / warnings |
+| 7 | world, earth rerun | 5 min | 208 s | only the construct embedding above; no engine errors |
+| 8 | **final** arena, 4 elements, SEED 2026 | 4 x 6 min | hung | `enemy_stuck_chasing` (air) -> bug 12; then a hang in earth -> breadcrumbs -> harness pause parity (fixed) |
+| 9 | **final** arena, rerun with breadcrumbs | 6 + 5 min | crashed | `enemy_stuck_chasing` again (earth, Rogue Waterbender in the pool); paused for good (parity) -> engine crash after ~7 min paused (see Remaining) |
+| 10 | **final** arena after the fixes, SEED 2026 | 4 x 6 min | 419 s | **all clean**: 28 / 28 end checks, no violations, 0 engine errors, 0 warnings |
+| 11 | **final** world, 4 elements, SEED 2027 | 4 x 5 min | 936 s | air / earth / fire clean (0 errors, 0 warnings); water: one `enemy_stuck_chasing` (Renegade Airbender at the Fire Navy landing, sight intact) -> the walled-in give-up now also counts barely-moving blocks |
+| 12 | **final** world, water rerun after that change, SEED 2027 | 5 min | 296 s | clean: 8 / 8 checks, no violations, 0 engine errors, 0 warnings |
+| 13 | **final** arena, 4 elements, SEED 31 (frame costs) | 4 x 3 min | 207 s | clean: 28 / 28 checks, no violations, 0 engine errors, 0 warnings |
+
+Final sessions in numbers (10 and 11): every player state reached in each session (LOCOMOTION,
+AIRBORNE, ACTION, DEFEND, DODGE, HITSTUN, KNOCKED_DOWN, GETUP, MOUNTED, DEAD) except DEAD in the
+earth arena session (no death) and MOUNTED in the two fire sessions (the dragon was mounted in
+earlier sessions 3, 5, 6); every technique of each tree used (air 10, earth 11, fire 11, water
+12); hits landed per element 76-139, deaths 0-7, mounts 0-19, at most 7 live projectiles and 3
+constructs, 1 projectile alive at the end at most; node counts at the end of the 6-minute arena
+sessions 860-1 290 with 0 orphans - the pools fill as new techniques are used, then plateau.
+Frame cost (wall time of consecutive game frames in the headless fast-forward, i.e. physics +
+all scripts + the watchdog itself, no rendering; shared CPU):
+
+| Session | air p50 / p99 / max | earth | fire | water |
+| --- | --- | --- | --- | --- |
+| arena (13) | 4.2 / 10.6 / 309 ms | 3.4 / 10.4 / 55 ms | 4.3 / 12.0 / 70 ms | 3.9 / 12.8 / 115 ms |
+| world (11, 12) | 7.9 / 26.9 / 324 ms | 7.9 / 29.1 / 204 ms | 12.1 / 30.1 / 322 ms | 13.1 / 37.1 / 322 ms |
+
+The p99 stays well inside a 60 Hz frame on this CPU; the maxima are single spikes (enemy groups
+being built, saves written, the fuzz's teleports streaming the world in) and are not attributed
+frame by frame here (perf_polish owns the budgets). An earlier version of the report sampled
+`Performance.TIME_PHYSICS_PROCESS`, which Godot updates once per real second with the maximum of
+that second - meaningless in fast-forward, replaced.
+
+---
+
+## Refuted / clean
+
+| Suspicion | Result |
+| --- | --- |
+| Air dashes not refilled after landing without dashing (the refill sits in `AirDash.on_dodge_tick`) | refuted: `AirTraversal` refills `air_dashes_used` whenever the player is on the floor |
+| `try_interact()` with an interactable freed since the last 10 Hz pick | refuted: a freed instance read from a typed member compares equal to null - kept as `test_interact_with_a_freed_interactable` |
+| Journey Book + pause menu double pause (resume unpausing under an open book) | refuted: the book handles `pause` in `_input` first and closes itself |
+| Earth Shield guard break then a hit cancel -> `on_guard_down` twice | harmless: idempotent (`_slab` nulled) |
+| Abilities while mounted / dead / in a cinematic / interacting / paused | clean: never seen in the fuzz sessions (`ability_started_in_*`, `ability_started_while_paused`) |
+| Ferry / dialogue while mounted | not reachable: interactions need a free state |
+| Hitstop / slow-motion leaks | clean: `TimeDilation` is real-time and PROCESS_MODE_ALWAYS; no `time_scale_stuck` / `time_scale_leak` |
+| Cooldown bypasses | clean (Earth Armor clears its own cooldown when donned - by design, it starts when shed) |
+| Double hits per attack id | clean (`double_hit` never fired) |
+| Pooling leaks | clean: node counts plateau (860-1 290 at the end of the final 6-minute arena sessions; pools fill as new techniques are used), no orphan nodes |
+| Companion assist landing hits while the player is dead | by design: its move is credited to the player and finishes |
+| Enemy RETURN 40 s safety timeout (Dai Li agent, renegade airbender) | harness-made: the fuzz spawned enemies with a 60 m leash (long walks home); with the default leash it did not recur |
+| "Audio loop alive 40 s" (`fire_loop` in the world sessions) | not a leak: the interactive world fires (braziers, campfires) loop while near; the watchdog now only flags bending loops that keep following the player |
+| Player DEAD for > 12 s in the world | by design: the world's respawn backstop is 15 s and the sequence waits for the respawn point's ground; the cap now follows the backstop (and the double respawn behind it is bug 10) |
+| Player inside their own Earth Wall / pillar (`player_embedded`) | by design: constructs never collide with their caster (an eruption at the feet must not trap them) |
+| Enemies striking through walls | clean: melee / ranged strikes check line of sight (`EnemyBase` LOS ray) |
+| Per-frame allocations in hot paths | reviewed: projectile casts reuse their shape / params, player aim is a ray per ability tick, group scans are 10-15 Hz or per pulse; frame costs measured in the fuzz (sessions section) |
+
+---
+
+## Remaining
+
+* The player can stand inside (and walk through) their own Earth Wall / pillar: deliberate in the
+  bending framework (no self-trapping), visible as clipping.
+* Navigation is still steering + whiskers (no navmesh): a cornered enemy can sit in RETURN until
+  the 40 s safety timeout, which snaps it home (and prints a warning) - seen only with the fuzz's
+  long leash.
+* Enemies still walk on the sea floor when knocked into deep water (no enemy swimming); the
+  walled-in hop gets them out of pools, pits and over quay edges up to ~2 m, deeper water only by
+  giving up the chase / the RETURN snap home.
+* One engine crash (SIGSEGV in a non-main engine thread, right after
+  `/root: The caller thread can't call the function propagate_notification()`) after the harness
+  bug above had held the game paused for ~7 minutes at thousands of headless frames per second.
+  The backtrace has no project frames (engine thread start -> engine code); it did not recur in
+  normal play or in the later sessions. Not attributable to gameplay scripts; noted for the
+  engine / audio owners.
+* The fuzz is a monkey, not a player: rare multi-step sequences (e.g. a burrow ending exactly as a
+  cinematic starts) are covered by reasoning and unit tests, not by fuzz statistics.
+* Headless fast-forward (`--fixed-fps`) runs the game clock faster than the wall clock, which makes
+  real-time waits (TimeDilation, `wait_for_ground`) relatively short or long; the rendered
+  regression playtest and the unit tests run at normal speed.

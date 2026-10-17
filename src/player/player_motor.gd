@@ -51,6 +51,16 @@ var _last_safe := Vector3.INF
 var _sense_tick := 0
 ## Horizontal speed multiplier from external effects (armor, chill...). 1 = none.
 var speed_scale := 1.0
+## The body is carried by something else (a mount's seat, collision off): no floor sensing and
+## the seat never becomes the last safe ground. is_on_floor() keeps the value of the last
+## move_and_slide before mounting, so without this every saddle position (high up on a flyer)
+## was recorded as safe ground and saves made in flight continued in mid-air (bughunt_gameplay).
+var carried := false
+## After a teleport to a place not known to be ground (letting go of a flyer): is_on_floor() still
+## holds the value from before the mount, so the floor is unknown until the next move_and_slide.
+## Without this the first tick after letting go in mid-air "stood on the floor" there and recorded
+## the release point as safe ground (bughunt_gameplay).
+var _floor_unknown := false
 ## Climbing out of water: keep pushing onto the ledge for this long.
 var _climb_time := 0.0
 
@@ -74,7 +84,7 @@ func set_profile(p: LocomotionProfile) -> void:
 ## Updates floor / surface / water information. Call first every tick.
 func sense() -> void:
 	_sense_tick += 1
-	on_floor = body.is_on_floor()
+	on_floor = body.is_on_floor() and not carried and not _floor_unknown
 	floor_normal = body.get_floor_normal() if on_floor else Vector3.UP
 	var pos := body.global_position
 	# Surface queries are cheap but not free; refresh at 20 Hz.
@@ -98,6 +108,18 @@ func sense() -> void:
 ## Last position the body stood on dry, walkable ground (respawn fallback).
 func last_safe_position() -> Vector3:
 	return _last_safe if _last_safe.is_finite() else body.global_position
+
+
+## While `carried`: the carrier (a ground mount) stands on the floor at `pos`. Dry, walkable
+## ground there is the rider's safe ground, so a save mid-ride continues where the mount stands
+## rather than where the ride began. A flying mount is never on the floor; a swimming or wading
+## one is rejected by the water check (bughunt_gameplay).
+func carrier_on_floor(pos: Vector3, normal: Vector3) -> void:
+	if not carried or not pos.is_finite() or normal.angle_to(Vector3.UP) > deg_to_rad(32.0):
+		return
+	if water_height > -INF and water_height > pos.y - 0.5:
+		return
+	_last_safe = pos
 
 
 ## Snow / wading speed factor for ground movement.
@@ -380,6 +402,7 @@ func integrate(delta: float, gravity_mult: float = 1.0) -> void:
 	var hv_before := Vector3(body.velocity.x, 0.0, body.velocity.z)
 	var pos_before := body.global_position
 	body.move_and_slide()
+	_floor_unknown = false
 	if was_floor and hv_before.length() > 0.5:
 		_try_step_up(hv_before, pos_before, delta)
 	var now_floor := body.is_on_floor()
@@ -433,8 +456,10 @@ func _try_step_up(hv: Vector3, pos_before: Vector3, delta: float) -> void:
 		body.apply_floor_snap()
 
 
-## Teleports the body and resets air/water state (respawn, cinematics).
-func teleport(xform: Transform3D) -> void:
+## Teleports the body and resets air/water state (respawn, cinematics). `mark_safe` = false
+## for destinations that may be mid-air or in water (letting go of a flying mount): the last
+## safe ground then stays where the body last stood (saves / rescues use it).
+func teleport(xform: Transform3D, mark_safe: bool = true) -> void:
 	body.global_position = xform.origin
 	body.velocity = Vector3.ZERO
 	var f := -xform.basis.z
@@ -446,4 +471,7 @@ func teleport(xform: Transform3D) -> void:
 	swimming = false
 	_climb_time = 0.0
 	peak_y = xform.origin.y
-	_last_safe = xform.origin
+	if mark_safe or not _last_safe.is_finite():
+		_last_safe = xform.origin
+	if not mark_safe:
+		_floor_unknown = true

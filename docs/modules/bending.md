@@ -263,3 +263,15 @@ should be added to `ShaderWarmup._common_fx()`.
   hits are built from the caster (`BendingContext.make_hit`), and a freed one raised script
   errors (seen when a scene was torn down while a gust still flew; also a despawned enemy's
   bolt). Regression: `tests/unit/test_flow_qa.gd::test_projectile_outliving_its_caster_ends_quietly`.
+
+## Wave 4 bug hunt (docs/qa/bughunt_gameplay.md)
+
+* `BendingContext.make_hit()` / `forward()` tolerate a freed caster: projectiles (and constructs)
+  can outlive the enemy that cast them; the hit then has no source instead of raising a script error
+  every frame (the projectile used to stay alive, never landing, until its max age).
+* `BendingFeedback.is_signature(id)`: a signature's own hits never build Focus (Tidal Torrent's pull
+  pulses refilled the whole bar when surrounded - 100 Focus from 29 hits, Inferno 100 from 43,
+  Earthquake 46 from 5 - so a signature could be chained forever).
+* `BendingHits` opts `meta` (Dictionary) is set on every HitInfo of a sphere / cone / sweep:
+  sustained pulses pass `{&"no_hitstop": true}` (and `&"no_focus"`) like the Air Tornado's.
+* Air Tornado drops captives freed mid-spin without casting the freed object (an error every frame).

@@ -124,6 +124,8 @@ func origin() -> Vector3:
 
 
 func forward() -> Vector3:
+	if not is_instance_valid(caster):
+		return Vector3.FORWARD
 	var f := -caster.global_basis.z
 	f.y = 0.0
 	return f.normalized() if f.length_squared() > 1e-6 else Vector3.FORWARD
@@ -297,7 +299,10 @@ func spend_focus(amount: float) -> bool:
 
 ## Builds a HitInfo from an ability hit dictionary (see AbilityDef).
 func make_hit(h: Dictionary, direction: Vector3, attack_id: int = 0, ability_id: StringName = &"") -> HitInfo:
-	var hit := HitInfo.make(float(h.get("damage", 10.0)), caster, element, int(h.get("reaction", HitInfo.Reaction.FLINCH)) as HitInfo.Reaction,
+	# Projectiles / constructs can outlive their caster (an enemy despawned mid-shot): a freed
+	# caster must not be passed on (typed argument -> script error), the hit has no source then.
+	var src: Node3D = caster if is_instance_valid(caster) else null
+	var hit := HitInfo.make(float(h.get("damage", 10.0)), src, element, int(h.get("reaction", HitInfo.Reaction.FLINCH)) as HitInfo.Reaction,
 			direction, float(h.get("force", 0.0)))
 	hit.team = team
 	hit.lift = float(h.get("lift", 0.0))

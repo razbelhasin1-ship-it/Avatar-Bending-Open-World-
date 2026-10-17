@@ -224,3 +224,10 @@ add_child(ExtinguishableFire.new())
   trainer module sets the `trained_<trainer>_<id>` flags (ids in `WaterKit.TRAINERS`).
 * The water crest is a stylised mesh with a flowing shader; seen from directly behind at a
   low camera it reads as a rounded mound.
+
+## Wave 4 bug hunt (docs/qa/bughunt_gameplay.md)
+
+* Water Jet pulses (every 0.15 s) carry `no_hitstop` and give Focus only every 4th pulse: each
+  pulse used to request hitstop (19 hitstops in one 3 s jet - the game stuttered every pulse) and
+  +6 Focus (one jet on one dummy filled the signature bar).
+* Tidal Torrent's pull pulses carry `no_hitstop`; as a signature its hits build no Focus.

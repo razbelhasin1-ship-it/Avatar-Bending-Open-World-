@@ -149,6 +149,8 @@ func _build() -> void:
 
 ## Switches element: profile, rig (preset/style), core kit, techniques, health/poise.
 func set_element(e: int) -> void:
+	if states != null and states.state == State.MOUNTED:
+		dismount()
 	element = e if ElementDefs.is_valid(e) else ElementDefs.Element.WATER
 	profile = LocomotionProfile.for_element(element)
 	if motor == null:
@@ -407,6 +409,9 @@ func die(hit: HitInfo = null) -> void:
 	if _death_emitted:
 		return
 	_death_emitted = true
+	# Never die half-mounted (collision off, seat refs set): get off first (bughunt_gameplay).
+	if states.state == State.MOUNTED:
+		dismount()
 	controller.cancel_current(&"death")
 	targeting.unlock()
 	interaction.hide_prompt()
@@ -423,6 +428,8 @@ func die(hit: HitInfo = null) -> void:
 ## Respawn hook (the world scene drives it after Events.player_died): teleports,
 ## revives at 50% health (or `health_ratio`), clears states.
 func respawn_at(xform: Transform3D, health_ratio: float = 0.5) -> void:
+	if states.state == State.MOUNTED:
+		dismount(xform.origin)
 	controller.cancel_current(&"respawn")
 	if health.is_dead():
 		health.revive(health_ratio)
@@ -441,8 +448,8 @@ func respawn_at(xform: Transform3D, health_ratio: float = 0.5) -> void:
 	Events.player_respawned.emit()
 
 
-func teleport(xform: Transform3D) -> void:
-	motor.teleport(xform)
+func teleport(xform: Transform3D, mark_safe: bool = true) -> void:
+	motor.teleport(xform, mark_safe)
 	if visual.rig:
 		visual.rig.animator.loco.reset(visual.rig.skeleton.global_transform)
 	if camera_rig:
@@ -493,6 +500,11 @@ func end_interaction() -> void:
 
 ## Locks the player for a cutscene (input off) for at most `max_seconds`.
 func enter_cinematic(max_seconds: float = 120.0) -> void:
+	# A cinematic that starts while riding (the tutorial ends on its Ride lesson) used to leave
+	# MOUNTED without a dismount: collision stayed off and the mount kept its rider, so the
+	# player fell through the floor when the cinematic ended. Get off first (bughunt_gameplay).
+	if states.state == State.MOUNTED:
+		dismount()
 	controller.cancel_current(&"cinematic")
 	targeting.unlock()
 	interaction.hide_prompt()
@@ -515,6 +527,7 @@ func mount_on(mount: Node3D, seat: Node3D) -> void:
 	collision_layer = 0
 	collision_mask = 0
 	velocity = Vector3.ZERO
+	motor.carried = true
 	visual.set_pose(&"riding", 0.2)
 	states.change(State.MOUNTED)
 	if camera_rig:
@@ -532,14 +545,28 @@ func dismount(at: Vector3 = Vector3.INF) -> void:
 	if not pos.is_finite():
 		var base := mount_seat.global_position if mount_seat != null and is_instance_valid(mount_seat) else global_position
 		var side := (mount_seat.global_basis.x if mount_seat != null and is_instance_valid(mount_seat) else global_basis.x) * 1.8
-		pos = WorldData.get_safe_ground(base + side) if WorldData.has_world_data() else base + side
-		pos.y = maxf(pos.y, ctx.ground_y(base + side, 3.0, 12.0))
+		var want := base + side
+		pos = want
+		if WorldData.has_world_data():
+			# Out at sea the nearest safe ground can be far away (a port km off): slip into the
+			# water beside the mount instead (the player swims, never drowns) (bughunt_gameplay).
+			var safe := WorldData.get_safe_ground(want)
+			var w := WorldData.get_water_height(want.x, want.z)
+			var at_sea := is_finite(w) and w - WorldData.get_height(want.x, want.z) > 1.0
+			if safe.is_finite() and (not at_sea or Vector2(safe.x - want.x, safe.z - want.z).length() < 10.0):
+				pos = safe
+			elif at_sea:
+				pos = Vector3(want.x, w, want.z)
+		pos.y = maxf(pos.y, ctx.ground_y(want, 3.0, 12.0))
 	mount_node = null
 	mount_seat = null
 	collision_layer = Layers.PLAYER
 	collision_mask = Layers.SOLID | Layers.ENEMY | Layers.NPC
+	motor.carried = false
 	visual.set_pose(&"normal", 0.2)
-	teleport(Transform3D(Basis(Vector3.UP, motor.yaw), pos))
+	# A dismount point may be mid-air (letting go of a flyer) or over water: it only becomes
+	# the last safe ground once the player actually stands there (bughunt_gameplay).
+	teleport(Transform3D(Basis(Vector3.UP, motor.yaw), pos), false)
 	states.change(State.LOCOMOTION)
 	if camera_rig:
 		camera_rig.clear_target_override()
@@ -555,6 +582,10 @@ func update_mounted(_delta: float) -> void:
 	var f := -mount_seat.global_basis.z
 	motor.face(f)
 	velocity = Vector3.ZERO
+	# A ground mount on the floor carries the rider's safe ground along (tunnelling = collision off).
+	var carrier := mount_node as CharacterBody3D if is_instance_valid(mount_node) else null
+	if carrier != null and carrier.collision_layer != 0 and carrier.is_on_floor():
+		motor.carrier_on_floor(carrier.global_position, carrier.get_floor_normal())
 	if input.consume(&"mount"):
 		# The mount may animate the dismount (hop down / let go in the air): companions module.
 		if mount_node != null and is_instance_valid(mount_node) and mount_node.has_method("request_dismount"):

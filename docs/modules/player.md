@@ -263,3 +263,24 @@ Air 6 / 6 / 6, Earth 5 / 5 / 5, Fire 5 / 5 / 6 / 6, Water 6 / 6 / 6.
   usable at once and the HUD / touch buttons follow on the next frame.
 * HUD contract addition: `get_locked_signature_info() -> Dictionary` (the element's signature
   while it is not learned: id, name, icon, element, level; `{}` once learned).
+
+## Wave 4 bug hunt (docs/qa/bughunt_gameplay.md)
+
+* `enter_cinematic()`, `respawn_at()`, `die()` and `set_element()` dismount first when the player
+  is MOUNTED. A cinematic used to start while riding (the training grounds end on the Ride lesson)
+  without a dismount: the collision layers stayed 0 and the mount refs stayed set, so the player
+  fell through the floor after the cinematic and the companion stayed "ridden".
+* `PlayerMotor.carried` (set by `mount_on`, cleared by `dismount`): a carried body senses no floor
+  and never records the saddle as the last safe ground (`is_on_floor()` keeps its last value while
+  mounted, so every saddle position high up on a flyer used to become safe ground and saves made in
+  flight continued in mid-air). `teleport(xform, mark_safe := true)`: `dismount()` passes false, so
+  a mid-air release point is not safe ground until the player stands there; after such a teleport
+  the floor is unknown (`on_floor` false, no safe ground) until the next `move_and_slide`, since
+  `is_on_floor()` still holds its value from before the mount. A ground mount still
+  carries the safe ground along: `update_mounted` hands a carrier `CharacterBody3D` that is on the
+  floor with its collision on (not tunnelling) to `PlayerMotor.carrier_on_floor(pos, normal)`,
+  which records it when it is walkable and dry (no water within 0.5 m of the mount's feet).
+* `dismount()` without a position: out at sea (the seat over water deeper than 1 m and no safe
+  ground within 10 m) the player slips into the water beside the seat (and swims) instead of being
+  teleported to WorldData's nearest safe ground, which can be hundreds of metres (or a far port)
+  away.

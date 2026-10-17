@@ -131,6 +131,8 @@ func _pulse(power: float) -> void:
 		var h := ctx.make_hit(pull_hit, center - tn.global_position, aid, def.id)
 		h.origin = center
 		h.position = BendingContext.target_point(tn)
+		# Sustained pull pulses (every 0.25 s): no hitstop stutter, like the Air Tornado's.
+		h.set_meta(&"no_hitstop", true)
 		var res := BendingHits.deliver(ctx, tn, h)
 		if (res == Combat.Result.HIT or res == Combat.Result.KILLED) and not pulled.has(tn):
 			pulled.append(tn)

@@ -172,8 +172,11 @@ func _steer(delta: float) -> void:
 	var top := float(param("lift_top", 4.2))
 	for id: int in captured.keys():
 		var c: Dictionary = captured[id]
-		var b := c["node"] as CharacterBody3D
-		if b == null or not is_instance_valid(b) or not b.is_inside_tree() or not Combat.is_alive(b):
+		# A captured body may be freed mid-spin (despawned, scene change): casting a freed
+		# instance is an error, so check before the cast (bughunt_gameplay).
+		var node: Variant = c["node"]
+		var b := node as CharacterBody3D if is_instance_valid(node) else null
+		if b == null or not b.is_inside_tree() or not Combat.is_alive(b):
 			captured.erase(id)
 			continue
 		c["t"] = float(c["t"]) + delta
@@ -215,8 +218,9 @@ func _blow() -> void:
 	var flung := {}
 	for id: int in captured.keys():
 		var c: Dictionary = captured[id]
-		var b := c["node"] as Node3D
-		if b != null and is_instance_valid(b):
+		var node: Variant = c["node"]
+		var b := node as Node3D if is_instance_valid(node) else null
+		if b != null:
 			_fling(b, rel)
 			flung[id] = true
 	for t in BendingHits.targets_in_sphere(ctx, center + Vector3.UP * 1.5, float(param("capture_radius", 2.4)) + 0.8):

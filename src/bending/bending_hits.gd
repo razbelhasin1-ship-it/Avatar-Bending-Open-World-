@@ -10,7 +10,8 @@ extends RefCounted
 ##   BendingHits.sweep(ctx, from, to, 0.45, hit_dict, attack_id, &"water_whip")
 ##   BendingHits.deliver(ctx, target, hit)      # single target (projectiles use this)
 ## opts: push (&"radial" from the centre, &"forward" along `dir`, &"pull" toward
-## the origin), los (bool, default true), exclude (Array of nodes).
+## the origin), los (bool, default true), exclude (Array of nodes), meta (Dictionary set on
+## every HitInfo: &"no_hitstop" / &"no_focus" for sustained pulses, see BendingFeedback).
 ## Returns [{target, result, hit}] for every target the attack reached.
 
 const LOG_SIZE := 256
@@ -195,6 +196,10 @@ static func _hit_one(ctx: BendingContext, t: Node, from: Vector3, tp: Vector3, h
 	var hit := ctx.make_hit(h, dir.normalized(), attack_id, ability_id)
 	hit.origin = from
 	hit.position = tp.lerp(from, 0.25) if from.distance_to(tp) < 3.0 else tp
+	# Hit metadata for sustained multi-hit moves (opts "meta": {&"no_hitstop": true, &"no_focus": true}).
+	var meta: Dictionary = opts.get("meta", {})
+	for k: StringName in meta:
+		hit.set_meta(k, meta[k])
 	var res := deliver(ctx, t, hit)
 	return {"target": t, "result": res, "hit": hit}
 
