@@ -367,6 +367,8 @@ func _combat() -> void:
 	await p.wait_game(0.3)
 	p.check(pl.targeting.lock_target == en, "%s locks on to the bandit" % el)
 	var hp0 := en.health.health
+	# XP from the whole encounter: a technique of the slot pass may already defeat the bandit.
+	var xp0 := xp_gained
 	var report := {}
 	for slot: StringName in [&"attack_light", &"attack_heavy", &"ability_1", &"ability_2", &"ability_3", &"ability_4"]:
 		var sid := _slot_of(slot)
@@ -430,7 +432,6 @@ func _combat() -> void:
 		p.check(failed.size() > nf and failed[-1][1] == &"locked", "%s locked signature refuses with a hint (%s)" % [el, str(failed.slice(nf))])
 	p.check(is_instance_valid(en) and en.health.health < hp0 or not is_instance_valid(en) or not en.is_alive(), "%s bandit took damage (%.0f -> %.0f)" % [el, hp0, en.health.health if is_instance_valid(en) else 0.0])
 	# --- fight it out ---
-	var xp0 := xp_gained
 	var t := 0.0
 	while is_instance_valid(en) and en.is_alive() and t < 45.0:
 		_keep_alive()
