@@ -541,7 +541,8 @@ const FREE_STATES := [PlayerCharacter.State.LOCOMOTION, PlayerCharacter.State.AI
 
 ## Seeded random play next to an attacking bandit, for every element: every state the player
 ## enters ends by itself, the controller never stays busy, and once the input stops the player is
-## back in control and walks.
+## back in control and walks. A conversation or shop the random `interact` opened holds the
+## player until answered (by design); it is timed apart and answered like a player would.
 func test_input_fuzz_never_leaves_the_player_stuck() -> void:
 	for e in ElementDefs.ALL:
 		var el := String(ElementDefs.id_of(e))
@@ -564,6 +565,14 @@ func test_input_fuzz_never_leaves_the_player_stuck() -> void:
 		var busy_t := 0.0
 		var worst_busy := 0.0
 		var held: Array[StringName] = []
+		# A conversation / shop the fuzz opened (interact next to an NPC) holds the player in
+		# CINEMATIC on purpose until it is answered: player-driven, timed apart, closed after.
+		var talk := [0]
+		var on_talk := func(_n: Node) -> void: talk[0] += 1
+		var on_done := func(_n: Node) -> void: talk[0] = maxi(0, int(talk[0]) - 1)
+		Events.dialogue_started.connect(on_talk)
+		Events.dialogue_ended.connect(on_done)
+		var ui_t := 0.0
 		for tick in 60 * 45:
 			if tick % 6 == 0:
 				for a in held.duplicate():
@@ -580,7 +589,10 @@ func test_input_fuzz_never_leaves_the_player_stuck() -> void:
 				pl.health.health = pl.health.max_health
 			await get_tree().physics_frame
 			var st := pl.get_state()
-			if st != last_state:
+			var in_ui := int(talk[0]) > 0 or get_tree().get_first_node_in_group(&"shop_panel") != null
+			if in_ui:
+				ui_t += 1.0 / 60.0
+			if st != last_state or (in_ui and st == PlayerCharacter.State.CINEMATIC):
 				state_t = 0.0
 				last_state = st
 			else:
@@ -593,13 +605,21 @@ func test_input_fuzz_never_leaves_the_player_stuck() -> void:
 				fail("%s non-finite player position / velocity" % el)
 				break
 		_release_all()
+		# Answer / close what the fuzz opened, the way a player would.
+		var guard := 0
+		while guard < 60 and (int(talk[0]) > 0 or get_tree().get_first_node_in_group(&"shop_panel") != null):
+			guard += 1
+			await _press_ui(&"ui_cancel" if get_tree().get_first_node_in_group(&"shop_panel") != null or guard % 3 == 0 else &"interact")
+			await physics_frames(8)
+		Events.dialogue_started.disconnect(on_talk)
+		Events.dialogue_ended.disconnect(on_done)
 		# Leave a mount (if the fuzz ended on one) the way a player would.
 		if pl.get_state() == PlayerCharacter.State.MOUNTED:
 			await _hold_for(&"mount", 0.05)
 		var back := await _ticks_until(func() -> bool: return pl.get_state() == PlayerCharacter.State.LOCOMOTION and not pl.controller.is_busy(), 12.0)
 		expect(back, "%s back in control after the fuzz (state %s, busy %s, ability %s)" % [el, pl.get_state_name(), pl.controller.is_busy(),
 				pl.controller.current.def.id if pl.controller.current else &""])
-		print("    fuzz %s: 45 s of random input, longest locking state %s %.2f s, longest busy %.2f s, back in control: %s" % [el, worst["state"], worst["t"], worst_busy, back])
+		print("    fuzz %s: 45 s of random input, longest locking state %s %.2f s, longest busy %.2f s, %.1f s in conversations / shops it opened, back in control: %s" % [el, worst["state"], worst["t"], worst_busy, ui_t, back])
 		expect(float(worst["t"]) < 8.0, "%s no locking state lasted long: worst %s %.1f s" % [el, worst["state"], worst["t"]])
 		expect(worst_busy < 12.0, "%s controller never busy for long (%.1f s)" % [el, worst_busy])
 		var at := pl.global_position
