@@ -184,7 +184,36 @@ func _halo_text(pos: Vector2, text: String, font: Font, fs: int, col: Color, hal
 	draw_string(font, pos, text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, col)
 
 
+## Nudges a lettering block (text + optional seal on its left) clear of the panels over the
+## map and of lettering already drawn: as is, then right / down / up / left of the clash.
+func _place_lettering(p: Vector2, w: float, fs: int, seal: bool, placed: Array[Rect2]) -> Vector2:
+	var lead := fs * 1.9 if seal else 0.0
+	var box := func(at: Vector2) -> Rect2: return Rect2(at + Vector2(-lead - 14.0, -fs * 0.9), Vector2(w + lead + 28.0, fs * 1.15))
+	var hit := func(r: Rect2) -> Rect2:
+		for q in placed:
+			if q.intersects(r):
+				return q
+		return Rect2()
+	var r0: Rect2 = box.call(p)
+	var q0: Rect2 = hit.call(r0)
+	if q0.size == Vector2.ZERO:
+		placed.append(r0)
+		return p
+	for cand: Vector2 in [Vector2(q0.end.x + lead + 16.0, p.y), Vector2(p.x, q0.end.y + fs * 0.95), Vector2(p.x, q0.position.y - fs * 0.35),
+			Vector2(q0.position.x - w - 16.0, p.y)]:
+		var r: Rect2 = box.call(cand)
+		if r.position.x < 4.0 or r.end.x > size.x - 4.0 or r.position.y < 4.0 or r.end.y > size.y - 4.0:
+			continue
+		if (hit.call(r) as Rect2).size == Vector2.ZERO:
+			placed.append(r)
+			return cand
+	placed.append(r0)
+	return p
+
+
 func _draw_lettering(zk: float) -> void:
+	# panels over the map + lettering drawn so far (geography lettering is placed first)
+	var placed: Array[Rect2] = _obstacles.duplicate()
 	for l: Dictionary in MapModel.LETTERING:
 		var kind: StringName = l["kind"]
 		var s := canvas.uv_to_local(MapModel.xz_to_uv(l["pos"]))
@@ -208,7 +237,7 @@ func _draw_lettering(zk: float) -> void:
 			font = UiTheme.title_font(800, int(fs * 0.32))
 			col = Color(INK, 0.86 * a)
 		var w := font.get_string_size(l["text"], HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
-		var p := s - Vector2(w * 0.5, -fs * 0.35)
+		var p := _place_lettering(s - Vector2(w * 0.5, -fs * 0.35), w, fs, String(l.get("glyph", "")) != "", placed)
 		if kind == &"sea":
 			draw_string(font, p, l["text"], HORIZONTAL_ALIGNMENT_LEFT, -1, fs, col)
 		else:

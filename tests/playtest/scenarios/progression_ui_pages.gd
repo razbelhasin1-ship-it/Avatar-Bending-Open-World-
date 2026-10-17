@@ -110,6 +110,10 @@ func run(pt: Playtest) -> void:
 	book.show_page(&"map", {"place": MapModel.home_city_id()})
 	await p.wait(0.8)
 	await p.screenshot("pages_%s_map_home" % tag)
+	# the whole world (lettering placed clear of the panels and of each other)
+	mp.canvas.focus_on(Vector3.ZERO, 1.0, true)
+	await p.wait(0.5)
+	await p.screenshot("pages_%s_map_world" % tag)
 	# inventory
 	book.show_page(&"inventory")
 	await p.wait(0.6)
