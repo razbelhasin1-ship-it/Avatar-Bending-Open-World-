@@ -71,6 +71,13 @@ func _spawn(e: int, hour: float) -> Dictionary:
 	if not ok:
 		return {}
 	await p.wait_game(3.0)
+	# Measure the streamed-in world, not a half-loaded one: the loading hold gives up after 25 s
+	# (software rendering, shared cores) and the far providers load last.
+	var settled := true
+	if w.content != null:
+		settled = await w.content.wait_until_settled(180.0)
+	p.check(settled, "%s content settled before sampling" % ElementDefs.id_of(e))
+	await p.wait_game(2.0)
 	var pl := p.player() as PlayerCharacter
 	if pl == null:
 		return {}

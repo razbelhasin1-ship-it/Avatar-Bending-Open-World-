@@ -136,8 +136,25 @@ WorldData city record ──> Planner (per settlement) ──> SettlementPlan (p
 | `far_end` (silhouettes) | view distance, clamped 1.5–6 km | | | |
 | `collision_range` (+40 m hysteresis) | 90 m | 110 m | 120 m | 140 m |
 | `cell_lights` | 6 | 10 | 14 | 18 |
+| `lod1_kit` (kit LOD the LOD1 band is built with) | 2 (silhouette recipes) | 1 | 1 | 1 |
+| `merge_far` (LOD1 / LOD2 folded into one surface) | yes | no | no | no |
+| `lod0_tight` (LOD0 ends at cell half diagonal + 6 m) | yes | no | no | no |
+| `quad_lod0` (LOD0 as quadrant HLOD under LOD1) | yes | no | no | no |
+| `mesh_lods` (automatic LOD index buffers, `MeshLods`) | yes | no | no | no |
+| `fade_margin` (LOD hand-overs cross-faded, m each side) | 0 | 12 | 12 | 12 |
 
 `LightBudget` additionally keeps only the nearest 4/8/14/22 kit lights enabled.
+
+**perf_polish (wave 4, `docs/qa/perf_polish.md`).** LOD1 and LOD2 never draw the ink outline
+pass (`NationPalette.material(slot, false)`; the outline fades to nothing by 60 m but still
+doubled their triangles and draws). On phones (`detail == 0`) a near cell is built as
+`SettlementProvider.build_quads()`: the cell's LOD1 mesh is the visibility parent of four
+quadrant meshes, each a fine (kit LOD 0, within `quad_fine()` ≈ 52 m of the quadrant centre)
+and a mid version (kit LOD 1, outline-less) sharing one AABB, so only the quadrant around the
+camera is full detail; collision, lights and anchors are exactly the desktop LOD0's. Night glow
+MultiMeshes are `night_only` (hidden by day by `WorldContent`), garden plants end at 170 m on
+phones (`SettlementFx.GARDEN_RANGE_PHONE`). Desktop: the LOD0 → LOD1 → silhouette hand-overs
+cross-fade over `fade_margin` (`GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF`) instead of popping.
 
 ## Shared helpers
 

@@ -172,6 +172,20 @@ cam.snap_behind(player)
   eases back out; never below the terrain.
 * Lock-on: yaw follows player -> target, distance grows with separation, pitch adapts to height
   difference, a wider shoulder offset (0.95 m) keeps the target visible beside the player.
+  Close quarters (perf_polish): below `LOCK_CLOSE_FAR` (4.8 m) the view swings up to
+  `LOCK_SWING_DEG` (30°) off the player → target axis (full at 2.2 m), pulls back 0.9 m, lifts
+  6° and aims a little more at the target (`lock_close` 0..1, smoothed). The side (`lock_side`)
+  is picked once, on the side the camera already leans to, and kept until the target backs off
+  past 5.5 m, so it never flip-flops. `close_framing = false` restores the old framing (A/B).
+  Measured (playtest `perf_polish_camera`, bandit brawler at < 3.5 m): attacker visible in 100 %
+  of close frames (24 % before), no added yaw reversals.
+* Occluders (perf_polish): `occluders` (`OccluderFader`, child of the camera) casts from the lens
+  to the player's knees, chest and head (plus a lens sphere) against NPC, companion and wildlife
+  bodies and dithers them out to 72 % over 0.15 s (back over 0.3 s): toon materials through
+  per-surface dither twins (`OccluderFader.twin_of`, same uniforms, `src/perf/shaders/
+  toon_dither` / `outline_dither`), creatures through the `occlusion_fade` instance uniform of
+  the creature shaders. Shared materials are never modified; the owner's overrides (hit flash)
+  are respected and restored. `fade_of(body)`, `faded_bodies()` for tests.
 * Feel: trauma shake, exact critically damped impulse spring, hitstop through `TimeDilation`
   (`Events.hitstop`): requests are timed in real time, the lowest scale wins and
   `Engine.time_scale` always returns to 1 (also when the node leaves the tree). Everything

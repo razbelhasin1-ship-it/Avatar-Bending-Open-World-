@@ -247,6 +247,10 @@ Events: `release` (spawn the projectile), `impact` (melee contact), `recover`
   hair are placed on that surface. Eyes / mouth have bones (blink squash, talk).
 * Two surfaces: outlined body (`ToonMaterials.make(WHITE, {vertex_color, ...})`
   with the ink outline next pass) and flat face/trim decals (no outline).
+* Mesh LODs (perf_polish): `CharacterMeshBuilder.with_lods()` adds automatic LOD index buffers
+  (`ImporterMesh.generate_lods`, ~24 ms per body, same vertices and skin weights) so a crowd
+  50 m away draws ~1/4 of the triangles (12.7k-triangle body: 6.4k / 3.2k / 1.6k / 0.8k
+  levels). Falls back to the plain mesh if the importer changes the surface count.
   Vertex colors are authored in sRGB and converted to linear.
 * Skeleton: 32 core bones (root, hips, spine, chest, upper_chest, neck, head,
   eye_l/r, mouth, clavicles, upper/fore arms, hands, fingers + fingertips, thumbs,

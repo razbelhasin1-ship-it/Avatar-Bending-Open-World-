@@ -160,6 +160,9 @@ static func group_of(n: Node, root: Node) -> String:
 static func lod_tag(node_name: String) -> String:
 	if node_name.contains("_glow"):
 		return "glow"
+	# plant MultiMeshes named "<species>_lod<n>" (settlement gardens, SettlementFx.vegetation_node)
+	if not node_name.begins_with("settlement") and node_name.contains("_lod"):
+		return "plants_lod" + node_name.get_slice("_lod", 1).left(1)
 	if node_name.contains("_lod0m"):
 		return "lod0_mid"
 	if node_name.contains("_lod0q"):
