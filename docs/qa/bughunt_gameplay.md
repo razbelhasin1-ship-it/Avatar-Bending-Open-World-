@@ -7,7 +7,7 @@ saves in odd states, time-scale leaks, pooling leaks and per-frame costs; then *
 fuzz sessions** per element in the enemy arena and in the real world with an invariant
 watchdog and an engine-error collector (every error / warning counted as a bug). Every
 suspicion was reproduced (test or fuzz), fixed at its root with the smallest change, and kept
-as a regression test (`tests/unit/test_bughunt_gameplay.gd`, 13 tests; each fails on the old
+as a regression test (`tests/unit/test_bughunt_gameplay.gd`, 14 tests; each fails on the old
 code except `test_interact_with_a_freed_interactable`, a guard kept for a refuted suspicion).
 
 | # | Bug | Verdict | Fix (file) |
@@ -22,6 +22,7 @@ code except `test_interact_with_a_freed_interactable`, a guard kept for a refute
 | 8 | Hopping off a mount swimming at sea: arc to dry land 118 m away (up to 256 m / a port km off) | confirmed | slip into the water beside the mount (`companion_rider.gd`, `player_character.gd`) |
 | 9 | Enemy hearing a fight it cannot see: ALERT until the 12 s safety timeout (engine warning), then RETURN -> ALERT forever | confirmed (fuzz) | new noises don't restart the give-up clock (`enemy_brain.gd`) |
 | 10 | World respawn sequence overtaken by the auto-respawn backstop: two respawns for one death | confirmed (fuzz) | teleport only when already revived (`respawn_system.gd`) |
+| 11 | Earth Pillar self-lift under a roof / arch / cave ceiling: the bender is carried through it and pops out on top | confirmed | headroom cast before the lift (`earth_pillar.gd`) |
 
 Refuted suspicions and checks that came out clean are listed at the end.
 
@@ -103,15 +104,20 @@ or a pause-menu save during a flight, or after a let-go, put the continue point 
 **Evidence.** `test_midair_dismount_is_not_safe_ground`: last safe ground = the release point 40 m
 up on the old code (and the seat while riding).
 **Fix.** `src/player/player_motor.gd:58` `carried` (set in `mount_on` `player_character.gd:530`,
-cleared in `dismount` `:565`): a carried body senses no floor (`player_motor.gd:82`).
-`teleport(xform, mark_safe := true)` (`player_motor.gd:444` / `:456`, `player_character.gd:451`);
-`dismount()` passes false. Riding a ground mount still carries the safe ground along:
-`PlayerCharacter.update_mounted` passes a carrier that stands on the floor (collision on, so not
-tunnelling) to `PlayerMotor.carrier_on_floor()` (`player_motor.gd:112`), which keeps it when it is
-dry and walkable - a save mid-ride continues where the mount's feet are, not where the ride began
-(`test_ground_ride_carries_safe_ground`; without it the safe point stayed at the mounting spot
-15 m back). PART=flight of the
-regression playtest saves while falling and checks the stored position against the terrain.
+cleared in `dismount` `:565`): a carried body senses no floor (`player_motor.gd:87`).
+`teleport(xform, mark_safe := true)` (`player_motor.gd:462`, `player_character.gd:451`);
+`dismount()` passes false. The rendered regression playtest (PART=flight) then still saved
+**56 m above the terrain** after letting go of the sky bison: the first tick after the release
+read the stale `is_on_floor()` once more, before any `move_and_slide`. A teleport to a place not
+known to be ground now leaves the floor unknown until the next `move_and_slide`
+(`_floor_unknown`, `player_motor.gd:63` / `:405` / `:477`) - which also removes a stale "on the
+floor" tick in mid-air (a ground jump right after letting go). Riding a ground mount still
+carries the safe ground along: `PlayerCharacter.update_mounted` passes a carrier that stands on
+the floor (collision on, so not tunnelling) to `PlayerMotor.carrier_on_floor()`
+(`player_motor.gd:117`), which keeps it when it is dry and walkable - a save mid-ride continues
+where the mount's feet are, not where the ride began (`test_ground_ride_carries_safe_ground`;
+without it the safe point stayed at the mounting spot 15 m back). PART=flight of the regression
+playtest saves while falling and checks the stored position against the terrain.
 
 ### 3. Signatures refill the Focus they cost
 
@@ -193,6 +199,21 @@ could too.
 **Fix.** `src/world/game/respawn_system.gd:117-123`: if the player is already alive and not DEAD when
 the fade reaches the move, it only teleports (the move still happens under the black fade).
 `test_world_respawn_never_doubles_with_the_backstop` (old code: 2 respawns).
+
+### 11. Earth Pillar self-lift through ceilings
+
+**Found** (code read, hunting for positions set without a physics move). Holding the Earth Pillar
+button raises the column under the bender and lifts them 3 m by setting `global_position`
+directly every frame (`update` -> `_lift`), with no check of what is overhead. Under a roof, an
+arch, a bridge, a city gate or a cave ceiling (the world has caves, `cave_builder.gd`) the bender
+was carried into the ceiling and depenetrated on top of it - a way through roofs and walls, or
+stuck inside them.
+**Evidence.** `test_pillar_self_lift_stops_under_a_roof` (old code): under a slab with its underside
+at 2.8 m the bender ended **on top of the slab (y 3.19)**; in a 1.9 m tunnel even higher (y 5.3).
+**Fix.** `src/bending/kits/earth/earth_pillar.gd:133` `_headroom()`: the bender's capsule is cast up
+against `Layers.WORLD` before the lift; the column and the lift stop 5 cm below the ceiling
+(`:181`), and with less than `MIN_SELF_LIFT` (0.6 m, `:17`) there is no self-lift - the column
+erupts ahead as a tap would (`:164`). Open sky: unchanged 3 m.
 
 ---
 

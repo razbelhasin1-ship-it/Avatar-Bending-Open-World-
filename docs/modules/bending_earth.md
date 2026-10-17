@@ -239,6 +239,15 @@ practice never counts for them; armor on an AI caster times out after 25 s.
   (identical to the water branch); `tests/unit/test_player.gd`: the cooldown test accepts any
   earth starter in slot 1.
 
+## Wave 4 bug hunt (docs/qa/bughunt_gameplay.md)
+
+* Earth Pillar self-lift checks the headroom first (`_headroom`: the bender's capsule cast up
+  against `Layers.WORLD`). The lift sets the position directly, so under a roof, an arch, a
+  bridge or a cave ceiling the bender used to be carried into / through it and popped out on
+  top. The column (and the lift) now stops 5 cm below whatever is overhead; with less than
+  `MIN_SELF_LIFT` (0.6 m) of room there is no self-lift and the column erupts ahead as a tap
+  would.
+
 ## Known limitations
 
 * Earth Armor and Earthquake are trainer-gated (`trained_ek_bao_shan_*`): learnable once the

@@ -13,6 +13,9 @@ extends BendingAbility
 
 enum Mode { TARGET, SPOT, SELF }
 
+## Least headroom worth a self-lift (m); below it the column erupts ahead as a tap would.
+const MIN_SELF_LIFT := 0.6
+
 var mode := Mode.SPOT
 var target: Node3D = null
 var spot := Vector3.ZERO
@@ -28,6 +31,7 @@ var _lift_to := 0.0
 var _lift_t := 0.0
 var _lift_dur := 0.3
 var _rumble_t := 0.0
+var _self_room := INF
 
 
 func can_use() -> StringName:
@@ -123,6 +127,27 @@ func _wants_self() -> bool:
 	return self_lift or (ctx.is_player() and input_held and bool(param("self_lift", true)))
 
 
+## How far the bender can rise before their body meets something above (a roof, an arch, a
+## cave ceiling). The self-lift sets the position directly, so without this the bender was
+## carried into / through the ceiling and popped out on top of it (bughunt_gameplay).
+func _headroom(want: float) -> float:
+	var body := ctx.caster as CollisionObject3D
+	if body == null or not body.is_inside_tree():
+		return want
+	var shape := CapsuleShape3D.new()
+	shape.radius = PlayerCharacter.CAPSULE_RADIUS * 0.9
+	shape.height = PlayerCharacter.CAPSULE_HEIGHT
+	var q := PhysicsShapeQueryParameters3D.new()
+	q.shape = shape
+	q.transform = Transform3D(Basis.IDENTITY, ctx.origin() + Vector3.UP * (shape.height * 0.5 + 0.05))
+	q.motion = Vector3.UP * want
+	q.collision_mask = Layers.WORLD
+	var ex: Array[RID] = [body.get_rid()]
+	q.exclude = ex
+	var fr := body.get_world_3d().direct_space_state.cast_motion(q)
+	return want * fr[0] - 0.05 if fr.size() == 2 and fr[0] < 1.0 else want
+
+
 func _track() -> void:
 	if mode == Mode.TARGET and not _locked and target != null and is_instance_valid(target):
 		spot = target.global_position
@@ -135,10 +160,12 @@ func _raise() -> void:
 	if _wants_self():
 		var feet := EarthEnv.feet(ctx)
 		var terrain := WorldData.get_height(ctx.origin().x, ctx.origin().z)
-		if bool(feet["ok"]) and ctx.origin().y - terrain < float(param("max_stack", 6.0)):
+		var room := _headroom(float(param("self_height", 3.0)))
+		if bool(feet["ok"]) and ctx.origin().y - terrain < float(param("max_stack", 6.0)) and room >= MIN_SELF_LIFT:
 			mode = Mode.SELF
 			info = feet
 			spot = ctx.origin()
+			_self_room = room
 	_track()
 	if mode != Mode.SELF:
 		var m := EarthEnv.material_at(ctx, spot)
@@ -151,7 +178,7 @@ func _raise() -> void:
 	var kind: StringName = info["kind"]
 	var pw := EarthEnv.power(info)
 	var self_mode := mode == Mode.SELF
-	var height := float(param("self_height", 3.0)) if self_mode else float(param("height", 2.8)) * lerpf(1.0, pw, 0.5)
+	var height := minf(float(param("self_height", 3.0)), _self_room) if self_mode else float(param("height", 2.8)) * lerpf(1.0, pw, 0.5)
 	var rise := float(param("self_rise_time", 0.32)) if self_mode else float(param("rise_time", 0.16))
 	var facing := ctx.forward() if self_mode else -_flat_to(gp)
 	pillar = EarthEnv.raise_pillar(ctx, gp, facing, {"radius": float(param("radius", 0.75)) * lerpf(1.0, pw, 0.4), "height": height,

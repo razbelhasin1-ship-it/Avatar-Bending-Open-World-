@@ -56,6 +56,11 @@ var speed_scale := 1.0
 ## move_and_slide before mounting, so without this every saddle position (high up on a flyer)
 ## was recorded as safe ground and saves made in flight continued in mid-air (bughunt_gameplay).
 var carried := false
+## After a teleport to a place not known to be ground (letting go of a flyer): is_on_floor() still
+## holds the value from before the mount, so the floor is unknown until the next move_and_slide.
+## Without this the first tick after letting go in mid-air "stood on the floor" there and recorded
+## the release point as safe ground (bughunt_gameplay).
+var _floor_unknown := false
 ## Climbing out of water: keep pushing onto the ledge for this long.
 var _climb_time := 0.0
 
@@ -79,7 +84,7 @@ func set_profile(p: LocomotionProfile) -> void:
 ## Updates floor / surface / water information. Call first every tick.
 func sense() -> void:
 	_sense_tick += 1
-	on_floor = body.is_on_floor() and not carried
+	on_floor = body.is_on_floor() and not carried and not _floor_unknown
 	floor_normal = body.get_floor_normal() if on_floor else Vector3.UP
 	var pos := body.global_position
 	# Surface queries are cheap but not free; refresh at 20 Hz.
@@ -397,6 +402,7 @@ func integrate(delta: float, gravity_mult: float = 1.0) -> void:
 	var hv_before := Vector3(body.velocity.x, 0.0, body.velocity.z)
 	var pos_before := body.global_position
 	body.move_and_slide()
+	_floor_unknown = false
 	if was_floor and hv_before.length() > 0.5:
 		_try_step_up(hv_before, pos_before, delta)
 	var now_floor := body.is_on_floor()
@@ -467,3 +473,5 @@ func teleport(xform: Transform3D, mark_safe: bool = true) -> void:
 	peak_y = xform.origin.y
 	if mark_safe or not _last_safe.is_finite():
 		_last_safe = xform.origin
+	if not mark_safe:
+		_floor_unknown = true

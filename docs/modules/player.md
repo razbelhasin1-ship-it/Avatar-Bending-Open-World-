@@ -274,7 +274,9 @@ Air 6 / 6 / 6, Earth 5 / 5 / 5, Fire 5 / 5 / 6 / 6, Water 6 / 6 / 6.
   and never records the saddle as the last safe ground (`is_on_floor()` keeps its last value while
   mounted, so every saddle position high up on a flyer used to become safe ground and saves made in
   flight continued in mid-air). `teleport(xform, mark_safe := true)`: `dismount()` passes false, so
-  a mid-air release point is not safe ground until the player stands there. A ground mount still
+  a mid-air release point is not safe ground until the player stands there; after such a teleport
+  the floor is unknown (`on_floor` false, no safe ground) until the next `move_and_slide`, since
+  `is_on_floor()` still holds its value from before the mount. A ground mount still
   carries the safe ground along: `update_mounted` hands a carrier `CharacterBody3D` that is on the
   floor with its collision on (not tunnelling) to `PlayerMotor.carrier_on_floor(pos, normal)`,
   which records it when it is walkable and dry (no water within 0.5 m of the mount's feet).

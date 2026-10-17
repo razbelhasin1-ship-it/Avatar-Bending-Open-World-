@@ -105,6 +105,13 @@ func test_midair_dismount_is_not_safe_ground() -> void:
 	expect(p.get_state() != S.MOUNTED, "let go")
 	var safe := p.motor.last_safe_position()
 	expect(safe.y < 1.0, "mid-air release point is not safe ground (%s)" % safe)
+	# The first ticks after letting go: is_on_floor() still says "standing" (from before the
+	# mount) until the first move_and_slide - neither the floor nor the safe ground may trust it.
+	await PlayerSim.step(p, 1)
+	expect(not p.motor.on_floor, "falling, not standing in mid-air")
+	await PlayerSim.step(p, 3)
+	safe = p.motor.last_safe_position()
+	expect(safe.y < 1.0, "still no safe ground in mid-air while falling (%s)" % safe)
 	# Once the player stands on the ground again, that becomes the safe point.
 	var n := await PlayerSim.step_until(p, func() -> bool: return p.motor.on_floor and p.get_state() == S.LOCOMOTION, 60 * 8)
 	await PlayerSim.step(p, 3)
@@ -132,6 +139,59 @@ func test_ground_ride_carries_safe_ground() -> void:
 	expect(moved > 5.0, "rode away (%.1f m)" % moved)
 	expect(CompanionSim.flat_distance(safe, c.global_position) < 1.5, "safe ground follows the mount (%s vs %s)" % [safe, c.global_position])
 	expect(safe.y < 0.5, "the mount's feet, not the saddle (y %.2f)" % safe.y)
+
+
+## Earth Pillar's self-lift (hold the button) set the bender's position straight up 3 m with no
+## headroom check: under a low roof (an arch, a bridge, a cave ceiling) the bender was carried
+## into / through it and popped out on top. The lift now stops below whatever is overhead.
+func test_pillar_self_lift_stops_under_a_roof() -> void:
+	GameState.new_game(E.EARTH)
+	var roof := PlayerSim.box(self, Vector3(0, 3.0, 0), Vector3(8, 0.4, 8))   # underside at 2.8 m
+	var p := PlayerSim.player(self, E.EARTH, Vector3.ZERO)
+	p.controller.set_slot(&"technique_1", AbilityRegistry.get_def(&"earth_pillar"))
+	p.set_physics_process(true)
+	for i in 6:
+		await get_tree().physics_frame
+	var y0 := p.global_position.y
+	var top := -INF
+	p.input.press(&"ability_1")
+	for i in 40:
+		await get_tree().physics_frame
+		top = maxf(top, p.global_position.y)
+	p.input.release(&"ability_1")
+	for i in 120:
+		await get_tree().physics_frame
+		top = maxf(top, p.global_position.y)
+	var head := top + PlayerCharacter.CAPSULE_HEIGHT
+	expect(top > y0 + 0.5, "still rode a (shorter) column up (%.2f m)" % (top - y0))
+	expect(head <= 2.8 + 0.02, "stopped below the roof (head at %.2f m, underside 2.8 m)" % head)
+	expect(p.global_position.y < 2.0, "not on top of the roof (y %.2f)" % p.global_position.y)
+	expect(p.get_state() == S.LOCOMOTION, "free again (%s)" % p.get_state_name())
+	# No room at all (a 2 m tunnel): no self-lift, the column erupts ahead as a tap would.
+	roof.position.y = 2.1
+	p.teleport(Transform3D(Basis.IDENTITY, Vector3(-2.5, 0, 0)))
+	p.controller.cooldowns.clear()
+	p.resources.infinite_chi = true
+	for i in 30:
+		await get_tree().physics_frame
+	var before := BendingConstruct.live.size()
+	top = -INF
+	p.input.press(&"ability_1")
+	for i in 40:
+		await get_tree().physics_frame
+		top = maxf(top, p.global_position.y)
+	p.input.release(&"ability_1")
+	for i in 120:
+		await get_tree().physics_frame
+		top = maxf(top, p.global_position.y)
+	expect(BendingConstruct.live.size() > before, "the column still rose (ahead)")
+	expect(top < 0.2 and p.global_position.y < 0.2, "stayed on the floor of the tunnel (top %.2f, y %.2f)" % [top, p.global_position.y])
+	roof.queue_free()
+	p.queue_free()
+	for c in BendingConstruct.live.duplicate():
+		if is_instance_valid(c):
+			c.queue_free()
+	BendingConstruct.live.clear()
 
 
 ## A deep-sea point of the real world map (open water, no safe ground within 120 m).

@@ -212,11 +212,11 @@ func _sea() -> void:
 	GameState.new_game(E.WATER)
 	GameState.intro_done = true
 	GameState.time_of_day = 11.0
-	var home := WorldData.get_spawn(E.WATER).origin
-	var sea := _open_sea_near(home)
+	var home := WorldData.get_spawn(E.WATER)
+	var sea := _open_sea_near(home.origin)
 	if not p.check(sea.is_finite(), "open sea near the Water Tribe"):
 		return
-	var w: WorldScene = await p.load_scene("res://scenes/world/world.tscn", {"new_game": false, "spawn": Transform3D(Basis.IDENTITY, sea + Vector3.UP * 0.2)}) as WorldScene
+	var w: WorldScene = await p.load_scene("res://scenes/world/world.tscn", {"new_game": false, "spawn": home}) as WorldScene
 	if not p.check(await p.wait_until(func() -> bool: return w.playing, 300.0), "world ready"):
 		return
 	var pl := w.player
@@ -228,26 +228,26 @@ func _sea() -> void:
 	var c := pl.get_companion() as Companion
 	if not p.check(c != null, "the polar bear dog is here"):
 		return
-	c.teleport_near_player()
-	c.motor.teleport(pl.global_position + Vector3(-2.2, -0.6, 0), 0.0)
-	await p.wait_game(1.0)
+	# Mount on land (a swimming player cannot mount), then the pair is carried out to sea: the
+	# ride there is not under test.
 	var ok := false
-	for i in 6:
-		pl.teleport(Transform3D(Basis.IDENTITY, c.global_position + Vector3(2.0, 0.6, 0)))
-		await p.wait_game(0.3)
+	for i in 8:
 		if c.can_mount(pl):
 			await p.tap(&"mount")
 			ok = await p.wait_until(func() -> bool: return c.mode == Companion.Mode.RIDDEN, 6.0)
 			if ok:
 				break
-		await p.wait_game(0.4)
-	p.check(ok, "riding the polar bear dog out at sea (swimming %s)" % c.motor.swimming)
-	if not ok:
+		c.motor.teleport(pl.global_position + pl.global_basis.x * -2.6, pl.rotation.y)
+		await p.wait_game(0.6)
+	if not p.check(ok, "riding the polar bear dog"):
 		return
+	c.motor.teleport(sea, c.motor.yaw)
+	await p.wait_until(func() -> bool: return c.motor.swimming, 6.0)
 	p.hold(&"move_forward")
 	await p.wait_game(1.2)
 	p.release(&"move_forward")
 	await p.wait_game(0.5)
+	p.check(c.motor.swimming and pl.get_state() == PlayerCharacter.State.MOUNTED, "riding the polar bear dog far out at sea (swimming %s)" % c.motor.swimming)
 	await _obs("sea_1_riding", c.global_position + Vector3.UP, Vector3(1, 0, 1), 9.0, 3.0)
 	pl.camera_rig.make_current()
 	var before := c.global_position
