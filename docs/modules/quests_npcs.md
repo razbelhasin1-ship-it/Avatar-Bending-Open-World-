@@ -474,6 +474,9 @@ plaza on the mobile preset; empty-looking markets (customers added).
   cleaner.
 * `WorldData.get_water_height` tests lakes by radius while the lake surface follows its polygon
   (a companion swam where it reported dry ground); turtle duck herds spawn by the former.
+* Turtle ducks on a lake read low in the water from the shore (the lake shader's grazing-angle
+  refraction tints them); they float 0.1 m proud of the line, a species-side `swim_float` tune
+  (creatures module) would be the real fix.
 * Crowd variety is bounded (~20-25 mesh variants per nation), so outfits repeat in a busy street;
   no voiced lines (text barks and dialogue only); shops do not pause the game.
 * No dedicated frame-time measurement for the crowds; the strict per-preset caps (10 / 18 / 28 /

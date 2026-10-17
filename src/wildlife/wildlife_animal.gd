@@ -72,7 +72,8 @@ func _ready() -> void:
 		add_child(_body)
 	if swim_level > -INF:
 		position.y = swim_level
-		rig.set_swimming(true, swim_level)
+		# float a little proud of the line: the water shader hides anything level with its surface
+		rig.set_swimming(true, swim_level + 0.1 * scale_factor)
 	else:
 		position.y = WorldData.get_height(position.x, position.z)
 	if resting:
