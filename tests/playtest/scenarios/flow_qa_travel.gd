@@ -328,7 +328,11 @@ func _fly() -> void:
 	while t < 40.0 and c.flight.phase == CompanionFlight.Phase.FLY:
 		var to := Vector2(take_off.x - c.global_position.x, take_off.z - c.global_position.z)
 		if to.length() > 6.0:
-			pl.camera_rig.set_yaw(atan2(-to.x, -to.y))
+			# Turn like a rider: at most ~70 degrees off the current heading (input pointing
+			# behind the flyer brakes instead of turning).
+			var want := atan2(-to.x, -to.y)
+			var turn := clampf(wrapf(want - c.flight.heading, -PI, PI), -1.2, 1.2)
+			pl.camera_rig.set_yaw(c.flight.heading + turn)
 			Input.action_press(&"move_forward")
 		else:
 			Input.action_release(&"move_forward")
