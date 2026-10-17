@@ -252,7 +252,47 @@ follows the give-up (`CHASE_GIVE_UP` + 3 s).
 
 ## Fuzz sessions
 
-<!-- SESSIONS -->
+All sessions headless with `--fixed-fps 60` (game time runs faster than real time), every element
+with its whole technique tree learned and the loadout rotated, its companion, the Monkey and the
+adversarial events. Wall times on the shared 4-core container (other agents' rendered playtests
+ran at the same time).
+
+| # | Session | Game time | Wall | Result -> what came of it |
+| --- | --- | --- | --- | --- |
+| 1 | arena, air (first harness) | 2 min | 42 s | 4 engine errors -> bugs 5 / 7 (freed assist target, freed tornado captive) |
+| 2 | arena, 4 elements, SEED 4242 | 4 x 3 min | 222 s | `hit_from_inactive_player` (companion credit, by design: excluded), engine errors in fire / water -> bug 6 (freed caster) |
+| 3 | arena, 4 elements, SEED 777 | 4 x 6 min | 413 s | ALERT timeout warning -> bug 9; end-state checks hit a queued pause / a mounted player (harness: menus closed through their API, dismount retried) |
+| 4 | world, earth | 1 min | 75 s | `cooldown_bypass` (Earth Armor clears its own cooldown when donned: by design); mounted at the end (harness) |
+| 5 | world, 4 elements, SEED 99 | 4 x 5 min | 951 s | DEAD over 12 s (world backstop is 15 s: cap fixed), "audio loop alive 40 s" (world fires: refuted), RETURN timeouts (harness leash) |
+| 6 | world, 4 elements, SEED 4321 | 4 x 5 min | 942 s | `double_respawn` -> bug 10; `player_embedded` in the player's own Earth construct (by design: excluded); no engine errors / warnings |
+| 7 | world, earth rerun | 5 min | 208 s | only the construct embedding above; no engine errors |
+| 8 | **final** arena, 4 elements, SEED 2026 | 4 x 6 min | hung | `enemy_stuck_chasing` (air) -> bug 12; then a hang in earth -> breadcrumbs -> harness pause parity (fixed) |
+| 9 | **final** arena, rerun with breadcrumbs | 6 + 5 min | crashed | `enemy_stuck_chasing` again (earth, Rogue Waterbender in the pool); paused for good (parity) -> engine crash after ~7 min paused (see Remaining) |
+| 10 | **final** arena after the fixes, SEED 2026 | 4 x 6 min | 419 s | **all clean**: 28 / 28 end checks, no violations, 0 engine errors, 0 warnings |
+| 11 | **final** world, 4 elements, SEED 2027 | 4 x 5 min | 936 s | air / earth / fire clean (0 errors, 0 warnings); water: one `enemy_stuck_chasing` (Renegade Airbender at the Fire Navy landing, sight intact) -> the walled-in give-up now also counts barely-moving blocks |
+| 12 | **final** world, water rerun after that change, SEED 2027 | 5 min | 296 s | clean: 8 / 8 checks, no violations, 0 engine errors, 0 warnings |
+| 13 | **final** arena, 4 elements, SEED 31 (frame costs) | 4 x 3 min | 207 s | clean: 28 / 28 checks, no violations, 0 engine errors, 0 warnings |
+
+Final sessions in numbers (10 and 11): every player state reached in each session (LOCOMOTION,
+AIRBORNE, ACTION, DEFEND, DODGE, HITSTUN, KNOCKED_DOWN, GETUP, MOUNTED, DEAD) except DEAD in the
+earth arena session (no death) and MOUNTED in the two fire sessions (the dragon was mounted in
+earlier sessions 3, 5, 6); every technique of each tree used (air 10, earth 11, fire 11, water
+12); hits landed per element 76-139, deaths 0-7, mounts 0-19, at most 7 live projectiles and 3
+constructs, 1 projectile alive at the end at most; node counts at the end of the 6-minute arena
+sessions 860-1 290 with 0 orphans - the pools fill as new techniques are used, then plateau.
+Frame cost (wall time of consecutive game frames in the headless fast-forward, i.e. physics +
+all scripts + the watchdog itself, no rendering; shared CPU):
+
+| Session | air p50 / p99 / max | earth | fire | water |
+| --- | --- | --- | --- | --- |
+| arena (13) | 4.2 / 10.6 / 309 ms | 3.4 / 10.4 / 55 ms | 4.3 / 12.0 / 70 ms | 3.9 / 12.8 / 115 ms |
+| world (11, 12) | 7.9 / 26.9 / 324 ms | 7.9 / 29.1 / 204 ms | 12.1 / 30.1 / 322 ms | 13.1 / 37.1 / 322 ms |
+
+The p99 stays well inside a 60 Hz frame on this CPU; the maxima are single spikes (enemy groups
+being built, saves written, the fuzz's teleports streaming the world in) and are not attributed
+frame by frame here (perf_polish owns the budgets). An earlier version of the report sampled
+`Performance.TIME_PHYSICS_PROCESS`, which Godot updates once per real second with the maximum of
+that second - meaningless in fast-forward, replaced.
 
 ---
 
