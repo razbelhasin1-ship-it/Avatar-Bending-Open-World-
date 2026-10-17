@@ -215,12 +215,10 @@ static func build_inland_water(material: Material) -> Node3D:
 		if tris.is_empty():
 			continue
 		var level := float(lk["level"])
-		var c: Vector3 = lk["center"]
-		var cc := Vector2(c.x, c.z)
 		var verts := PackedVector3Array()
-		for p in poly:
-			# grow outwards: the banks hide the excess, no gap at the shoreline
-			var q := cc + (p - cc) * 1.08 + (p - cc).normalized() * 3.0
+		# grown outwards: the banks hide the excess, no gap at the shoreline. The same outline
+		# is gameplay water (WorldData.get_water_height), so swimming matches what is drawn.
+		for q in WorldRecords.lake_surface_polygon(lk):
 			verts.append(Vector3(q.x, level, q.y))
 		root.add_child(_instance(_mesh(verts, tris, PackedColorArray()), material, "Lake_%s" % lk["id"]))
 	for canal in WorldData.get_canals():

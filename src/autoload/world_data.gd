@@ -358,7 +358,12 @@ func get_water_height(x: float, z: float) -> float:
 			if lk["frozen"]:
 				continue
 			var cc: Vector3 = lk["center"]
-			if ground < float(lk["level"]) and Vector2(cc.x, cc.z).distance_to(p) <= float(lk["radius"]):
+			# Inside the drawn water outline (WorldRecords.lake_surface_polygon), not the bounding
+			# radius: the radius reached past the shore, so the ground below a waterfall pool's
+			# outlet (15 m under the pool level) counted as deep water and the player swam up
+			# into the air there (wave 4 bug hunt, docs/qa/bughunt_world.md).
+			if ground < float(lk["level"]) and Vector2(cc.x, cc.z).distance_to(p) <= float(lk.get("surface_radius", lk["radius"])) \
+					and (not lk.has("surface_polygon") or Geometry2D.is_point_in_polygon(p, lk["surface_polygon"])):
 				return float(lk["level"])
 	if ground < SEA_LEVEL:
 		return SEA_LEVEL

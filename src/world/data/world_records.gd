@@ -131,12 +131,33 @@ static func _is_numbers(a: Array) -> bool:
 	return true
 
 
+## The outline of a lake's drawn water surface: its polygon grown outwards (8 % + 3 m) so the
+## banks hide the edge (WaterSystem.build_inland_water draws exactly this). Gameplay water
+## (WorldData.get_water_height) is tested against the same outline, so a body is never
+## "swimming" where no water is drawn (wave 4 bug hunt, docs/qa/bughunt_world.md).
+static func lake_surface_polygon(lk: Dictionary) -> PackedVector2Array:
+	var c: Vector3 = lk.get("center", Vector3.ZERO)
+	var cc := Vector2(c.x, c.z)
+	var out := PackedVector2Array()
+	for p: Vector2 in (lk.get("polygon", PackedVector2Array()) as PackedVector2Array):
+		out.append(cc + (p - cc) * 1.08 + (p - cc).normalized() * 3.0)
+	return out
+
+
 func _build_water_index() -> void:
 	_water_buckets.clear()
 	for i in lakes.size():
 		var lk := lakes[i]
 		var c: Vector3 = lk["center"]
-		_add_bucket_range(Rect2(c.x - lk["radius"], c.z - lk["radius"], lk["radius"] * 2.0, lk["radius"] * 2.0),
+		# Cached drawn-water outline + its bounding radius (get_water_height's fast reject).
+		var surf := lake_surface_polygon(lk)
+		var reach := 0.0
+		for p in surf:
+			reach = maxf(reach, p.distance_to(Vector2(c.x, c.z)))
+		lk["surface_polygon"] = surf
+		lk["surface_radius"] = reach
+		var br := maxf(float(lk["radius"]), reach)
+		_add_bucket_range(Rect2(c.x - br, c.z - br, br * 2.0, br * 2.0),
 				{"kind": &"lake", "index": i})
 	for i in canals.size():
 		var pts: PackedVector2Array = canals[i]["points"]
