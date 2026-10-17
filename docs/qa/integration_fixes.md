@@ -294,10 +294,10 @@ Everything is additive or a local fix; no public signature was changed or remove
 
 * `tools/check.sh`: OK.
 * `tools/test.sh test_integration_fixes`: 13 run, 0 failed.
-* `tools/test.sh` (full suite): 434 run, 0 failed on the main-fix run; on the final run 434 run,
-  1 failed - `test_worldcontent::test_main_thread_budget_slices_instantiation` (4 of 39 frames
-  over a wall-clock bound, a synthetic provider with no module code; the known flaky timing
-  test fixed on the `perf_polish` branch). It passes on its own (`test_worldcontent` 19 / 19).
+* `tools/test.sh` (full suite) on the final commit: 434 run, 0 failed. One earlier run hit the
+  known flaky `test_worldcontent::test_main_thread_budget_slices_instantiation` (4 of 39
+  frames over a wall-clock bound; a synthetic provider with no module code, OS preemption on
+  the shared machine; fixed on the `perf_polish` branch); it passed alone and in the re-run.
   Exit warnings (81 ObjectDB leaked, 5 resources in use) are the same as the baseline.
 * Playtests (960x540, Forward+, xvfb): `integration_fixes_fires` PASSED (20 checks),
   `integration_fixes_enemies` PASSED (17 checks). Screenshots were reviewed one by one.
