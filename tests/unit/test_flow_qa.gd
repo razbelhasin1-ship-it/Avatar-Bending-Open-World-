@@ -210,6 +210,50 @@ func test_router_request_during_fade_in_is_not_lost() -> void:
 		expect(ok and get_tree().current_scene is ElementSelect, "a second request during the fade-out is dropped (scene %s)" % get_tree().current_scene))
 
 
+## The training grounds are reachable with a journey on disk (main menu -> TUTORIAL). Their
+## ENTER THE WORLD started a new journey whose arrival autosave replaced the saved one without a
+## word; now it asks first (KEEP JOURNEY focused), like the main menu's NEW JOURNEY.
+func test_tutorial_enter_world_asks_before_replacing_a_saved_journey() -> void:
+	GameState.new_game(ElementDefs.Element.EARTH)
+	GameState.level = 7
+	expect(SaveSystem.save_game(SaveSystem.AUTOSAVE_SLOT), "a journey on disk")
+	GameState.new_game(ElementDefs.Element.FIRE, true)
+	var screen := TutorialCompleteScreen.new()
+	add_child(screen)
+	screen.show_summary(ElementDefs.Element.FIRE, {"total": 14, "completed": [], "skipped": []})
+	var entered := [0]
+	screen.enter_world.connect(func() -> void: entered[0] += 1)
+	screen.options[0].pressed.emit()
+	await frames(2)
+	expect(screen.confirm != null and screen.confirm.is_open, "ENTER THE WORLD asks first")
+	if screen.confirm:
+		expect(screen.confirm.buttons[&"keep"].has_focus(), "KEEP JOURNEY focused")
+		expect(screen.confirm._text.text.contains("Earthbender · Level 7"), "names the saved journey: %s" % screen.confirm._text.text)
+		screen.confirm.buttons[&"keep"].pressed.emit()
+	await frames(2)
+	expect(entered[0] == 0 and screen.confirm == null, "KEEP JOURNEY stays on the screen")
+	expect(int(SaveSystem.get_save_info(SaveSystem.AUTOSAVE_SLOT).get("level", 0)) == 7, "the saved journey is untouched")
+	screen.options[0].pressed.emit()
+	await frames(2)
+	if expect(screen.confirm != null, "asks again"):
+		screen.confirm.buttons[&"new"].pressed.emit()
+	await frames(2)
+	expect(entered[0] == 1, "BEGIN ANEW enters the world")
+	screen.queue_free()
+	# No journey on disk: straight in.
+	SaveSystem.delete_save(SaveSystem.AUTOSAVE_SLOT)
+	var s2 := TutorialCompleteScreen.new()
+	add_child(s2)
+	s2.show_summary(ElementDefs.Element.FIRE, {"total": 14})
+	var n := [0]
+	s2.enter_world.connect(func() -> void: n[0] += 1)
+	s2.options[0].pressed.emit()
+	await frames(1)
+	expect(n[0] == 1 and s2.confirm == null, "no question without a save")
+	s2.queue_free()
+	await frames(2)
+
+
 # --- 15: save / load preserves what it claims -----------------------------------------------------------------
 
 ## A save is JSON (one number type): counts came back as floats, so `log.has(1)` (the quest

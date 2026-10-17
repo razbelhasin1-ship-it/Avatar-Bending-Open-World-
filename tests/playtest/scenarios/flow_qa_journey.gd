@@ -610,7 +610,7 @@ func _save_menu_continue() -> void:
 	await p.wait_until(func() -> bool: return w.playing, 30.0)
 	await p.wait_game(1.0)
 	pl = w.player
-	var got := _json(GameState.to_dict())
+	var got: Dictionary = _json(GameState.to_dict())
 	want = _json(want)
 	var pos := Vector3(want["player_position"][0], want["player_position"][1], want["player_position"][2])
 	p.check(pl.global_position.distance_to(pos) < 1.0, "%s position restored (%.2f m)" % [el, pl.global_position.distance_to(pos)])

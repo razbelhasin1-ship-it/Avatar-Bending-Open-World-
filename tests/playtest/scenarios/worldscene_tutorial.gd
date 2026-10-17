@@ -88,6 +88,16 @@ func _tutorial(e: int) -> void:
 	ev2.action = &"ui_accept"
 	ev2.pressed = false
 	Input.parse_input_event(ev2)
+	# A journey on disk: the screen asks before a new one replaces it (KEEP JOURNEY focused).
+	var had_save := SaveSystem.has_any_save()
+	await p.wait_until(func() -> bool: return not routed.is_empty() or t.complete_screen.confirm != null, 5.0)
+	p.check((t.complete_screen.confirm != null) == had_save, "%s replace-journey question shown exactly when a save exists (%s)" % [el, had_save])
+	if t.complete_screen.confirm != null:
+		await p.wait(0.4)
+		await p.screenshot("%s_99b_replace_journey" % el)
+		await p.tap(&"ui_right", 0.05)
+		await p.frames(2)
+		await p.tap(&"ui_accept", 0.05)
 	await p.wait_until(func() -> bool: return not routed.is_empty(), 5.0)
 	p.check(not routed.is_empty() and routed[0][0] == Router.WORLD and bool((routed[0][1] as Dictionary).get("new_game", false)),
 			"%s ENTER THE WORLD routes to a new journey %s" % [el, str(routed)])

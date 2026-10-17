@@ -108,7 +108,10 @@ In game: Esc → pause menu (Resume, Save, Settings, Main Menu, Quit) — saves 
 
 `Router.goto(path, params)` does fade → threaded load → swap → fade-in. Scenes read
 `Router.params`. Long setups call `Router.hold_fade()` in `_ready()` and `Router.release_fade()`
-when ready.
+when ready. A `goto` made while a transition runs is dropped if it comes before the swap (the
+outgoing scene), and queued (latest wins) if the new scene makes it during its fade-in — the
+fade blocks the mouse but not keys / pad, so a menu that already marked itself busy would
+otherwise wait forever.
 
 ## Autoload APIs (summary — read the scripts for details)
 
@@ -124,6 +127,9 @@ when ready.
   `camera_shake_scale()`, `is_feature_supported(name)`. Re-apply on `Events.graphics_settings_changed`.
 * **GameState** — element, level/xp/skill points, unlocked/equipped abilities, inventory,
   quests, flags, discovered POIs, companion, player transform; `to_dict()/from_dict()`.
+  JSON has one number type: `from_dict` turns whole numbers in the integer records
+  (inventory, stats, practice, quest stage / log / objective progress, companion bond) back
+  into ints; free-form `world_flags` keep what JSON gives (read them with `int()` / `float()`).
 * **SaveSystem** — atomic JSON slots in `user://saves`; calls `write_save_state()` on group
   `&"persist"` before saving; `save_game/load_game/has_save/latest_slot/get_save_info`.
 * **Audio** — `play_sfx(name, pos)`, `play_2d`, `play_ui`, `play_music(track)`,

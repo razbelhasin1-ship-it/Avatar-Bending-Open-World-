@@ -296,3 +296,19 @@ hidden until a companion exists (`Events.companion_spawned`). Tests can add hook
 * The sparring partner always firebends (SparringBot); per-element enemies come with the
   enemies module.
 * Companion lessons and `world_hook.gd` integrations activate once those modules exist.
+
+## Wave 4 (flow_qa)
+
+* **Heavy / charged lessons for every element.** `TutorialDirector` counted a heavy only when
+  the ended ability `is ChargeAbility`; Earth Boulder is not one, so an earthbender could never
+  complete lessons 7 *Heavy Strike* and 8 *Charged Strike* (the known `worldscene_tutorial
+  ELEMENT=earth` failure). The director now reads the release contract of any heavy-slot
+  ability through `TutorialDirector.heavy_strike_of(ability) -> {tapped, charge}` (empty until
+  the strike was released; Earth Boulder exposes `released` / `tapped` / `charge`).
+* **Sprint lesson** (lesson 3, the third Earth failure) was a harness artefact: the playtest
+  sprinted right then left for 1.1 s each, and Earth (accel 16 m/s², decel 28) spends most of
+  each reversal braking, ~1.3 s above run speed of the 1.5 s needed. A player told "hold Shift
+  while moving" runs one way; the playtest now does that (diagonal lane, stops when the
+  lesson completes) and the unit test sprints every element in a straight line.
+* Verified all 14 / 15 lessons by play for Earth, Fire, Air and Water (`worldscene_tutorial`
+  with `ELEMENT=`), see `docs/qa/flow_qa.md`.
