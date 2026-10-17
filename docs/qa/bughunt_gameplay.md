@@ -16,7 +16,7 @@ code except `test_interact_with_a_freed_interactable`, a guard kept for a refute
 | 2 | Saddle positions (and mid-air release points) recorded as the last safe ground: saves made in flight continue in mid-air | confirmed | `PlayerMotor.carried`, `teleport(mark_safe)` |
 | 3 | Signatures refill the Focus they cost (Tidal Torrent: 100 Focus from 29 hits): endless signatures | confirmed | signature hits build no Focus (`bending_feedback.gd`) |
 | 4 | Water Jet: hitstop on every 0.15 s pulse (19 per jet) and +6 Focus per pulse (one jet = full bar) | confirmed | `no_hitstop`, Focus every 4th pulse; `BendingHits` opts `meta` |
-| 5 | Companion assist target freed while held: script error every tick (893 in 3 min) | confirmed (fuzz) | untyped `_valid_enemy` (`companion_assist.gd`) |
+| 5 | Companion assist target freed while held: script error every tick (330 in a 3-minute session) | confirmed (fuzz) | untyped `_valid_enemy` (`companion_assist.gd`) |
 | 6 | Projectile whose caster was freed: script error every frame, the shot never lands | confirmed (fuzz) | `BendingContext.make_hit` / `forward` |
 | 7 | Air Tornado captive freed mid-spin: "Trying to cast a freed object" every frame | confirmed (fuzz) | validity check before the cast (`air_tornado.gd`) |
 | 8 | Hopping off a mount swimming at sea: arc to dry land 118 m away (up to 256 m / a port km off) | confirmed | slip into the water beside the mount (`companion_rider.gd`, `player_character.gd`) |
@@ -63,8 +63,8 @@ Refuted suspicions and checks that came out clean are listed at the end.
   error and warning with the GDScript backtrace.
 * **Breadcrumbs** (`<out>/crumbs.txt`, flushed every 3 frames: player state, ability + time,
   position, companion mode / burrow phase, held buttons; every event): the last state before a
-  hang or a crash. A hang of the first final arena session (no output, 100 % CPU) was traced with
-  them to the harness itself: the monkey toggled `pause` blindly, so a close press that landed on
+  hang or a crash. The hang of final session 8 (no output, 100 % CPU) was traced with them
+  (session 9) to the harness itself: the monkey toggled `pause` blindly, so a close press that landed on
   an already closed menu reopened it and the game stayed paused for good. The monkey now only
   closes menus while the tree is paused and makes no play decisions then.
 * Runs headless and fast: `godot --headless --fixed-fps 60 --path . res://tests/playtest/playtest.tscn
@@ -153,8 +153,8 @@ a camera shake and +6 Focus.
 
 ### 5. Companion assist: freed target -> script error every tick
 
-**Found by the arena fuzz** (893 `SCRIPT ERROR: Invalid type in function '_valid_enemy'` in 3 game
-minutes): the assist target is held across ticks; when it is freed (a fled enemy vanishing, a
+**Found by the arena fuzz** (`SCRIPT ERROR: Invalid type in function '_valid_enemy'`: 330 in one
+3-minute air session, 893 over the first three sessions): the assist target is held across ticks; when it is freed (a fled enemy vanishing, a
 despawn, a cleared group) it was passed to the typed `_valid_enemy(e: Node3D)` from `_approach` /
 `_act_fire` every tick until the 9 s assist cap.
 **Fix.** `src/companions/companion_assist.gd:405` untyped `_valid_enemy(v: Variant)`.
@@ -259,8 +259,9 @@ ran at the same time).
 
 | # | Session | Game time | Wall | Result -> what came of it |
 | --- | --- | --- | --- | --- |
-| 1 | arena, air (first harness) | 2 min | 42 s | 4 engine errors -> bugs 5 / 7 (freed assist target, freed tornado captive) |
-| 2 | arena, 4 elements, SEED 4242 | 4 x 3 min | 222 s | `hit_from_inactive_player` (companion credit, by design: excluded), engine errors in fire / water -> bug 6 (freed caster) |
+| 1 | arena, air (first harness) | 3 min | - | 330 x `_valid_enemy` script errors -> bug 5 (freed assist target) |
+| 2 | arena, air | 2 min | 42 s | 79 x "Trying to cast a freed object" -> bug 7 (freed tornado captive) |
+| 2b | arena, 4 elements, SEED 4242 | 4 x 3 min | 222 s | the bug 5 errors again in fire / water (253 + 310); `hit_from_inactive_player` (companion credit, by design: excluded). Bug 6 (freed caster) came from an intermediate arena run whose log was not kept |
 | 3 | arena, 4 elements, SEED 777 | 4 x 6 min | 413 s | ALERT timeout warning -> bug 9; end-state checks hit a queued pause / a mounted player (harness: menus closed through their API, dismount retried) |
 | 4 | world, earth | 1 min | 75 s | `cooldown_bypass` (Earth Armor clears its own cooldown when donned: by design); mounted at the end (harness) |
 | 5 | world, 4 elements, SEED 99 | 4 x 5 min | 951 s | DEAD over 12 s (world backstop is 15 s: cap fixed), "audio loop alive 40 s" (world fires: refuted), RETURN timeouts (harness leash) |
@@ -309,14 +310,14 @@ that second - meaningless in fast-forward, replaced.
 | Hitstop / slow-motion leaks | clean: `TimeDilation` is real-time and PROCESS_MODE_ALWAYS; no `time_scale_stuck` / `time_scale_leak` |
 | Cooldown bypasses | clean (Earth Armor clears its own cooldown when donned - by design, it starts when shed) |
 | Double hits per attack id | clean (`double_hit` never fired) |
-| Pooling leaks | clean: node counts plateau at ~1 200-1 300 in 6-minute arena sessions (pools fill as new techniques are used), no orphan nodes |
+| Pooling leaks | clean: node counts plateau (860-1 290 at the end of the final 6-minute arena sessions; pools fill as new techniques are used), no orphan nodes |
 | Companion assist landing hits while the player is dead | by design: its move is credited to the player and finishes |
 | Enemy RETURN 40 s safety timeout (Dai Li agent, renegade airbender) | harness-made: the fuzz spawned enemies with a 60 m leash (long walks home); with the default leash it did not recur |
 | "Audio loop alive 40 s" (`fire_loop` in the world sessions) | not a leak: the interactive world fires (braziers, campfires) loop while near; the watchdog now only flags bending loops that keep following the player |
 | Player DEAD for > 12 s in the world | by design: the world's respawn backstop is 15 s and the sequence waits for the respawn point's ground; the cap now follows the backstop (and the double respawn behind it is bug 10) |
 | Player inside their own Earth Wall / pillar (`player_embedded`) | by design: constructs never collide with their caster (an eruption at the feet must not trap them) |
 | Enemies striking through walls | clean: melee / ranged strikes check line of sight (`EnemyBase` LOS ray) |
-| Per-frame allocations in hot paths | reviewed: projectile casts reuse their shape / params, player aim is a ray per ability tick, group scans are 10-15 Hz or per pulse; physics frame time measured in the fuzz (sessions table) |
+| Per-frame allocations in hot paths | reviewed: projectile casts reuse their shape / params, player aim is a ray per ability tick, group scans are 10-15 Hz or per pulse; frame costs measured in the fuzz (sessions section) |
 
 ---
 

@@ -303,7 +303,7 @@ fur shells). No extra lights; assist VFX use the pooled FX library (`FxLib` caps
 
 * `CompanionAssist._valid_enemy()` takes an untyped argument: an assist target freed while held (a
   fled enemy vanishing, a despawn) used to raise a script error every tick until the 9 s assist cap
-  (893 errors in a 3-minute arena fuzz).
+  (330 errors in one 3-minute arena fuzz session).
 * `CompanionRider._ground_beside()`: when nothing dry is beside a mount that swims out at sea, the
   rider slips into the water beside it (players swim, never drown) instead of arcing to WorldData's
   nearest safe ground (measured 118 m away in the test; up to 256 m, or a port quay km away).
