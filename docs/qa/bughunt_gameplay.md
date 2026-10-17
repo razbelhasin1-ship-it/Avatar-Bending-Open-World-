@@ -7,7 +7,8 @@ saves in odd states, time-scale leaks, pooling leaks and per-frame costs; then *
 fuzz sessions** per element in the enemy arena and in the real world with an invariant
 watchdog and an engine-error collector (every error / warning counted as a bug). Every
 suspicion was reproduced (test or fuzz), fixed at its root with the smallest change, and kept
-as a regression test (`tests/unit/test_bughunt_gameplay.gd`, each test fails on the old code).
+as a regression test (`tests/unit/test_bughunt_gameplay.gd`, 13 tests; each fails on the old
+code except `test_interact_with_a_freed_interactable`, a guard kept for a refuted suspicion).
 
 | # | Bug | Verdict | Fix (file) |
 | --- | --- | --- | --- |
@@ -104,7 +105,12 @@ up on the old code (and the seat while riding).
 **Fix.** `src/player/player_motor.gd:58` `carried` (set in `mount_on` `player_character.gd:530`,
 cleared in `dismount` `:565`): a carried body senses no floor (`player_motor.gd:82`).
 `teleport(xform, mark_safe := true)` (`player_motor.gd:444` / `:456`, `player_character.gd:451`);
-`dismount()` passes false. PART=flight of the
+`dismount()` passes false. Riding a ground mount still carries the safe ground along:
+`PlayerCharacter.update_mounted` passes a carrier that stands on the floor (collision on, so not
+tunnelling) to `PlayerMotor.carrier_on_floor()` (`player_motor.gd:112`), which keeps it when it is
+dry and walkable - a save mid-ride continues where the mount's feet are, not where the ride began
+(`test_ground_ride_carries_safe_ground`; without it the safe point stayed at the mounting spot
+15 m back). PART=flight of the
 regression playtest saves while falling and checks the stored position against the terrain.
 
 ### 3. Signatures refill the Focus they cost

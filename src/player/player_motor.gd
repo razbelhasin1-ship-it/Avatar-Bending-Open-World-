@@ -105,6 +105,18 @@ func last_safe_position() -> Vector3:
 	return _last_safe if _last_safe.is_finite() else body.global_position
 
 
+## While `carried`: the carrier (a ground mount) stands on the floor at `pos`. Dry, walkable
+## ground there is the rider's safe ground, so a save mid-ride continues where the mount stands
+## rather than where the ride began. A flying mount is never on the floor; a swimming or wading
+## one is rejected by the water check (bughunt_gameplay).
+func carrier_on_floor(pos: Vector3, normal: Vector3) -> void:
+	if not carried or not pos.is_finite() or normal.angle_to(Vector3.UP) > deg_to_rad(32.0):
+		return
+	if water_height > -INF and water_height > pos.y - 0.5:
+		return
+	_last_safe = pos
+
+
 ## Snow / wading speed factor for ground movement.
 func terrain_speed_factor(sprinting: bool) -> float:
 	var f := 1.0

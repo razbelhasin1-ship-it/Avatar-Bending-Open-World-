@@ -113,6 +113,27 @@ func test_midair_dismount_is_not_safe_ground() -> void:
 	mount.queue_free()
 
 
+## The other half: riding a ground mount still carries the rider's safe ground along (a save
+## mid-ride continues where the mount stands - the mount's feet, not the saddle - rather than
+## where the ride began).
+func test_ground_ride_carries_safe_ground() -> void:
+	var r: Array = await _mounted(&"badgermole", E.EARTH)
+	var c: Companion = r[0]
+	var p: PlayerCharacter = r[1]
+	if not expect(p.get_state() == S.MOUNTED, "seated first"):
+		return
+	var start := p.motor.last_safe_position()
+	p.input.press(&"move_forward")
+	await CompanionSim.step(c, p, 150)
+	p.input.release(&"move_forward")
+	await CompanionSim.step(c, p, 20)
+	var safe := p.motor.last_safe_position()
+	var moved := CompanionSim.flat_distance(c.global_position, start)
+	expect(moved > 5.0, "rode away (%.1f m)" % moved)
+	expect(CompanionSim.flat_distance(safe, c.global_position) < 1.5, "safe ground follows the mount (%s vs %s)" % [safe, c.global_position])
+	expect(safe.y < 0.5, "the mount's feet, not the saddle (y %.2f)" % safe.y)
+
+
 ## A deep-sea point of the real world map (open water, no safe ground within 120 m).
 func _open_sea() -> Vector3:
 	for r in range(1200, 4000, 100):

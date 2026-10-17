@@ -582,6 +582,10 @@ func update_mounted(_delta: float) -> void:
 	var f := -mount_seat.global_basis.z
 	motor.face(f)
 	velocity = Vector3.ZERO
+	# A ground mount on the floor carries the rider's safe ground along (tunnelling = collision off).
+	var carrier := mount_node as CharacterBody3D if is_instance_valid(mount_node) else null
+	if carrier != null and carrier.collision_layer != 0 and carrier.is_on_floor():
+		motor.carrier_on_floor(carrier.global_position, carrier.get_floor_normal())
 	if input.consume(&"mount"):
 		# The mount may animate the dismount (hop down / let go in the air): companions module.
 		if mount_node != null and is_instance_valid(mount_node) and mount_node.has_method("request_dismount"):
