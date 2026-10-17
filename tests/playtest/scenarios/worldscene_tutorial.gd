@@ -139,11 +139,15 @@ func _do_step(id: StringName, el: String) -> void:
 				if not t.director.running or t.director.step_id() != id:
 					break
 		&"sprint":
+			# One straight run (diagonal lane right of the dummies), like a player told to hold
+			# sprint while moving. The old right/left zig-zag spent each reversal braking: Earth
+			# (accel 16 m/s^2, decel 28) only had ~1.3 s above run speed in 2.2 s and failed.
 			Input.action_press(&"sprint")
-			for a: StringName in [&"move_right", &"move_left"]:
-				Input.action_press(a)
-				await p.wait_game(1.1)
-				Input.action_release(a)
+			Input.action_press(&"move_forward")
+			Input.action_press(&"move_right")
+			await _tick_until(func() -> bool: return t.director.completed.has(id) or not t.director.running, 3.2)
+			Input.action_release(&"move_right")
+			Input.action_release(&"move_forward")
 			Input.action_release(&"sprint")
 		&"jump":
 			for i in 2:
