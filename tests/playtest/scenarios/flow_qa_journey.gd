@@ -10,7 +10,6 @@ extends RefCounted
 ##   TO MAIN MENU (clean state, no duplicates, no held input) -> CONTINUE -> everything restored.
 ## ELEMENT=air|earth|fire|water (default water). Real saves are backed up and restored.
 
-const BACKUP := "user://saves_flow_qa_backup"
 const S := PlayerCharacter.State
 
 var p: Playtest
@@ -56,21 +55,24 @@ func run(pt: Playtest) -> void:
 
 # --- saves ----------------------------------------------------------------------------------------------
 
+## The run's own save folder: user://saves_test is shared by every test run on the machine
+## (other agents' playtests autosave into it), and a save appearing there mid-run turns
+## ENTER THE WORLD into the Continue chooser. The developer's real saves are never touched.
+var _prev_save_dir := ""
+
+
 func _backup_saves() -> void:
-	DirAccess.make_dir_recursive_absolute(BACKUP)
+	_prev_save_dir = SaveSystem.save_dir
+	SaveSystem.save_dir = "user://saves_flow_qa_%s" % el
+	DirAccess.make_dir_recursive_absolute(SaveSystem.save_dir)
 	for i in SaveSystem.MAX_SLOTS:
-		if SaveSystem.has_save(i):
-			DirAccess.copy_absolute(SaveSystem.slot_path(i), BACKUP.path_join("slot_%d.json" % i))
-			SaveSystem.delete_save(i)
+		SaveSystem.delete_save(i)
 
 
 func _restore_saves() -> void:
 	for i in SaveSystem.MAX_SLOTS:
 		SaveSystem.delete_save(i)
-		var b := BACKUP.path_join("slot_%d.json" % i)
-		if FileAccess.file_exists(b):
-			DirAccess.copy_absolute(b, SaveSystem.slot_path(i))
-			DirAccess.remove_absolute(b)
+	SaveSystem.save_dir = _prev_save_dir
 
 
 # --- helpers --------------------------------------------------------------------------------------------
@@ -394,7 +396,11 @@ func _combat() -> void:
 		var landed := _enemy_hits(en).size() - n_hits
 		var dmg := hp - (en.health.health if is_instance_valid(en) and en.is_alive() else 0.0)
 		var made := BendingConstruct.live.size() - n_cons
-		report[def.id] = {"cast": cast, "hits": landed, "damage": snappedf(dmg, 0.1), "constructs": made}
+		var res := {}
+		for h: Array in _enemy_hits(en).slice(n_hits):
+			var rn: String = Combat.Result.keys()[int(h[2])] if int(h[2]) >= 0 and int(h[2]) < Combat.Result.size() else str(h[2])
+			res[rn] = int(res.get(rn, 0)) + 1
+		report[def.id] = {"cast": cast, "hits": landed, "results": res, "damage": snappedf(dmg, 0.1), "constructs": made}
 		p.check(cast, "%s %s (%s) performed from %s" % [el, def.display_name, def.id, slot])
 		p.check(landed > 0 or made > 0 or dmg > 0.0, "%s %s had a gameplay effect %s" % [el, def.id, str(report[def.id])])
 		if not is_instance_valid(en) or not en.is_alive():

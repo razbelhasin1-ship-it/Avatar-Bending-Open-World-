@@ -254,7 +254,105 @@ func test_tutorial_enter_world_asks_before_replacing_a_saved_journey() -> void:
 	await frames(2)
 
 
-# --- 15: save / load preserves what it claims -----------------------------------------------------------------
+# --- keyboard / pad answers to in-game confirmations ------------------------------------------------------------
+
+func _focus() -> Control:
+	return get_viewport().gui_get_focus_owner()
+
+
+## A ConfirmDialog keeps keyboard / pad focus on its answers: on a real 960x540 window the
+## nearest control right of APPLY was a settings toggle BEHIND the dim (focus escaped, Enter then
+## flipped an invisible setting). Left / right cycle the answers, up / down / Tab stay in the row.
+func test_confirm_dialog_traps_focus_on_its_answers() -> void:
+	var holder := Control.new()
+	holder.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(holder)
+	var behind := Button.new()
+	holder.add_child(behind)
+	var d := ConfirmDialog.new()
+	holder.add_child(d)
+	d.ask("UNSAVED CHANGES", "Keep the changes you made?", [[&"apply", "APPLY"], [&"discard", "DISCARD"], [&"cancel", "KEEP EDITING"]])
+	await frames(2)
+	var a: Button = d.buttons[&"apply"]
+	var b: Button = d.buttons[&"discard"]
+	var c: Button = d.buttons[&"cancel"]
+	expect(a.has_focus(), "first answer focused")
+	expect(a.get_node_or_null(a.focus_neighbor_right) == b and b.get_node_or_null(b.focus_neighbor_right) == c and c.get_node_or_null(c.focus_neighbor_right) == a, "right cycles the answers")
+	expect(a.get_node_or_null(a.focus_neighbor_left) == c, "left wraps")
+	expect(a.get_node_or_null(a.focus_neighbor_top) == a and a.get_node_or_null(a.focus_neighbor_bottom) == a, "up / down stay")
+	expect(a.get_node_or_null(a.focus_next) == b and a.get_node_or_null(a.focus_previous) == c, "Tab / Shift+Tab stay in the row")
+	# asked again with other answers: the neighbours follow the new row
+	d.ask("FAST TRAVEL", "Travel?", [[&"go", "TRAVEL"], [&"stay", "STAY"]])
+	await frames(2)
+	var go: Button = d.buttons[&"go"]
+	expect(go.get_node_or_null(go.focus_neighbor_right) == d.buttons[&"stay"], "rebuilt row keeps the trap")
+	holder.queue_free()
+	await frames(1)
+
+
+## Map fast travel and the settings' unsaved-changes question, answered with ui_* actions only
+## (Enter / A), as a keyboard or pad player would.
+func test_confirm_dialogs_answer_to_keyboard_and_pad() -> void:
+	GameState.new_game(ElementDefs.Element.FIRE)
+	GameState.intro_done = true
+	var w := await _load(WORLD, {"new_game": true, "skip_intro": true, "no_content": true}) as WorldScene
+	if not expect(w.is_ready, "world ready"):
+		await _free(w)
+		return
+	await frames(5)
+	var book := get_tree().get_first_node_in_group(&"journey_book") as JourneyBook
+	var home := MapModel.place_by_id(MapModel.home_city_id())
+	if not expect(book != null and not home.is_empty(), "book + home city"):
+		await _free(w)
+		return
+	# visited (a fast-travel point), then stand away from it so it is a valid destination
+	MapModel.note_position(home["position"])
+	w.player.teleport(Transform3D(Basis(), (home["position"] as Vector3) + Vector3(400, 0, 0)))
+	await physics_frames(5)
+	var trips: Array = []
+	MapModel.travel_override = func(xf: Transform3D, _o: Dictionary) -> bool:
+		trips.append(xf)
+		return true
+	expect(book.open(&"map", {"place": home["id"]}), "book opens on the map")
+	await frames(4)
+	expect(MapModel.travel_block_reason(home) == "", "home is a destination (%s)" % MapModel.travel_block_reason(home))
+	await _press_ui(&"ui_accept")
+	await frames(3)
+	var dlg := book.root.find_children("*", "ConfirmDialog", true, false)
+	expect(dlg.size() == 1, "Enter on the selected city asks FAST TRAVEL (%d dialogs)" % dlg.size())
+	if dlg.size() >= 1:
+		var d := dlg[0] as ConfirmDialog
+		expect(_focus() == d.buttons.get(&"go"), "TRAVEL focused (%s)" % _focus())
+	await _press_ui(&"ui_accept")
+	await frames(6)
+	expect(trips.size() == 1, "Enter on TRAVEL travels (%d trips, %d dialogs open)" % [trips.size(), book.root.find_children("*", "ConfirmDialog", true, false).size()])
+	expect(not book.is_open, "the book closed for the trip")
+	MapModel.travel_override = Callable()
+	if book.is_open:
+		book.close()
+	await frames(3)
+	# Settings: change an option, Back -> "keep the changes?" -> ui_right -> DISCARD -> Enter
+	w.pause_menu.open()
+	await frames(2)
+	var sm := w.pause_menu.open_settings()
+	sm.persist = false
+	await frames(3)
+	var before := Settings.snapshot()
+	sm.set_option("graphics", "glow", not bool(Settings.get_value("graphics", "glow")), "graphics")
+	await frames(2)
+	await _press_ui(&"ui_cancel")
+	await frames(3)
+	expect(sm.confirm != null and sm.confirm.is_open, "Back with changes asks")
+	expect(_focus() == sm.confirm.buttons.get(&"apply"), "APPLY focused first (%s)" % _focus())
+	await _press_ui(&"ui_right")
+	await frames(2)
+	expect(_focus() == sm.confirm.buttons.get(&"discard"), "ui_right -> DISCARD (%s %s)" % [_focus(), (_focus() as Button).text if _focus() is Button else ""])
+	await _press_ui(&"ui_accept")
+	await frames(4)
+	expect(not sm.is_open and str(Settings.snapshot()) == str(before), "DISCARD closes and restores")
+	expect(w.pause_menu.is_open, "back on the pause menu")
+	w.pause_menu.resume()
+	await _free(w)
 
 ## A save is JSON (one number type): counts came back as floats, so `log.has(1)` (the quest
 ## journal's "stage reached") was false for [0.0, 1.0] and records printed "2.0".
@@ -354,6 +452,7 @@ func test_input_fuzz_never_leaves_the_player_stuck() -> void:
 		var back := await _ticks_until(func() -> bool: return pl.get_state() == PlayerCharacter.State.LOCOMOTION and not pl.controller.is_busy(), 12.0)
 		expect(back, "%s back in control after the fuzz (state %s, busy %s, ability %s)" % [el, pl.get_state_name(), pl.controller.is_busy(),
 				pl.controller.current.def.id if pl.controller.current else &""])
+		print("    fuzz %s: 45 s of random input, longest locking state %s %.2f s, longest busy %.2f s, back in control: %s" % [el, worst["state"], worst["t"], worst_busy, back])
 		expect(float(worst["t"]) < 8.0, "%s no locking state lasted long: worst %s %.1f s" % [el, worst["state"], worst["t"]])
 		expect(worst_busy < 12.0, "%s controller never busy for long (%.1f s)" % [el, worst_busy])
 		var at := pl.global_position

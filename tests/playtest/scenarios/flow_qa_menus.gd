@@ -37,25 +37,21 @@ func run(pt: Playtest) -> void:
 	_restore_saves()
 
 
-const BACKUP := "user://saves_flow_qa_menus_backup"
+## The run's own (empty) save folder: user://saves_test is shared by every test run on the
+## machine, and a save appearing there mid-run turns 01 into the Continue chooser.
+var _prev_save_dir := ""
 
 
-## No save during the run: 01 ENTER THE WORLD goes straight to the element select.
 func _backup_saves() -> void:
-	DirAccess.make_dir_recursive_absolute(BACKUP)
+	_prev_save_dir = SaveSystem.save_dir
+	SaveSystem.save_dir = "user://saves_flow_qa_menus"
+	DirAccess.make_dir_recursive_absolute(SaveSystem.save_dir)
 	for i in SaveSystem.MAX_SLOTS:
-		if SaveSystem.has_save(i):
-			DirAccess.copy_absolute(SaveSystem.slot_path(i), BACKUP.path_join("slot_%d.json" % i))
-			SaveSystem.delete_save(i)
+		SaveSystem.delete_save(i)
 
 
 func _restore_saves() -> void:
-	for i in SaveSystem.MAX_SLOTS:
-		var b := BACKUP.path_join("slot_%d.json" % i)
-		if FileAccess.file_exists(b):
-			SaveSystem.delete_save(i)
-			DirAccess.copy_absolute(b, SaveSystem.slot_path(i))
-			DirAccess.remove_absolute(b)
+	SaveSystem.save_dir = _prev_save_dir
 
 
 func _ui(action: StringName) -> void:

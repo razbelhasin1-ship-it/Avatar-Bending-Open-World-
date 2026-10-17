@@ -9,7 +9,6 @@ extends RefCounted
 ## ELEMENT=water (default) | air | earth | fire.
 
 const Util := preload("res://tests/playtest/scenarios/mobile_touch_util.gd")
-const BACKUP := "user://saves_flow_qa_mobile_backup"
 
 var p: Playtest
 var t: Util
@@ -43,21 +42,22 @@ func run(pt: Playtest) -> void:
 	Settings.apply()
 
 
+## The run's own save folder (user://saves_test is shared by every test run on the machine).
+var _prev_save_dir := ""
+
+
 func _backup() -> void:
-	DirAccess.make_dir_recursive_absolute(BACKUP)
+	_prev_save_dir = SaveSystem.save_dir
+	SaveSystem.save_dir = "user://saves_flow_qa_mobile"
+	DirAccess.make_dir_recursive_absolute(SaveSystem.save_dir)
 	for i in SaveSystem.MAX_SLOTS:
-		if SaveSystem.has_save(i):
-			DirAccess.copy_absolute(SaveSystem.slot_path(i), BACKUP.path_join("slot_%d.json" % i))
-			SaveSystem.delete_save(i)
+		SaveSystem.delete_save(i)
 
 
 func _restore() -> void:
 	for i in SaveSystem.MAX_SLOTS:
 		SaveSystem.delete_save(i)
-		var b := BACKUP.path_join("slot_%d.json" % i)
-		if FileAccess.file_exists(b):
-			DirAccess.copy_absolute(b, SaveSystem.slot_path(i))
-			DirAccess.remove_absolute(b)
+	SaveSystem.save_dir = _prev_save_dir
 
 
 func _tap_control(c: Control, index: int = 0) -> void:

@@ -312,3 +312,10 @@ hidden until a companion exists (`Events.companion_spawned`). Tests can add hook
   lesson completes) and the unit test sprints every element in a straight line.
 * Verified all 14 / 15 lessons by play for Earth, Fire, Air and Water (`worldscene_tutorial`
   with `ELEMENT=`), see `docs/qa/flow_qa.md`.
+* **TRAINING COMPLETE -> ENTER THE WORLD with a journey on disk** (main menu -> 02 TUTORIAL is
+  open to players who already have a journey): the new journey's arrival autosave silently
+  replaced the saved one. `TutorialCompleteScreen` now asks first ("A NEW JOURNEY", naming the
+  saved journey; KEEP JOURNEY focused, BEGIN ANEW), like the main menu's NEW JOURNEY.
+  `complete_screen.confirm` is the open `ConfirmDialog` (tests). Regression:
+  `test_flow_qa.gd::test_tutorial_enter_world_asks_before_replacing_a_saved_journey`; the
+  `worldscene_tutorial` playtest checks the question appears exactly when a save exists.

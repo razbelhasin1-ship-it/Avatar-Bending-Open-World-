@@ -362,3 +362,15 @@ using "←↑" in text.
   revert timer.
 * Ability icons: the HUD shows whatever the bending module provides; `ability_*.svg` is a
   small generic set used by the mock and as fallbacks (the element emblem otherwise).
+
+## Wave 4 (flow_qa)
+
+* **`ConfirmDialog` traps keyboard / pad focus on its answers** (`_trap_focus()` in `ask()`):
+  left / right cycle the answers, up / down stay, Tab / Shift+Tab stay in the row. Without
+  explicit neighbours Godot moved focus to the nearest focusable control in the direction,
+  which on a real 960x540 window was a settings toggle BEHIND the dim: right from APPLY on
+  "UNSAVED CHANGES" left the dialog, and Enter then flipped a setting the player could not
+  see. Answer buttons are named `Choice0..n`. Regression:
+  `tests/unit/test_flow_qa.gd::test_confirm_dialog_traps_focus_on_its_answers`, playtest
+  `flow_qa_confirms` (rendered: right x3 cycles inside the dialog, DISCARD by Enter; the map's
+  FAST TRAVEL answered by Enter).
