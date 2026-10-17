@@ -85,14 +85,17 @@ func add_to_payload(p: CellPayload, t: Transform3D, opts: Dictionary = {}) -> vo
 		var outline: bool = opts.get("outline", true)
 		# "lods": true = automatic LOD index buffers (MeshLods, worker-safe), perf_polish
 		var lods: bool = opts.get("lods", false)
+		# "flat_slots": slots drawn without the outline pass even when "outline" is on (phones)
+		var flat: Array = opts.get("flat_slots", [])
 		for s: Array in surfaces:
+			var mat := NationPalette.material(s[1], outline and not flat.has(s[1]))
 			if lods:
-				surf.append([s[0], NationPalette.material(s[1], outline), MeshLods.for_arrays(s[0])])
+				surf.append([s[0], mat, MeshLods.for_arrays(s[0])])
 			else:
-				surf.append([s[0], NationPalette.material(s[1], outline)])
+				surf.append([s[0], mat])
 		p.add_mesh_surfaces(surf, t, {"shadow": opts.get("shadow", true), "vis_end": opts.get("vis_end", 0.0),
 			"vis_begin": opts.get("vis_begin", 0.0), "margin": opts.get("margin", 10.0), "tag": opts.get("tag", &""),
-			"fade": opts.get("fade", 0), "vis_parent": opts.get("vis_parent", &"")})
+			"fade": opts.get("fade", 0), "vis_parent": opts.get("vis_parent", &""), "lod_bias": opts.get("lod_bias", 1.0)})
 	if opts.get("collision", true):
 		if not boxes.is_empty():
 			var bx: Array = []

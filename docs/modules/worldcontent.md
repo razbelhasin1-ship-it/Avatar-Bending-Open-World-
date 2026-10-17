@@ -100,6 +100,8 @@ Payload options added by perf_polish (wave 4, `docs/qa/perf_polish.md`):
   `visibility_parent` (HLOD: the child shows only while the parent is hidden for being too close).
 * Surfaces may carry a third element, a `{lod_size: PackedInt32Array}` dictionary of LOD index
   buffers (`MeshLods.for_arrays()`, built on the worker), passed to `add_surface_from_arrays`.
+* `add_mesh_surfaces` `"lod_bias"` — `GeometryInstance3D.lod_bias` of the mesh (< 1 = coarser mesh
+  LODs sooner; reset to 1 for pooled nodes).
 * Vegetation: `far_density` (0.55 on phones) thins the far impostor forests deterministically
   (`ContentHash.unit2(211, gx, gz)`).
 

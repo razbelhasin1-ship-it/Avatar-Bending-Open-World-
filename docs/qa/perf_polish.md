@@ -159,4 +159,24 @@ start while `elapsed < budget * 3` fails the deterministic check every time.
 
 ## Other modules touched (foundation_changes)
 
-FOUNDATION_SECTION
+All minimal and additive; defaults keep the previous behaviour unless noted. Documented in the
+owning module's doc.
+
+| File | Change | Module doc |
+| --- | --- | --- |
+| `src/world/content/world_content.gd` | `night_only` MultiMeshes (hidden by day, `is_night()`, `_update_night()` every 0.5 s), `vis_parent` (HLOD) and `fade` from the payload, LOD index buffers passed to `add_surface_from_arrays` | worldcontent.md |
+| `src/world/content/cell_payload.gd` | stores `fade`, `night_only`, `vis_parent` | worldcontent.md |
+| `src/world/buildings/nation_palette.gd` | `material(slot, outline = true)`: outline-less twins of solid / ice | settlements.md |
+| `src/world/buildings/kit_result.gd` | `add_to_payload` opts `outline`, `lods`, `fade`, `vis_parent` | settlements.md |
+| `src/world/settlements/common/settlement_settings.gd` | phone keys `lod1_kit`, `merge_far`, `lod0_tight`, `quad_lod0`, `mesh_lods`; `fade_margin`; `lod0_end_for()` | settlements.md |
+| `src/world/settlements/common/settlement_provider.gd` | quadrant HLOD LOD0 on phones (`build_quads`), outline-less LOD1, `MERGED_SLOTS`, desktop cross-fades | settlements.md |
+| `src/world/settlements/common/settlement_far_provider.gd` | outline-less, merged on phones, mesh LODs, desktop fades | settlements.md |
+| `src/world/settlements/common/kit_merger.gd` | `slot_map` (fold surfaces into one) | settlements.md |
+| `src/world/settlements/common/settlement_fx.gd` | glows `night_only`; garden plant ranges per band, capped at 170 m on phones | settlements.md |
+| `src/world/vegetation/vegetation_settings.gd`, `forest_far_provider.gd` | `far_density` (0.55 on phones) | worldcontent.md |
+| `src/characters/mesh/character_mesh_builder.gd` | `with_lods()`: automatic mesh LODs on every character body | characters.md |
+| `assets/shaders/creatures/creature_common.gdshaderinc`, `creature_skin`, `fur_shell`, `membrane`, `creature_eye`, `creature_outline` `.gdshader` | `occlusion_fade` instance uniform (index 3) + Bayer discard | creatures.md |
+| `src/player/player_camera.gd` | close-quarters lock framing (`lock_close`, `lock_side`, `close_framing`), `occluders` child | player.md |
+| `src/world/game/playable_scene.gd` | warm-up during the loading hold, `load_report.warmup` | worldscene.md |
+| `scenes/dev/combat_arena.gd` | `_warm_up()` behind the held fade / cover, params `warmup` / `no_warmup` | bending.md |
+| `tests/unit/test_worldcontent.gd` | robust budget-slicing test (section 5) | worldcontent.md |

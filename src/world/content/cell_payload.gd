@@ -87,7 +87,8 @@ func add_mesh_surfaces(surfaces: Array, t: Transform3D = Transform3D.IDENTITY, o
 	meshes.append({"surfaces": keep, "transform": t, "shadow": opts.get("shadow", true),
 		"vis_begin": float(opts.get("vis_begin", 0.0)), "vis_end": float(opts.get("vis_end", 0.0)),
 		"margin": float(opts.get("margin", 0.0)), "tag": opts.get("tag", &""), "layers": int(opts.get("layers", 1)),
-		"fade": int(opts.get("fade", 0)), "vis_parent": opts.get("vis_parent", &"")})
+		"fade": int(opts.get("fade", 0)), "vis_parent": opts.get("vis_parent", &""),
+		"lod_bias": float(opts.get("lod_bias", 1.0))})
 	instance_count += 1
 
 

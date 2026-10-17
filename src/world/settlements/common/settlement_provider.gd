@@ -70,7 +70,7 @@ func build_cell(cell: ContentCell) -> void:
 	var lod1_opts := {"vis_begin": l0, "vis_end": float(cfg["lod1_end"]), "margin": 0.0,
 		"shadow": shadows and bool(cfg.get("lod1_shadows", true)), "collision": false, "lights": false,
 		"tag": StringName(tag + "_lod1"), "outline": false,   # no ink outline pass: it fades out by 60 m
-		"lods": bool(cfg.get("mesh_lods", false))}
+		"lods": bool(cfg.get("mesh_lods", false)), "lod_bias": float(cfg.get("far_lod_bias", 1.0))}
 	if bool(cfg.get("quad_lod0", false)):
 		# Phones: quadrant LOD0 under the cell's LOD1 (HLOD visibility parent, see build_quads)
 		var q := build_quads(cell.coord, origin, cell.seed)
@@ -81,10 +81,11 @@ func build_cell(cell: ContentCell) -> void:
 		var fine := quad_fine()
 		for i in 4:
 			var of := {"vis_end": fine, "margin": 0.0, "shadow": shadows, "collision": false, "lights": false,
-				"tag": StringName("%s_lod0q%d" % [tag, i]), "vis_parent": parent, "lods": bool(cfg.get("mesh_lods", false))}
+				"tag": StringName("%s_lod0q%d" % [tag, i]), "vis_parent": parent, "lods": bool(cfg.get("mesh_lods", false)),
+				"flat_slots": [&"ice"] if bool(cfg.get("flat_ice", false)) else []}
 			var om := {"vis_begin": fine, "margin": 0.0, "shadow": shadows, "collision": false, "lights": false,
 				"tag": StringName("%s_lod0m%d" % [tag, i]), "vis_parent": parent, "outline": false,
-				"lods": bool(cfg.get("mesh_lods", false))}
+				"lods": bool(cfg.get("mesh_lods", false)), "lod_bias": float(cfg.get("far_lod_bias", 1.0))}
 			if parent == &"":
 				om["vis_end"] = l0
 			(q["fine"][i] as KitResult).add_to_payload(p, Transform3D.IDENTITY, of)
@@ -146,9 +147,10 @@ func lod0_end() -> float:
 
 
 ## Phones (cfg.quad_lod0): full detail ends this far from a quadrant's centre: just past the
-## quadrant half diagonal, so the quadrant around the camera is always full detail.
+## quadrant half diagonal (+1.5 m), so the quadrant around the camera is always full detail and a
+## neighbouring one only while the camera is within ~15 m of their shared edge.
 func quad_fine() -> float:
-	return cell_size * 0.5 * 0.7072 + 7.0
+	return cell_size * 0.5 * 0.7072 + 1.5
 
 
 ## Phones: the cell's LOD0 split into four quadrant meshes in two versions - `fine` (kit LOD 0,

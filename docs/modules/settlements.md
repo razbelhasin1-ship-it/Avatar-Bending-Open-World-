@@ -132,7 +132,7 @@ WorldData city record ──> Planner (per settlement) ──> SettlementPlan (p
 | key | low (mobile) | medium | high | ultra |
 | --- | --- | --- | --- | --- |
 | `lod0_end` (full detail, props, lights, shadows) | 100 m | 160 m | 220 m | 300 m |
-| `lod1_end` (simplified buildings; casts shadows from medium up) | 300 m | 600 m | 800 m | 1100 m |
+| `lod1_end` (simplified buildings; casts shadows from medium up) | 220 m (300 m before perf_polish) | 600 m | 800 m | 1100 m |
 | `far_end` (silhouettes) | view distance, clamped 1.5–6 km | | | |
 | `collision_range` (+40 m hysteresis) | 90 m | 110 m | 120 m | 140 m |
 | `cell_lights` | 6 | 10 | 14 | 18 |
@@ -142,6 +142,9 @@ WorldData city record ──> Planner (per settlement) ──> SettlementPlan (p
 | `quad_lod0` (LOD0 as quadrant HLOD under LOD1) | yes | no | no | no |
 | `mesh_lods` (automatic LOD index buffers, `MeshLods`) | yes | no | no | no |
 | `fade_margin` (LOD hand-overs cross-faded, m each side) | 0 | 12 | 12 | 12 |
+| `far_lod_bias` (`lod_bias` of mid quadrants and LOD1) | 0.25 | 1 | 1 | 1 |
+| `sil_lod_bias` (`lod_bias` of the LOD2 silhouettes) | 0.15 | 1 | 1 | 1 |
+| `flat_ice` (full-detail ice without the ink outline pass) | yes | no | no | no |
 
 `LightBudget` additionally keeps only the nearest 4/8/14/22 kit lights enabled.
 
@@ -149,7 +152,7 @@ WorldData city record ──> Planner (per settlement) ──> SettlementPlan (p
 pass (`NationPalette.material(slot, false)`; the outline fades to nothing by 60 m but still
 doubled their triangles and draws). On phones (`detail == 0`) a near cell is built as
 `SettlementProvider.build_quads()`: the cell's LOD1 mesh is the visibility parent of four
-quadrant meshes, each a fine (kit LOD 0, within `quad_fine()` ≈ 52 m of the quadrant centre)
+quadrant meshes, each a fine (kit LOD 0, within `quad_fine()` ≈ 47 m of the quadrant centre)
 and a mid version (kit LOD 1, outline-less) sharing one AABB, so only the quadrant around the
 camera is full detail; collision, lights and anchors are exactly the desktop LOD0's. Night glow
 MultiMeshes are `night_only` (hidden by day by `WorldContent`), garden plants end at 170 m on

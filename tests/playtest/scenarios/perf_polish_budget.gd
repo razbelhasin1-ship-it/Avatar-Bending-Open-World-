@@ -129,10 +129,25 @@ func _breakdown(w: PlayableScene) -> Array:
 			if not groups.has(key):
 				groups[key] = []
 			(groups[key] as Array).append(c)
+			# near settlement cells also by LOD part (fine / mid quadrants, LOD1, LOD0, glows, plants)
+			if key.begins_with("settlement_") and not key.begins_with("settlement_far"):
+				for m in c.get_children():
+					var sub := "  %s:%s" % [key.trim_prefix("settlement_"), RenderCensus.lod_tag(String(m.name))]
+					if not groups.has(sub):
+						groups[sub] = []
+					(groups[sub] as Array).append(m)
 	groups["npcs"] = p.get_tree().get_nodes_in_group(&"npc")
 	groups["player"] = [p.player()]
 	groups["companion"] = [w.companion_root]
 	var base := await _snapshot()
+	# what the mesh LODs save in this view: the same frame with LOD selection off / coarser
+	var vp := p.get_viewport()
+	var th := vp.mesh_lod_threshold
+	for t: float in [0.0, th * 4.0]:
+		vp.mesh_lod_threshold = t
+		var s := await _snapshot()
+		p.note("   mesh_lod_threshold %.1f (game %.1f): %d draws, %dk prims" % [t, th, s["draw_calls"], int(s["primitives"]) / 1000])
+	vp.mesh_lod_threshold = th
 	var out: Array = []
 	for key: String in groups:
 		var nodes: Array = []

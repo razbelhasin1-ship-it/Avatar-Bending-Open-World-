@@ -710,6 +710,8 @@ func spawn_mesh(cell: ContentCell, d: Dictionary) -> MeshInstance3D:
 	mi.transform = d.get("transform", Transform3D.IDENTITY)
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if d.get("shadow", true) else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	mi.layers = int(d.get("layers", 1))
+	# < 1 picks the coarser mesh LODs sooner (phones: distant settlement meshes, perf_polish)
+	mi.lod_bias = float(d.get("lod_bias", 1.0))
 	_apply_vis(mi, d)
 	mi.visibility_parent = NodePath()
 	if String(d.get("tag", &"")) != "":

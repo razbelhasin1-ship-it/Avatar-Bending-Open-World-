@@ -47,10 +47,14 @@ func test_phone_budget_keys_and_lod0_range() -> void:
 	expect_near(SettlementSettings.lod0_end_for(c, 128.0), 96.5, 0.1, "128 m cells: half diagonal + 6 m")
 	expect_near(SettlementSettings.lod0_end_for(c, 96.0), 73.9, 0.1, "96 m cells (Air Temple)")
 	expect(SettlementSettings.lod0_end_for(c, 128.0) >= 128.0 * 0.7071, "LOD0 still covers the camera's own cell")
+	expect(float(c["far_lod_bias"]) < 1.0 and float(c["sil_lod_bias"]) < float(c["far_lod_bias"]), "phones: distant meshes pick coarser LODs sooner")
+	expect(bool(c["flat_ice"]), "phones: full-detail ice without the outline pass")
+	expect(float(c["lod1_end"]) < float(c["far_end"]) and float(c["lod1_end"]) > SettlementSettings.lod0_end_for(c, 128.0), "phone LOD bands ordered")
 	Settings.apply_preset("high")
 	var h := SettlementSettings.current()
 	expect_eq(int(h["lod1_kit"]), 1, "desktop LOD1 unchanged")
 	expect(not bool(h["merge_far"]) and not bool(h["quad_lod0"]) and not bool(h["mesh_lods"]), "desktop chain unchanged")
+	expect(float(h["far_lod_bias"]) == 1.0 and float(h["sil_lod_bias"]) == 1.0 and not bool(h["flat_ice"]), "desktop LOD selection and outlines unchanged")
 	expect_near(SettlementSettings.lod0_end_for(h, 128.0), 220.0, 0.01, "desktop LOD0 range unchanged")
 	expect_eq(float(VegetationSettings.current()["far_density"]), 1.0, "desktop keeps every far impostor")
 	Settings.apply_preset("mobile")
@@ -148,6 +152,15 @@ func test_phone_cell_payload_hierarchy() -> void:
 			expect(String(d["vis_parent"]).ends_with("_lod1"), "%s is a child of the cell's LOD1 (HLOD)" % tag)
 			for s: Array in d["surfaces"]:
 				expect(s.size() == 3, "%s carries its LOD index buffers" % tag)
+		if tag.contains("_lod0q"):
+			expect_eq(float(d["lod_bias"]), 1.0, "%s: full detail keeps the normal LOD selection" % tag)
+			for s: Array in d["surfaces"]:
+				if s[1] == NationPalette.material(&"ice", false):
+					expect((s[1] as ShaderMaterial).next_pass == null, "%s: ice drawn without outline on phones" % tag)
+				if s[1] == NationPalette.material(&"solid"):
+					expect((s[1] as ShaderMaterial).next_pass != null, "%s: stone keeps its ink outline" % tag)
+		if tag.contains("_lod0m") or tag.ends_with("_lod1"):
+			expect(float(d["lod_bias"]) < 1.0, "%s: coarser mesh LODs sooner (lod_bias %.2f)" % [tag, float(d["lod_bias"])])
 		if tag.contains("_lod0m") or tag.ends_with("_lod1"):
 			for s: Array in d["surfaces"]:
 				expect((s[1] as ShaderMaterial).next_pass == null, "%s draws no outline pass" % tag)
@@ -228,6 +241,9 @@ func test_world_content_night_only_and_visibility_parent() -> void:
 	var child := wc.spawn_mesh(cell, {"surfaces": [[arr, null, {}]], "tag": &"x_lod0q0", "vis_end": 30.0, "vis_parent": &"x_lod1"})
 	expect(not child.visibility_parent.is_empty(), "visibility parent set from the payload tag")
 	expect(child.get_node_or_null(child.visibility_parent) == cell.root.get_node("x_lod1"), "points at the LOD1 mesh")
+	var far := wc.spawn_mesh(cell, {"surfaces": [[arr, null]], "tag": &"x_far", "lod_bias": 0.25})
+	expect_near(far.lod_bias, 0.25, 0.001, "lod_bias from the payload")
+	expect_near(child.lod_bias, 1.0, 0.001, "default lod_bias (pooled nodes are reset)")
 	wc.queue_free()
 
 
