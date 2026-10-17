@@ -280,3 +280,14 @@ owning module's doc.
 | `src/world/water/water_system.gd` | phone ocean disc 64 segments | worldrender.md |
 | `tests/unit/test_worldcontent.gd` | robust budget-slicing test (section 5) | worldcontent.md |
 | `docs/modules/{settlements,worldcontent,worldrender,characters,creatures,player,worldscene,bending,mobile}.md` | perf_polish notes | — |
+
+## Verification
+
+* `tools/check.sh`: OK. `tools/test.sh`: 436 run, 0 failed (incl. `test_perf_polish.gd` 15/15 and
+  the slicing test: "39 clean frames judged, median 3628 us, worst 3781 us" with another Godot
+  instance running). The exit-time "81 ObjectDB instances leaked / 5 resources still in use"
+  warnings are the same as before this module.
+* Playtests: `perf_polish_budget` (Mobile, Compatibility, High; plus the base commit for the
+  before numbers), `perf_polish_warmup` (fire, off / on), `perf_polish_camera` (Forward+; the
+  occluder part also on Compatibility), `perf_polish_fade_probe` (Forward+).
+* Screenshots (looked at): `shots/perf_polish/` in the session scratchpad.
