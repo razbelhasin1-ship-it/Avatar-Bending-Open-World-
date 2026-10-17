@@ -207,15 +207,15 @@ func test_kit_tree_and_unlock_rules() -> void:
 	expect_eq(AbilityRegistry.can_unlock(&"ice_trap"), &"", "ice trap learnable")
 	GameState.level = 4
 	expect_eq(AbilityRegistry.can_unlock(&"healing_waters"), &"trainer", "healing: trainer")
-	GameState.set_flag("trained_yugoda_healing_waters", true)
+	GameState.set_flag("trained_wt_siku_healing_waters", true)
 	expect_eq(AbilityRegistry.can_unlock(&"healing_waters"), &"", "healing learnable after Yugoda")
 	GameState.level = 7
 	GameState.unlock_ability(&"water_jet", false)
-	GameState.set_flag("trained_pakku_tidal_torrent", true)
+	GameState.set_flag("trained_wt_siku_tidal_torrent", true)
 	expect_eq(AbilityRegistry.can_unlock(&"tidal_torrent"), &"skill_points", "signature costs 2 points")
 	GameState.skill_points = 2
 	expect_eq(AbilityRegistry.can_unlock(&"tidal_torrent"), &"", "signature learnable")
-	expect(WaterKit.TRAINERS.has(&"pakku") and WaterKit.TRAINERS.has(&"yugoda"), "trainers listed for the NPC module")
+	expect(WaterKit.TRAINERS.has(&"wt_siku") and NpcRegistry.get_npc(&"wt_siku").has("trainer"), "trainer listed and exists as an NPC trainer")
 
 
 func test_new_game_starters_slots_and_practice() -> void:

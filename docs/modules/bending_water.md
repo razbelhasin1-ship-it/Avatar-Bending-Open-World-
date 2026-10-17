@@ -61,8 +61,8 @@ tier 1 (new game)   Ice Shards          Water Surge           Ice Wall
 tier 2 (level 3)    Ice Trap            Water Wave
                     <- Ice Shards x8    <- Water Surge x6
 tier 3              Healing Waters      Water Jet (level 5)
-                    (level 4, Yugoda)   <- Water Wave x6
-tier 4 (level 7)    Tidal Torrent  <- Water Jet, Master Pakku, 2 points
+                    (level 4, Master Siku)   <- Water Wave x6
+tier 4 (level 7)    Tidal Torrent  <- Water Jet, Master wt_siku (Master Siku), 2 points
 ```
 
 * Unlock rules are standard `AbilityDef.unlock` keys read by `AbilityRegistry.can_unlock`
@@ -73,10 +73,10 @@ tier 4 (level 7)    Tidal Torrent  <- Water Jet, Master Pakku, 2 points
 * **Practice**: a technique performed by the player (on its release / freeze / first pulse /
   successful heal) calls `GameState.add_practice(id)` (`WaterCommon.practiced`); enemy casts
   never count.
-* **Trainers** (`WaterKit.TRAINERS`): `&"pakku"` (Master Pakku, Water Tribe: Tidal Torrent) and
-  `&"yugoda"` (Yugoda, Water Tribe healer: Healing Waters). A trainer marks a lesson with
+* **Trainers** (`WaterKit.TRAINERS`): `&"wt_siku (Master Siku)"` (Master wt_siku (Master Siku), Water Tribe: Tidal Torrent) and
+  `&"wt_siku"` (Master Siku, Water Tribe healer: Healing Waters). A trainer marks a lesson with
   `GameState.set_flag("trained_<trainer>_<ability>", true)` (the `can_unlock` contract), e.g.
-  `trained_pakku_tidal_torrent`.
+  `trained_wt_siku (Master Siku)_tidal_torrent`.
 * New game: the three starters are unlocked and equipped (slots 1-3; `grant_starters`), slot 4
   is free; the signature appears on R / the touch signature button once unlocked
   (`BendingController.load_equipped`).
@@ -152,7 +152,7 @@ bc.request(&"technique_1")      # hold techniques: bc.release(&"technique_1") en
 for node in WaterKit.tree(): ...           # tiers / branches / requirements
 AbilityRegistry.can_unlock(&"water_wave")  # -> &"" or &"level" / &"practice" / ...
 # Trainers (NPC module)
-GameState.set_flag("trained_pakku_tidal_torrent", true)
+GameState.set_flag("trained_wt_siku (Master Siku)_tidal_torrent", true)
 # World / props: make a fire water can put out
 add_child(ExtinguishableFire.new())
 ```
@@ -172,7 +172,7 @@ add_child(ExtinguishableFire.new())
   `WaterCommon.hold_height` setting the body's vertical velocity) - no special player code.
 * **Healing is limited** (35 HP per use, 18 s cooldown, chi upfront + upkeep, rooted and
   interruptible) so it is a tactical choice, not sustain.
-* **Trainer-gated tiers** (Healing Waters, Tidal Torrent) follow the lore (Yugoda, Pakku); the
+* **Trainer-gated tiers** (Healing Waters, Tidal Torrent) follow the lore (Master Siku, wt_siku (Master Siku)); the
   ids are published in `WaterKit.TRAINERS` for the NPC / trainer module.
 
 ## Performance / mobile

@@ -235,7 +235,7 @@ func test_requirements_match_can_unlock_and_learning_spends_points() -> void:
 	var heal := SkillTreeModel.requirements(&"healing_waters")
 	var hk := heal.map(func(r: Dictionary) -> StringName: return r["kind"])
 	expect(hk.has(&"trainer") and not hk.has(&"skill_points"), "healing waters: taught by a master, no point cost: %s" % str(hk))
-	GameState.set_flag("trained_yugoda_healing_waters", true)
+	GameState.set_flag("trained_wt_siku_healing_waters", true)
 	var met := false
 	for r in SkillTreeModel.requirements(&"healing_waters"):
 		if r["kind"] == &"trainer":

@@ -20,8 +20,7 @@ const ICONS := "res://src/bending/kits/water/icons/"
 
 ## Trainers referenced by the unlock rules (for the NPC / trainer module).
 const TRAINERS := {
-	&"pakku": {"name": "Master Pakku", "region": &"water_tribe", "teaches": [&"tidal_torrent"]},
-	&"yugoda": {"name": "Yugoda", "region": &"water_tribe", "teaches": [&"healing_waters"]},
+	&"wt_siku": {"name": "Master Siku", "region": &"water_tribe", "teaches": [&"healing_waters", &"tidal_torrent"]},
 }
 
 
@@ -111,14 +110,14 @@ static func defs() -> Array[AbilityDef]:
 		AbilityDef.make({"id": &"healing_waters", "element": E, "slot": AbilityDef.Slot.TECHNIQUE, "display_name": "Healing Waters",
 			"description": "Hold to draw water into your hands, where it glows, and press it to your wounds: heals up to 35 health per use (allies close by get half). Leaves you rooted; a staggering hit breaks it.",
 			"icon": ICONS + "ability_healing.svg", "chi_cost": 25.0, "cooldown": 18.0, "clip": &"water_heal_channel", "startup": 0.4, "active": 3.5, "recovery": 0.25,
-			"unlock": {"level": 4, "trainer": &"yugoda", "cost": 1, "tier": 3, "branch": &"healing", "column": 2},
+			"unlock": {"level": 4, "trainer": &"wt_siku", "cost": 1, "tier": 3, "branch": &"healing", "column": 2},
 			"params": {"rate": 10.0, "max_heal": 35.0, "upkeep": 6.0, "max_hold": 4.0, "min_hold": 0.5, "ally_radius": 3.5},
 			"fx": {"vfx": &"healing_glow", "sfx": &"heal_loop"}, "script_path": DIR + "healing_waters.gd"}),
 		# --- tier 4: signature --------------------------------------------------------------------
 		AbilityDef.make({"id": &"tidal_torrent", "element": E, "slot": AbilityDef.Slot.SIGNATURE, "display_name": "Tidal Torrent",
 			"description": "Call in all the water around you and rise at the heart of a huge spiralling vortex that drags enemies in, then drive it outward: a ring of water knocks everyone down and a towering wave rolls ahead.",
 			"icon": ICONS + "ability_tidal.svg", "focus_cost": 100.0, "clip": &"tidal_torrent", "startup": 0.78, "active": 1.45, "recovery": 0.8,
-			"unlock": {"level": 7, "prerequisite": &"water_jet", "trainer": &"pakku", "cost": 2, "tier": 4, "branch": &"flow", "column": 1},
+			"unlock": {"level": 7, "prerequisite": &"water_jet", "trainer": &"wt_siku", "cost": 2, "tier": 4, "branch": &"flow", "column": 1},
 			"hit": {"damage": 34.0, "reaction": R.KNOCKDOWN, "force": 14.0, "lift": 4.0, "stun": 1.2, "poise": 80.0, "heavy": true, "status": {"soaked": 8.0}},
 			"params": {"vortex_radius": 3.6, "vortex_height": 6.0, "lift": 1.3, "pulse": 0.25, "pull_radius": 9.0, "launch_radius": 3.4,
 				"ring_radius": 10.0, "wave_distance": 15.0, "damage_reduction": 0.5},

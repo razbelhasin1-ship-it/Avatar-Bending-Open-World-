@@ -25,7 +25,7 @@ var book: JourneyBook = preload("res://scenes/ui/journey_book.tscn").instantiate
 scene.add_child(book)
 
 book.open(&"map")                                  # -> bool (false + book.blocked_reason() when refused)
-book.open(&"map", {"npc": &"master_pakku"})        # pin and focus an NPC (e.g. "find your master")
+book.open(&"map", {"npc": &"wt_siku"})        # pin and focus an NPC (e.g. "find your master")
 book.open(&"map", {"quest": &"wt_first_form"})     # focus a quest's marker
 book.open(&"map", {"place": &"omashu"})            # focus a place and show its card
 book.open(&"journal")
