@@ -330,11 +330,36 @@ func fail(q: StringName, reason: String = "") -> void:
 func abandon(q: StringName) -> bool:
 	if not is_active(q) or get_def(q).get("kind", &"side") == &"main":
 		return false
+	_take_back_handouts(q)
 	GameState.quests.erase(String(q))
 	if GameState.tracked_quest == q:
 		_track_fallback()
 	quest_changed.emit(q)
 	return true
+
+
+## An abandoned quest takes back what it handed out and the player still holds: the items of its
+## `on_start` give_item actions (letters, parcels, incense) and the items its props gave. Without
+## this every abandon + restart left another unsellable letter / incense in the bag for good
+## (only one is ever delivered), and re-spawned props could be gathered again and again (wave 4
+## bug hunt, docs/qa/bughunt_world.md).
+func _take_back_handouts(q: StringName) -> void:
+	var d := get_def(q)
+	var back := {}
+	for a: Variant in d.get("on_start", []):
+		if a is Array and (a as Array).size() > 1 and StringName(str(a[0])) == &"give_item":
+			var id := StringName(str(a[1]))
+			back[id] = int(back.get(id, 0)) + (int(a[2]) if (a as Array).size() > 2 else 1)
+	var taken: Dictionary = _rec(q).get("taken", {})
+	for st: Dictionary in d.get("stages", []):
+		for od: Dictionary in st["objectives"]:
+			if od["type"] == &"collect" and taken.has(String(od["id"])):
+				var id2: StringName = od["item"]
+				back[id2] = int(back.get(id2, 0)) + (taken[String(od["id"])] as Array).size() * int(od.get("give", 1))
+	for id3: StringName in back:
+		var n := mini(int(back[id3]), GameState.item_count(id3))
+		if n > 0:
+			GameState.add_item(id3, -n)
 
 
 ## Erases a quest's state (tests / debug).

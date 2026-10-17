@@ -128,6 +128,44 @@ func test_releasing_a_cell_with_a_vanished_npc() -> void:
 	WorldData.height_override = Callable()
 
 
+# --- quests ------------------------------------------------------------------------------------------
+
+## Journal -> ABANDON on a side quest that hands out an item (a letter, a parcel, incense) kept the
+## item; starting the quest again handed out another. Only one is ever delivered, so every abandon
+## left an unsellable quest item in the bag for good. Items gathered from the quest's props stayed
+## too while the props came back on the restart (gather, abandon, gather again - and sell).
+func test_abandoning_a_quest_takes_back_its_handouts() -> void:
+	GameState.new_game(E.WATER)
+	var q := &"wt_pale_moon_shrine"
+	if not expect(Quests.has_quest(q), "quest data present"):
+		return
+	expect(Quests.start(q, {"silent": true}), "started")
+	expect_eq(GameState.item_count(&"spirit_incense"), 1, "incense handed out")
+	expect(Quests.abandon(q), "abandoned")
+	expect_eq(GameState.item_count(&"spirit_incense"), 0, "the incense goes back with the quest")
+	Quests.start(q, {"silent": true})
+	Quests.abandon(q)
+	Quests.start(q, {"silent": true})
+	expect_eq(GameState.item_count(&"spirit_incense"), 1, "after two abandons the bag holds one incense, not three")
+	Quests.reset_quest(q)
+	GameState.add_item(&"spirit_incense", -GameState.item_count(&"spirit_incense"))
+	# gathered prop items go back too (only what the props gave: moss bought elsewhere stays)
+	var moss := &"wt_healers_moss"
+	GameState.add_item(&"arctic_moss", -GameState.item_count(&"arctic_moss"))
+	Quests.start(moss, {"silent": true})
+	for i in 2:
+		QuestProps.mark_taken(moss, &"moss", i)
+		GameState.add_item(&"arctic_moss", 1)
+	GameState.add_item(&"arctic_moss", 1)                      # one bought at a stall
+	expect_eq(Quests.progress(moss, &"moss"), 3, "three of four held (%d)" % Quests.progress(moss, &"moss"))
+	Quests.abandon(moss)
+	expect_eq(GameState.item_count(&"arctic_moss"), 1, "the gathered moss went back, the bought one stayed")
+	Quests.start(moss, {"silent": true})
+	expect_eq(Quests.progress(moss, &"moss"), 1, "a restart counts what the player really holds")
+	expect(not QuestProps.is_taken(moss, &"moss", 0), "and its props are back in the world")
+	Quests.reset_quest(moss)
+
+
 # --- saves -------------------------------------------------------------------------------------------
 
 ## A slot file damaged on disk (a crash mid-write on a platform without atomic rename, storage
