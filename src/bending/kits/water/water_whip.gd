@@ -2,7 +2,9 @@ extends ComboAbility
 ## Water Whip: a lash of water extends from the hand, cracks at the clip's
 ## impact frame (capsule sweep along the whip) and recoils. The third lash is
 ## two-handed and yanks the target in (PULL). Water streams in from a nearby
-## source on the first lash; without a source the whip is shorter.
+## source on the first lash and stays the same body of water through the whole
+## chain (passed from hand to hand); when the chain ends it falls and splashes.
+## Without a source the whip is shorter and thinner.
 
 var _stream: WaterStream = null
 var _t0 := 0.0
@@ -14,7 +16,8 @@ var _tip := Vector3.ZERO
 
 
 func on_step_begin(i: int, sd: Dictionary) -> void:
-	_end_stream(0.05)
+	if i == first_step:
+		WaterCommon.prepare()
 	_src = WaterSource.find(ctx)
 	_reach = float(sd.get("reach", 5.0)) * (1.0 if bool(_src.get("found", false)) else 0.8)
 	_t0 = time
@@ -22,7 +25,9 @@ func on_step_begin(i: int, sd: Dictionary) -> void:
 	_side = 1.0 if StringName(sd.get("hand", &"hand_r")) == &"hand_r" else -1.0
 	if StringName(sd.get("hand", &"")) == &"hands":
 		_side = 0.0
-	_stream = WaterStream.spawn(ctx.caster)
+	# The same water carries over between lashes.
+	if _stream == null or not is_instance_valid(_stream):
+		_stream = WaterStream.spawn(ctx.caster)
 	if i == first_step and bool(_src.get("found", false)) and float(_src.get("distance", 0.0)) > 1.5:
 		WaterSource.draw(ctx, _src, _t_hit * 1.5, StringName(sd.get("hand", &"hand_r")) if _side != 0.0 else &"hand_r")
 	_update_stream()
@@ -71,7 +76,7 @@ func _update_stream() -> void:
 		pts.append(hand.lerp(p1, s).lerp(p1.lerp(p2, s), s))
 	_tip = pts[8]
 	var r := float(param("whip_radius", 0.42)) * (1.0 if bool(_src.get("found", false)) else 0.8)
-	_stream.set_points(pts, 0.095 * (r / 0.42), 0.06 * (r / 0.42))
+	_stream.set_points(pts, 0.13 * (r / 0.42), 0.075 * (r / 0.42))
 	_stream.set_spray(e > 0.6 and u <= 1.2)
 
 
@@ -99,8 +104,18 @@ func _end_stream(fade: float) -> void:
 
 
 func on_cancel(_reason: StringName) -> void:
-	_end_stream(0.15)
+	# Interrupted (hit, dodge): the water falls.
+	_drop_water()
 
 
 func on_finish() -> void:
+	_drop_water()
+
+
+## The lash water falls to the ground when the chain ends.
+func _drop_water() -> void:
+	if _stream != null and is_instance_valid(_stream):
+		var g := ctx.ground_point(_tip) if ctx.is_valid() else _tip
+		if ctx.is_valid() and _tip != Vector3.ZERO:
+			WaterEnv.splash_ground(ctx.caster, g, 0.45)
 	_end_stream(0.15)

@@ -14,6 +14,7 @@ func chi_cost() -> float:
 
 
 func begin() -> void:
+	WaterCommon.prepare()
 	ctx.move_mode = BendingContext.Move.FREE
 	ctx.move_speed_scale = 0.3
 	ctx.face_dir = ctx.aim_flat()
@@ -66,9 +67,15 @@ func _launch() -> void:
 	var spread := deg_to_rad(float(param("spread_deg", 6.0)))
 	var n := _shards.size()
 	# Projectiles outlive this ability: use lambdas (they do not need `self`).
-	var shatter := func(p: BendingProjectile, pos: Vector3, normal: Vector3, _t: Node) -> void:
+	var c := ctx
+	var aid := def.id
+	var flash := float(param("flash_freeze", 0.9))
+	var shatter := func(p: BendingProjectile, pos: Vector3, normal: Vector3, t: Node) -> void:
 		IceFx.shatter(p, pos, normal, 0.5)
 		Audio.play_bending(ElementDefs.Element.WATER, &"shatter", pos, -4.0)
+		# Ice on a soaked target: the water on it freezes solid (flash-freeze).
+		if t != null and t is Node3D and flash > 0.0 and WaterStatus.is_soaked(t) and c != null and c.is_valid():
+			IceShardsFreeze.flash_freeze(c, t as Node3D, flash, aid)
 	var give_back := func(v: Node3D) -> void:
 		if v != null and is_instance_valid(v):
 			FxLib.release(v)
@@ -85,6 +92,7 @@ func _launch() -> void:
 				"impact_size": 0.6, "on_impact": shatter, "on_finish": give_back})
 	_shards.clear()
 	sound(&"cast_light", ctx.hands_pos(), 0.0)
+	WaterCommon.practiced(ctx, def)
 
 
 func _drop() -> void:
@@ -101,3 +109,17 @@ func on_cancel(_reason: StringName) -> void:
 
 func on_finish() -> void:
 	_drop()
+
+
+## Flash-freeze: an ice dagger striking a SOAKED target freezes the water on it.
+class IceShardsFreeze extends RefCounted:
+	static func flash_freeze(c: BendingContext, t: Node3D, base_stun: float, ability_id: StringName) -> void:
+		var st := WaterStatus.freeze_time(t, base_stun)
+		var h := c.make_hit({"damage": 2.0, "reaction": HitInfo.Reaction.FREEZE, "stun": st, "poise": 25.0, "status": {"frozen": st}},
+				t.global_position - c.origin(), HitInfo.new_attack_id(), ability_id)
+		h.position = BendingContext.target_point(t)
+		var res := BendingHits.deliver(c, t, h)
+		if res == Combat.Result.HIT:
+			WaterStatus.clear(t)
+			IcePrisonFx.encase(c.caster, t, st, 0.9)
+			Audio.play_bending(ElementDefs.Element.WATER, &"freeze", t.global_position, -2.0)

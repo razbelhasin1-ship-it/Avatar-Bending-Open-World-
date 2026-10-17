@@ -26,6 +26,12 @@ var freeze := 0.0:
 		freeze = clampf(v, 0.0, 1.0)
 		if mat:
 			mat.set_shader_parameter(&"freeze", freeze)
+## Emission boost (healing water glows); reset to 0 when taken from the pool.
+var glow := 0.0:
+	set(v):
+		glow = maxf(v, 0.0)
+		if mat:
+			mat.set_shader_parameter(&"glow", glow)
 var droplets: GPUParticles3D
 var _fade := -1.0
 var _fade_t := 0.0
@@ -40,6 +46,7 @@ static func spawn(from: Node) -> WaterStream:
 	s._alpha = 1.0
 	s.reveal = 1.0
 	s.freeze = 0.0
+	s.glow = 0.0
 	s.points = PackedVector3Array()
 	s.imesh.clear_surfaces()
 	s.droplets.emitting = false

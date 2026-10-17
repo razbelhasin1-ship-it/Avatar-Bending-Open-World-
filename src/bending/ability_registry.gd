@@ -87,7 +87,8 @@ static func starter_techniques(e: int) -> Array[StringName]:
 	for d in for_element(e):
 		if d.starter and (d.slot == AbilityDef.Slot.TECHNIQUE or d.slot == AbilityDef.Slot.SIGNATURE) and not d.script_path.is_empty():
 			out.append(d.id)
-	out.sort()
+	# Alphabetical (StringName ordering is not): slot order is stable across runs.
+	out.sort_custom(func(a: StringName, b: StringName) -> bool: return String(a) < String(b))
 	return out
 
 
