@@ -290,6 +290,33 @@ func test_confirm_dialog_traps_focus_on_its_answers() -> void:
 	await frames(1)
 
 
+## Phone run (flow_qa_mobile): the first quest slid in while the arrival still hid the HUD
+## (touch overlay off, tracker on the right); the overlay then moved the tracker under the
+## vitals and the running slide tweened it back to the right, under the touch buttons, for good.
+func test_quest_tracker_takes_the_touch_layout_during_its_slide_in() -> void:
+	var hud := (load("res://scenes/ui/hud.tscn") as PackedScene).instantiate() as Hud
+	add_child(hud)
+	await frames(2)
+	var q := hud.quest
+	q.show_quest({"title": "Born of the Tide", "objectives": [{"text": "Speak with Elder Anaaya"}]})
+	await frames(2)
+	hud.apply_touch_layout(true)
+	await get_tree().create_timer(0.6).timeout
+	expect(q.position.is_equal_approx(Vector2(40, 190)), "touch layout: under the vitals, clear of the buttons (%s)" % q.position)
+	expect(is_equal_approx(q.modulate.a, 1.0), "fully shown")
+	# a second quest while the first one still slides ends on its layout spot, not 40 px off
+	hud.apply_touch_layout(false)
+	await frames(2)
+	var home := q.position
+	q.show_quest({"title": "The First Breath", "objectives": [{"text": "Climb to the sanctum"}]})
+	await frames(3)
+	q.show_quest({"title": "Fire and Ash", "objectives": [{"text": "Meet Kaida"}]})
+	await get_tree().create_timer(0.6).timeout
+	expect(q.position.is_equal_approx(home), "back on its spot after two slides (%s vs %s)" % [q.position, home])
+	hud.queue_free()
+	await frames(1)
+
+
 ## Map fast travel and the settings' unsaved-changes question, answered with ui_* actions only
 ## (Enter / A), as a keyboard or pad player would.
 func test_confirm_dialogs_answer_to_keyboard_and_pad() -> void:

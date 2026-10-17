@@ -539,9 +539,15 @@ func _companion_follows() -> void:
 	Input.action_release(&"move_forward")
 	Input.action_release(&"sprint")
 	var d1 := c.global_position.distance_to(pl.global_position)
-	await _ticks_until(func() -> bool: return c.global_position.distance_to(pl.global_position) < 9.0, 8.0)
-	var d2 := c.global_position.distance_to(pl.global_position)
-	p.note("%s companion distance: before %.1f, after the sprint %.1f, settled %.1f (mode %s)" % [el, d0, d1, d2, c.MODE_NAMES[c.mode]])
+	# Ground distance: a flyer escorting overhead counts as with the player. The slot is up to
+	# ~8 m to the side (bison 7.5, dragon 10); a flyer that took off to catch up lands first.
+	var flat := func() -> float:
+		return Vector2(c.global_position.x - pl.global_position.x, c.global_position.z - pl.global_position.z).length()
+	var f0 := Engine.get_physics_frames()
+	await _ticks_until(func() -> bool: return flat.call() < 12.0, 20.0)
+	var took := float(Engine.get_physics_frames() - f0) / Engine.physics_ticks_per_second
+	var d2: float = flat.call()
+	p.note("%s companion distance: before %.1f, after the sprint %.1f, settled %.1f m on the ground after %.1f game s (mode %s)" % [el, d0, d1, d2, took, c.MODE_NAMES[c.mode]])
 	p.check(d2 < 12.0, "%s companion caught up (%.1f m)" % [el, d2])
 	await p.screenshot("%s_07_companion" % el)
 

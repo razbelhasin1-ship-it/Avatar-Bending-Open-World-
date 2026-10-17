@@ -374,3 +374,12 @@ using "←↑" in text.
   `tests/unit/test_flow_qa.gd::test_confirm_dialog_traps_focus_on_its_answers`, playtest
   `flow_qa_confirms` (rendered: right x3 cycles inside the dialog, DISCARD by Enter; the map's
   FAST TRAVEL answered by Enter).
+* **The quest tracker follows the touch layout even mid slide-in** (`HudQuestTracker.settle()`,
+  called by `Hud.apply_touch_layout()` and before each new slide). On the phone the first
+  quest of a new journey slid in while the arrival still hid the HUD (touch overlay off,
+  tracker on the right); the overlay then moved the tracker under the vitals, and the running
+  `UiFx.slide_in` tween — which animates `position` back to where it started — carried it back
+  to the right, under the technique buttons, until the next dialogue. Two quests in quick
+  succession also left it 40 px off (the second slide started from the first one's offset).
+  Regression: `tests/unit/test_flow_qa.gd::test_quest_tracker_takes_the_touch_layout_during_its_slide_in`,
+  playtest `flow_qa_mobile`.

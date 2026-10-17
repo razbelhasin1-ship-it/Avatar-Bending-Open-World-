@@ -9,6 +9,9 @@ extends VBoxContainer
 var data: Dictionary = {}
 var _title: Label
 var _list: VBoxContainer
+## The running slide-in (show_quest) and the layout position it slides to.
+var _slide: Tween = null
+var _slide_home := Vector2.ZERO
 
 
 func _ready() -> void:
@@ -49,14 +52,29 @@ func show_quest(d: Dictionary) -> void:
 		_list.add_child(_objective_row(o))
 	visible = not _title.text.is_empty()
 	if visible and not same:
-		UiFx.slide_in(self, Vector2(40, 0), 0.35)
+		settle()
+		_slide_home = position
+		_slide = UiFx.slide_in(self, Vector2(40, 0), 0.35)
 	elif visible:
 		UiFx.pop(self, 1.02, 0.18)
 
 
 func clear_quest() -> void:
+	settle()
 	data = {}
 	visible = false
+
+
+## Ends a running slide-in at once: back at its layout position, fully opaque. The HUD calls
+## it before moving the tracker (touch layout), and a new quest before its own slide: a
+## running slide tweens `position` to where it started, so it would carry the tracker back
+## to its old place (under the phone's touch buttons) or leave it 40 px off.
+func settle() -> void:
+	if _slide != null and _slide.is_valid():
+		_slide.kill()
+		position = _slide_home
+		modulate.a = 1.0
+	_slide = null
 
 
 func _objective_row(o: Dictionary) -> Control:
