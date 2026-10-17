@@ -52,7 +52,7 @@ folder; the best shots are listed at the end). "Journey" = `flow_qa_journey ELEM
 | 8 | Attacks apply gameplay effects | PASS | Same report: every cast hit, was blocked / dodged by the bandit, or raised a construct (Ice Wall, Earth Pillar, Earth Wall); bandit health 95 → 25–62 during the slot pass |
 | 9 | Enemies respond and can be defeated | PASS | The bandit went ALERT → CHASE → STRAFE → ATTACK (telegraphed 1–4 attacks), STAGGER / KNOCKDOWN / GETUP on hits, FLEE when low; defeated in 10–18 s by play (killed, or surrendered / fled: `defeated` how), +11 – +22 XP |
 | 10 | Block / dodge / movement / camera consistent | PASS | Journey: block against a second bandit's attack returns BLOCKED, dodge moves 3.0–5.7 m and hands control back (LOCOMOTION), mouse-look events turn the camera 0.78–1.05 rad, the camera stays with the player; movement after every menu / book / pause round trip (5.6 m) |
-| 11 | No permanent stuck states (fuzz) | PASS | `test_input_fuzz_never_leaves_the_player_stuck`: 45 s of seeded random input per element next to an attacking bandit — longest locking state 0.85–1.35 s (ACTION), longest busy controller 1.2–2.2 s, back in LOCOMOTION and walking afterwards. A conversation the random `interact` opens holds the player until answered (by design) and is answered like a player would |
+| 11 | No permanent stuck states (fuzz) | PASS | `test_input_fuzz_never_leaves_the_player_stuck`: 45 s of seeded random input per element next to an attacking bandit — longest locking state 0.85–1.35 s (ACTION), longest busy controller 1.18–1.95 s, back in LOCOMOTION and walking afterwards. A conversation the random `interact` opens holds the player until answered (by design) and is answered like a player would |
 | 12 | Snow footprints in the Water Tribe | PASS | Journey water: SnowTrails stamps 239 → 264 while walking on snow, the trail lies under the walked path (`water_08_footprints.png`) |
 | 13 | Companions follow / navigate | PASS | Journey: after a 3.5 s sprint the companion catches up (ground distance ≤ 12 m: dog 8.9, badgermole 9.6, bison / dragon land first); it survives save → menu → continue with its health |
 | 14 | Tutorial playable for every element | PASS (bugs #1, #7 fixed) | `worldscene_tutorial ELEMENT=` earth / fire / air / water: every lesson completed by play (14; air 16 with air jump + glide), completion screen, ENTER THE WORLD asks before replacing a saved journey (bug #5) and starts a fresh journey; nothing saved by the tutorial |
@@ -83,7 +83,7 @@ bandit → companion follow → (water: footprints) → save → menu → CONTIN
 | --- | --- | --- | --- | --- | --- |
 | Water | `water_tribe`, polar bear dog, *Born of the Tide* (Anaaya, stage 0 → 1) | Water Whip 3 hits / 33 dmg; Water Blast hit (push); Ice Shards 2 hits; Ice Wall wall + hit; Water Surge hit (push) | defeated (killed) in 12 s, +22 XP | all fields equal, one of each, moves + bends | all 14 lessons |
 | Earth | `earth_kingdom`, badgermole, *Stone Beneath the Sky* (Lin) | Earth Punch 4 hits / 46 dmg; Earth Boulder dodged by the bandit (enemies now read the earth heavy, #9); Earth Pillar pillar + launch 14 dmg; Earth Stomp TBD; Earth Wall wall | defeated (killed) in 10 s, +22 XP | all fields equal, one of each, moves + bends | all 14 lessons (was: heavy + charge never completed, #1) |
-| Fire | `fire_nation`, dragon, *A Spark Returns* (Kaida) | Fire Jabs 3 hits / 25 dmg; Fire Blast hit 17; Fire Burst hit 18; Flame Sweep hit | defeated (killed) TBD | TBD | all 14 lessons |
+| Fire | `fire_nation`, dragon, *A Spark Returns* (Kaida) | Fire Jabs 3 hits / 25 dmg; Fire Blast hit 17; Fire Burst hit 18; Flame Sweep hit | 95 → 9 in the slot pass, defeated (killed) 2 s later, +22 XP | all fields equal, one of each, bends; walk: TBD | all 14 lessons |
 | Air | `air_temple`, sky bison, *The First Breath* (Pasang) | Air Combo 3 hits / 26 dmg (1 hit before #7); Air Blast hit 14; Air Push hit 8; Air Sweep hit 14 | defeated (fled) in 10 s, +11 XP | all fields equal, one of each, walks 6.9 m + bends | all 16 lessons (was: Strike Combo never completed, #7) |
 
 ## Log scan
@@ -103,6 +103,27 @@ ferry / map / flights, phone) was grepped for `ERROR`, `WARNING`, `SCRIPT ERROR`
   (pools, registries, themes) still referenced when the engine shuts down; no effect while
   playing. Left as is (engine-level, every module).
 * No `Failed to load`, `Cannot open`, `Node not found` or resource / script warning anywhere.
+
+## Failures traced to the harness (not the game)
+
+Every red check was traced before it was called a harness issue:
+
+* Earth Stomp "no effect" — the previous technique (Earth Pillar) had launched the bandit or left
+  a pillar between the two; the stomp's ground wave misses airborne targets and stops at walls
+  by design. The journey now waits for the bandit to land and crumbles leftover constructs.
+* "Does not move after CONTINUE" (fire 0.0 m, earth 1.0 m) — the restored camera faced a bamboo
+  stalk / Ba Sing Se's wall right in front of the player (the run's diagnostics: LOCOMOTION, on
+  the floor, input on, move input forward, a collider < 2 m ahead). The journey now turns toward
+  open space first, as a player would.
+* Bison "does not land" — flying forward from the Air Temple's terraces leaves the mountain:
+  102 m of steep slope below, where a flyer refuses to land ("Can't land here"). The flight now
+  climbs over the take-off ground and steers back to it while descending.
+* Companion "did not catch up" (bison 16.9 m) — the distance was 3D while the bison escorted
+  overhead; it is now measured on the ground with a longer wait.
+* Earlier: open ground in a lake (every cast refused while swimming), the shared
+  `user://saves_test` folder (another agent's save turned ENTER THE WORLD into CONTINUE), a
+  dialogue advanced with `Input.action_press` (no input event), a fuzz conversation counted as
+  a stuck state.
 
 ## Found, not fixed (owners)
 
@@ -135,4 +156,34 @@ flow_qa's own: `tests/unit/test_flow_qa.gd`, `tests/playtest/scenarios/flow_qa_*
 
 ## Verification
 
-TBD
+* `tools/check.sh`: CHECK OK (every script parses).
+* `tools/test.sh` (full suite): **462 run, 0 failed**, no `SCRIPT ERROR`. `test_flow_qa.gd`:
+  13 / 13, the fuzz printing for air / earth / fire / water: longest locking state ACTION
+  0.97 / 0.93 / 0.85 / 1.35 s, longest busy controller 1.95 / 1.42 / 1.18 / 1.37 s, back in
+  control.
+* Regressions fail without their fix: #1 (earth heavy / charge lessons), #3 (Router), #4 (journal
+  of a failed quest after a load), #5 (tutorial question) were run against the unfixed code;
+  #7 by the same scripted light chain before / after (the kick gust ended 0.53 m out, the
+  lesson stalled; after: 3 / 3); #11 showed its `SCRIPT ERROR` in the unit run before the fix;
+  #6, #8, #9, #10 by construction (no focus neighbours / the running tween wins /
+  `is ChargeAbility` is false for Earth Boulder / "None" is printed).
+* Rendered playtests (llvmpipe, 960×540; phone 1600×720 Mobile renderer), final runs:
+
+| Playtest | Result |
+| --- | --- |
+| `flow_qa_menus` | PASSED (34 checks) |
+| `flow_qa_confirms` | PASSED |
+| `worldscene_tutorial ELEMENT=earth / fire / air / water` | PASSED ×4 (14 / 14 / 16 / 14 lessons) |
+| `flow_qa_journey ELEMENT=water` | PASSED |
+| `flow_qa_journey ELEMENT=air` | PASSED (70 checks) |
+| `flow_qa_journey ELEMENT=earth` | TBD |
+| `flow_qa_journey ELEMENT=fire` | TBD |
+| `flow_qa_travel ELEMENT=fire` (book, settings, ferry, map fast travel) | PASSED |
+| `flow_qa_travel ELEMENT=fire PART=fly` (dragon) | TBD |
+| `flow_qa_travel ELEMENT=air PART=fly` (bison) | TBD |
+| `flow_qa_mobile MOBILE=1 RENDERER=mobile` | PASSED |
+
+Screenshots: `shots/flow_qa/` in the session scratchpad (main menu, phone element select, air
+quest giver, air combat in the world, earth charged boulder in the training yard, the tutorial's
+replace-journey question, the trapped UNSAVED CHANGES focus, the ferry, the dragon flight, the
+phone HUD with the tracker clear of the buttons).
