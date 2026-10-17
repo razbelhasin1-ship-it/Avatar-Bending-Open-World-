@@ -180,6 +180,15 @@ budgets of `SettlementSettings`.
 * Braziers and lanterns built with `BuildingKit.brazier` / `lantern` record LOD0 fire spots, so
   `WorldFires` makes the ones near the player light / douse / relight with bending.
 
+## Wave 4 bug hunt (docs/qa/bughunt_world.md)
+
+* **Farmer Dao could not be found** (quest audit, Lost in the Millet): every Agrarian Zone hamlet
+  put its elder's anchor 3 m off the hamlet centre, where the first farmhouse stands - the NPC
+  spawned inside the house's collision and was pushed out two metres under the ground. The elder
+  now stands 2.5 m in front of the first farmhouse (facing out); `BssFarmland._clear_farmhouses`
+  drops crowd anchors that ended up inside a farmhouse (workers in front of one house falling in
+  the next, the children's spot). `test_bughunt_world.gd::test_no_one_stands_inside_a_farmhouse`.
+
 ## Known issues / next steps
 
 * Door-front anchors (homes, shops, workers at doors) face their building rather than out

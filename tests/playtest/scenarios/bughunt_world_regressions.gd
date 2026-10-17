@@ -1,6 +1,6 @@
 extends RefCounted
 ## bughunt_world: the world fixes played in the REAL world scene with the real player, rendered
-## (docs/qa/bughunt_world.md). PART=canal,gorge (default both).
+## (docs/qa/bughunt_world.md). PART=canal,gorge,tablet,dao (default all).
 ##
 ##   canal  the Water Tribe's ring canal: the player in the water against the 1.8 m wall (+ curb)
 ##          presses jump and climbs out onto the walkway (before the fix a swimmer could only climb
@@ -39,11 +39,15 @@ func run(pt: Playtest) -> void:
 		d.spawn_radius = -1.0
 	var parts := OS.get_environment("PART")
 	if parts == "":
-		parts = "canal,gorge"
+		parts = "canal,gorge,tablet,dao"
 	if "canal" in parts:
 		await _canal()
 	if "gorge" in parts:
 		await _gorge()
+	if "tablet" in parts:
+		await _tablet()
+	if "dao" in parts:
+		await _dao()
 
 
 func _travel(xf: Transform3D) -> bool:
@@ -96,3 +100,60 @@ func _gorge() -> void:
 	await p.wait_game(0.4)
 	p.check(not pl.motor.swimming and pl.global_position.y < POOL.y - 8.0, "walks along the gorge floor (y %.2f)" % pl.global_position.y)
 	await p.screenshot("regress_04_gorge_walked")
+
+
+## The Whistling Caves' tablet lies at the cave mouth on the floor of the Hundred Winds falls pool,
+## 3 m under the surface (the quest audit found no dry spot to read it from): a swimmer above it
+## reads it with interact (the interaction range is horizontal).
+func _tablet() -> void:
+	var q := &"at_whistling_caves"
+	Quests.reset_quest(q)
+	if not p.check(Quests.start(q, {"silent": true}), "Whistling Caves started"):
+		return
+	var poi := WorldData.get_poi(q)
+	var mouth: Vector3 = poi["position"]
+	var tab := mouth + Vector3(2.5, 0, 2.5)
+	var level := WorldData.get_water_height(tab.x, tab.z)
+	if not p.check(await _travel(Transform3D(Basis(), Vector3(tab.x, level + 0.3, tab.z + 3.0))), "travelled to the falls pool"):
+		return
+	await p.wait_game(1.5)
+	var props := w.props_root.get_node_or_null("QuestProps") as QuestProps
+	if props:
+		props.refresh()
+	await p.wait_game(0.5)
+	p.check(pl.motor.swimming, "swimming in the pool over the cave mouth (y %.1f, level %.1f)" % [pl.global_position.y, level])
+	pl.camera_rig.set_yaw(0.0)
+	Input.action_press(&"move_forward")
+	await p.wait_game(0.8)
+	Input.action_release(&"move_forward")
+	await p.wait_game(0.3)
+	await p.screenshot("regress_05_tablet_from_the_surface")
+	await p.tap(&"interact")
+	await p.wait_game(1.0)
+	p.check(QuestProps.is_taken(q, &"tablet", 0) or not Quests.is_objective_active(q, &"tablet"),
+		"the swimmer read the tablet (%.1f m above it, %.1f m away)" % [pl.global_position.y - tab.y, Vector2(pl.global_position.x - tab.x, pl.global_position.z - tab.z).length()])
+	Quests.reset_quest(q)
+
+
+## Farmer Dao (Lost in the Millet) stood inside his farmhouse and was pushed out under the ground;
+## his spot is in front of the house now: he stands on the ground, visible, and talks.
+func _dao() -> void:
+	var xf := NpcRegistry.placement(&"ek_dao")
+	var front := xf.origin + (xf.basis * Vector3.FORWARD) * 2.5
+	front.y = WorldData.get_height(front.x, front.z) + 0.1
+	var to_dao := atan2(-(xf.origin.x - front.x), -(xf.origin.z - front.z))
+	if not p.check(await _travel(Transform3D(Basis(Vector3.UP, to_dao), front)), "travelled to Farmer Dao"):
+		return
+	await p.wait_game(3.0)
+	var npc := NpcRegistry.live_npc(&"ek_dao") as NpcCharacter
+	if not p.check(npc != null, "Farmer Dao is there"):
+		return
+	var g := WorldData.get_height(npc.global_position.x, npc.global_position.z)
+	p.check(absf(npc.global_position.y - g) < 0.5, "standing on the ground (y %.2f, ground %.2f)" % [npc.global_position.y, g])
+	pl.camera_rig.set_yaw(to_dao)
+	await p.wait_game(0.5)
+	await p.screenshot("regress_06_farmer_dao")
+	await p.tap(&"interact")
+	await p.wait_game(1.5)
+	p.check(pl.get_state() == PlayerCharacter.State.INTERACTING, "interact talks to him (%s)" % pl.get_state_name())
+	await p.screenshot("regress_07_farmer_dao_talks")

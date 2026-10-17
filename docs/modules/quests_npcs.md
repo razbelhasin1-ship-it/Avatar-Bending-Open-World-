@@ -504,6 +504,10 @@ plaza on the mobile preset; empty-looking markets (customers added).
   used to leave another unsellable letter / incense in the bag each time, and gathered prop items
   stayed while the props came back. Regression:
   `test_bughunt_world.gd::test_abandoning_a_quest_takes_back_its_handouts`.
+* Picked-up quest props came back after every reload: `QuestProps.is_taken` asks
+  `taken[objective].has(i)` with an int, a save returns the lists as floats and `[1.0].has(1)` is
+  false. `GameState.from_dict` turns `taken` back into ints with the other quest records.
+  Regression: `test_bughunt_world.gd::test_taken_quest_props_stay_taken_after_a_reload`.
 * Checked clean, kept as guards: no dialogue dead ends (every non-chain quest is offered by a
   present NPC's conversation once available, every challenge objective's NPC offers the challenge,
   every NPC an objective needs is present while it is due) - `test_no_dialogue_dead_ends_in_any_quest`.

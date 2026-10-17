@@ -244,6 +244,38 @@ func test_water_tribe_land_gates_are_open() -> void:
 	expect(bad.is_empty(), "both gates can be walked through: %s" % "; ".join(bad))
 
 
+## Found by the quest audit: Farmer Dao (Lost in the Millet) could not be found - every
+## Agrarian Zone hamlet put its elder's anchor 3 m off the hamlet centre, where the first
+## farmhouse is built: the NPC spawned inside the house's collision and was pushed out two metres
+## under the ground. No anchor may stand inside a farmhouse.
+func test_no_one_stands_inside_a_farmhouse() -> void:
+	if not WorldData.has_world_data():
+		return
+	Settlements.reset()
+	var plan := Settlements.plan(&"ba_sing_se")
+	var houses: Array = plan.pieces.filter(func(pc: Dictionary) -> bool: return pc["kind"] == &"farmhouse")
+	expect(houses.size() > 10, "the Agrarian Zone's farmhouses (%d)" % houses.size())
+	var inside: Array[String] = []
+	for a: Dictionary in plan.anchors:
+		var p: Vector3 = a["position"]
+		for h: Dictionary in houses:
+			var hp: Vector3 = h["pos"]
+			if Vector2(hp.x, hp.z).distance_to(Vector2(p.x, p.z)) > 16.0:
+				continue
+			var fp := EkHomes.footprint(&"farmhouse", int(h["spec"].get("v", 0)))
+			var lp := Transform3D(Basis(Vector3.UP, float(h["yaw"])), hp).affine_inverse() * p
+			if absf(lp.x) < fp.x * 0.5 - 0.3 and absf(lp.z) < fp.y * 0.5 - 0.3 and inside.size() < 6:
+				inside.append("%s %s at (%.0f, %.0f)" % [a["kind"], str(a.get("tags", [])), p.x, p.z])
+	expect(inside.is_empty(), "no anchor inside a farmhouse: %s" % "; ".join(inside))
+	var elders := 0
+	for a: Dictionary in plan.anchors:
+		if a["kind"] == &"quest_giver" and (a.get("tags", []) as Array).has("farm_elder"):
+			elders += 1
+			var p: Vector3 = a["position"]
+			expect(absf(p.y - WorldData.get_height(p.x, p.z)) < 0.3, "farm elder %d on the ground (%.2f vs %.2f)" % [elders, p.y, WorldData.get_height(p.x, p.z)])
+	expect(elders >= 3, "Farmer Dao's anchor (the third farm elder) exists (%d)" % elders)
+
+
 # --- content streaming pools --------------------------------------------------------------------------
 
 ## A few instanced boxes per 32 m cell (a stand-in for vegetation / settlement multimeshes).

@@ -128,7 +128,7 @@ otherwise wait forever.
 * **GameState** — element, level/xp/skill points, unlocked/equipped abilities, inventory,
   quests, flags, discovered POIs, companion, player transform; `to_dict()/from_dict()`.
   JSON has one number type: `from_dict` turns whole numbers in the integer records
-  (inventory, stats, practice, quest stage / log / objective progress, companion bond) back
+  (inventory, stats, practice, quest stage / log / objective progress / taken props, companion bond) back
   into ints; free-form `world_flags` keep what JSON gives (read them with `int()` / `float()`).
 * **SaveSystem** — atomic JSON slots in `user://saves`; calls `write_save_state()` on group
   `&"persist"` before saving; `save_game/load_game/has_save/latest_slot/get_save_info`. A write is

@@ -40,6 +40,33 @@ func build() -> void:
 	_hamlets()
 	_windmills()
 	_field_dressing()
+	_clear_farmhouses()
+
+
+## Crowd anchors that ended up inside a farmhouse (a worker's spot in front of one house falls in
+## the next one, the children's spot near the hamlet centre) are dropped: an NPC spawned there is
+## pushed out of the walls under the ground (wave 4 bug hunt).
+func _clear_farmhouses() -> void:
+	var houses: Array[Dictionary] = []
+	for pc: Dictionary in plan.pieces:
+		if pc["kind"] == &"farmhouse":
+			houses.append(pc)
+	var keep: Array[Dictionary] = []
+	for a: Dictionary in plan.anchors:
+		var p: Vector3 = a["position"]
+		var inside := false
+		for h: Dictionary in houses:
+			var hp: Vector3 = h["pos"]
+			if Vector2(hp.x - p.x, hp.z - p.z).length() > 16.0:
+				continue
+			var fp := EkHomes.footprint(&"farmhouse", int((h["spec"] as Dictionary).get("v", 0)))
+			var lp := Transform3D(Basis(Vector3.UP, float(h["yaw"])), hp).affine_inverse() * p
+			if absf(lp.x) < fp.x * 0.5 and absf(lp.z) < fp.y * 0.5:
+				inside = true
+				break
+		if not inside or a["kind"] == &"quest_giver":
+			keep.append(a)
+	plan.anchors = keep
 
 
 func in_lake(x: float, z: float, margin: float) -> bool:
@@ -174,6 +201,11 @@ func _hamlet(c: Vector2, idx: int) -> void:
 	var face := PI + hrng.randf_range(-0.35, 0.35)       # farmhouses face south
 	var placed := 0
 	var plants: Array = []
+	# where the hamlet's elder stands: in front of the first farmhouse (it is built on the hamlet
+	# centre, where the elder stood before - inside it: Farmer Dao was pushed out of its walls
+	# two metres under the ground, unseen, wave 4 bug hunt)
+	var elder := Vector3(c.x + 3.0, P.ground(c.x + 3.0, c.y - 3.0), c.y - 3.0)
+	var elder_yaw := face
 	for k in n:
 		var a := TAU * k / n + hrng.randf() * 0.6
 		var rr := 0.0 if k == 0 else hrng.randf_range(20.0, 26.0)
@@ -190,6 +222,10 @@ func _hamlet(c: Vector2, idx: int) -> void:
 		plan.anchor(&"home", SettlementLayout.world(pos, yaw, Vector3(-fp.x * 0.15, 0, -fp.y * 0.5 - 1.0)), yaw + PI, {"tags": ["farm", "agrarian"],
 			"building": &"farmhouse", "capacity": 3 + v % 3})
 		plan.anchor(&"worker", SettlementLayout.world(pos, yaw, Vector3(fp.x * 0.3, 0, -fp.y * 0.5 - 5.0)), yaw, {"tags": ["farmer", "field"]})
+		if placed == 0:
+			elder = SettlementLayout.world(pos, yaw, Vector3(fp.x * 0.3, 0, -fp.y * 0.5 - 2.5))
+			elder.y = P.ground(elder.x, elder.z)
+			elder_yaw = yaw
 		# trees behind the house
 		for t in 2:
 			plants.append([&"oak" if (t + v) % 3 != 0 else &"maple", SettlementLayout.world(pos, yaw, Vector3((t - 0.5) * fp.x * 0.8, 0, fp.y * 0.5 + 3.5)),
@@ -211,7 +247,7 @@ func _hamlet(c: Vector2, idx: int) -> void:
 	if plants.size() > 0:
 		plan.add(&"orchard", Vector3(c.x, P.ground(c.x, c.y), c.y), 0.0, {"plants": plants}, 0, "", 20.0)
 	if idx % 4 == 0:
-		plan.anchor(&"quest_giver", Vector3(c.x, P.ground(c.x, c.y), c.y) + Vector3(3.0, 0, -3.0), face, {"tags": ["farm_elder", "agrarian"]})
+		plan.anchor(&"quest_giver", elder, elder_yaw, {"tags": ["farm_elder", "agrarian"]})
 	if idx % 3 == 1:
 		plan.anchor(&"child_play", Vector3(c.x, P.ground(c.x, c.y), c.y) + Vector3(-5.0, 0, -8.0), 0.0, {"tags": ["farm"]})
 	plan.add_district(StringName("bss_hamlet_%d" % idx), "Farmstead", Vector3(c.x, P.ground(c.x, c.y), c.y), 40.0)
