@@ -4,6 +4,9 @@ extends BendingAbility
 ## aim (earth_hold) and charges it bigger; releasing (or a tap) hurls it with
 ## earth_throw: heavy impact, knockdown, splash damage around the impact.
 ## Poise armor through the whole move (Earth heavies are hard to interrupt).
+## The boulder is the ground it came from (granite, sandstone, basalt ...);
+## striking the ground it cracks a crater and shakes the camera. Needs earth:
+## refused on ice, wood or deep water.
 
 enum Phase { LIFT, HOLD, THROW }
 
@@ -14,15 +17,26 @@ var _riser: EarthCommon.RockRiser = null
 var _radius := 0.55
 var _thrown := false
 var _charge_spent := 0.0
+var _info: Dictionary = {}
+
+
+func can_use() -> StringName:
+	EarthCommon.prepare()
+	_info = EarthEnv.material_at(ctx, ctx.origin() + ctx.forward() * 1.2)
+	if not bool(_info["ok"]):
+		return EarthEnv.refuse(ctx, def.id, _info)
+	return &""
 
 
 func begin() -> void:
 	ctx.move_mode = BendingContext.Move.BRAKE
 	ctx.brake_rate = 30.0
-	ctx.poise_armor = def.poise_armor
+	ctx.poise_armor = maxf(ctx.base_poise_armor, def.poise_armor)
 	ctx.face_dir = ctx.aim_flat()
 	ctx.face_rate = 720.0
-	_radius = float(param("radius", 0.55))
+	if _info.is_empty():
+		_info = EarthEnv.material_at(ctx, ctx.origin() + ctx.forward() * 1.2)
+	_radius = float(param("radius", 0.55)) * lerpf(1.0, EarthEnv.power(_info), 0.5)
 	play_clip(param("lift_clip", &"earth_raise"), {"speed": float(param("lift_speed", 1.3)), "blend_in": 0.06})
 	max_time = def.max_hold + 4.0
 
@@ -37,11 +51,12 @@ func on_event(event: StringName) -> void:
 			if event == &"stomp":
 				var g := ctx.ground_point(ctx.origin() + ctx.forward() * 1.2)
 				var rise := maxf(time_to_event(&"release"), 0.1)
-				_riser = EarthCommon.rise_rock(ctx, g, _hover_point(), _radius, rise)
+				_riser = EarthCommon.rise_rock(ctx, g, _hover_point(), _radius, rise, _info.get("kind", &"dirt"))
 				_riser.follow = _hover_point
+				EarthFx.quake(ctx.caster, g, 1.4, _info.get("kind", &"dirt"))
 				sound(&"stomp", g)
-				if ctx.is_player():
-					BendingFeedback.shake(0.2, 0.15)
+				EarthEnv.shake(ctx, g, 0.22, 0.15)
+				EarthEnv.note_weak(ctx, _info)
 			elif event == &"release":
 				phase = Phase.HOLD
 				hold_t = 0.0
@@ -93,19 +108,20 @@ func _throw() -> void:
 		if rock.global_position.distance_to(from) < 0.6:
 			from = rock.global_position
 	else:
-		rock = EarthFx.rock(ctx.caster, _radius)
+		rock = EarthEnv.rock(ctx.caster, _radius, _info.get("kind", &"dirt"))
 	_riser = null
 	from += ctx.forward() * 0.4
 	var dir := ctx.aim_dir_from(from, speed, 0.7)
-	var h := hit_data({"damage": float(def.hit.get("damage", 26.0)) + 14.0 * charge, "force": 9.0 + 4.0 * charge})
+	var h := EarthEnv.scaled_hit(hit_data({"damage": float(def.hit.get("damage", 26.0)) + 14.0 * charge, "force": 9.0 + 4.0 * charge}), _info)
 	var splash := float(param("splash", 2.2)) * (1.0 + charge * 0.4)
-	EarthCommon.launch(self, rock, from, dir, speed, _radius, h, {"range": 32.0, "gravity": 5.0, "splash": splash,
-			"splash_hit": {"damage": 10.0 + 8.0 * charge, "reaction": HitInfo.Reaction.STAGGER, "force": 6.0, "stun": 0.5, "poise": 25.0, "heavy": true}})
+	EarthCommon.launch(self, rock, from, dir, speed, _radius, h, {"range": 32.0, "gravity": 5.0, "splash": splash, "kind": _info.get("kind", &"dirt"),
+			"crater": true, "splash_hit": EarthEnv.scaled_hit({"damage": 10.0 + 8.0 * charge, "reaction": HitInfo.Reaction.STAGGER, "force": 6.0,
+			"stun": 0.5, "poise": 25.0, "heavy": true}, _info)})
 	sound(&"cast_heavy", from, 2.0)
 	sound(&"launch", from)
 	BendingFeedback.impulse(dir, 0.25)
-	if ctx.is_player():
-		BendingFeedback.shake(0.25 + charge * 0.15, 0.2)
+	EarthEnv.shake(ctx, from, 0.25 + charge * 0.15, 0.2)
+	EarthEnv.practiced(ctx, def.id)
 
 
 func _drop() -> void:

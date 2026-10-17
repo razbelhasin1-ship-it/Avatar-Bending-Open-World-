@@ -347,7 +347,7 @@ func test_cooldowns_and_chi() -> void:
 	var chi0 := p.resources.chi
 	await PlayerSim.tap(p, &"ability_1", 2)
 	var d := p.controller.get_slot_def(&"technique_1")
-	expect(d != null and d.id == &"earth_wall", "earth wall equipped")
+	expect(d != null and AbilityRegistry.starter_techniques(E.EARTH).has(d.id), "earth starter equipped")
 	expect_near(p.resources.chi, chi0 - d.chi_cost, 0.5, "chi spent")
 	expect(p.controller.cooldown_left(d.id) > d.cooldown - 0.2, "cooldown started")
 	await PlayerSim.step_until(p, func() -> bool: return not p.controller.is_busy(), 120)

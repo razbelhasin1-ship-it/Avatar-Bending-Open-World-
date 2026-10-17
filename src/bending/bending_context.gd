@@ -52,6 +52,10 @@ var invulnerable := false
 var damage_reduction := 0.0
 ## Set while delivering parry counters: those hits grant no extra Focus.
 var no_focus := false
+## Persistent modifiers of a toggled state (Earth Armor): reset_request() restores
+## these instead of zero, so they survive abilities starting and ending.
+var base_damage_reduction := 0.0
+var base_poise_armor := 0.0
 
 
 func _init(p_caster: Node3D = null, p_rig: HumanoidRig = null, p_element: int = ElementDefs.Element.NONE, p_team: int = Combat.Team.PLAYER) -> void:
@@ -70,9 +74,9 @@ func reset_request() -> void:
 	gravity_scale = 1.0
 	face_dir = Vector3.ZERO
 	face_rate = 1440.0
-	poise_armor = 0.0
+	poise_armor = base_poise_armor
 	invulnerable = false
-	damage_reduction = 0.0
+	damage_reduction = base_damage_reduction
 
 
 func is_valid() -> bool:
