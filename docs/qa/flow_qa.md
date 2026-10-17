@@ -68,7 +68,7 @@ folder; the best shots are listed at the end). "Journey" = `flow_qa_journey ELEM
 | Opening quest giver → first objective, every element | PASS | Journey: Anaaya (water) / Lin (earth) / Kaida (fire) / Pasang (air) stand by the spawn; `interact` opens the conversation, the lines advance by key, the opening quest's first objective completes (stage 0 → 1), control comes back (`*_03b_quest_giver.png`, `*_03c_objective.png`) |
 | Fast travel from the map | PASS | `flow_qa_travel` + `flow_qa_confirms`: M opens the map, the reticle (pad / keys) rests on the home city, Enter asks FAST TRAVEL with TRAVEL focused, Enter travels; the book closes, arrival toast, 0.0 m from the travel point |
 | Ferry trip | PASS | `flow_qa_travel ELEMENT=fire`: at Crimson Harbor's landing the ferry prompt shows, the ferry master offers destinations, the ferry casts off, the trip ends on the Full Moon Bay quay with the player in control |
-| Mounting and flying (dragon, bison) | PASS (dragon); bison TBD | `flow_qa_travel PART=fly`, fire: G calls the dragon, it lands beside the player (8 m), F mounts from the prompt, jump takes off, holding jump climbs +29.9 m, descend lands, F dismounts, the player walks on (`travel_12_flying.png`, `travel_13_landed.png`) |
+| Mounting and flying (dragon, bison) | PASS | `flow_qa_travel PART=fly`: G calls the flyer, it lands beside the player (dragon 8.0 m, bison 8.7 m), F mounts from the prompt, jump takes off, holding jump climbs (+29.8 / +22.9 m), descend + steering bring it down on flat ground (the bison back on the Air Temple terrace, 7 m from the take-off point), F dismounts, the player walks on (`travel_12_flying.png`, `travel_13_landed.png`). Over steep ground a flyer refuses to land ("Can't land here") and pushing the stick behind it brakes instead of turning — by design in `companion_ride.gd`, noted for the companions owner |
 | Journey Book open / close | PASS | K opens skills (pauses), J journal, M map, Esc closes and resumes; movement answers after |
 | Pause → settings → back | PASS (bug #6 fixed) | Back with a change asks UNSAVED CHANGES, right cycles APPLY → DISCARD → KEEP EDITING inside the dialog, DISCARD restores; back on the pause menu, RESUME, movement answers |
 | Phone pass (`MOBILE=1 RENDERER=mobile`, 1600×720, water) | PASS (bug #8 fixed) | Touch only: tap ENTER THE WORLD, tap the card, tap BEGIN, tap to skip the arrival, the stick runs 11 m, a drag turns the camera, Strike / first technique by tap, top-bar pause → RESUME → the stick still drives → pause → RETURN TO MAIN MENU → the menu answers taps; mobile preset, 32 s load on llvmpipe |
@@ -83,7 +83,7 @@ bandit → companion follow → (water: footprints) → save → menu → CONTIN
 | --- | --- | --- | --- | --- | --- |
 | Water | `water_tribe`, polar bear dog, *Born of the Tide* (Anaaya, stage 0 → 1) | Water Whip 3 hits / 33 dmg; Water Blast hit (push); Ice Shards 2 hits; Ice Wall wall + hit; Water Surge hit (push) | defeated (killed) in 12 s, +22 XP | all fields equal, one of each, moves + bends | all 14 lessons |
 | Earth | `earth_kingdom`, badgermole, *Stone Beneath the Sky* (Lin) | Earth Punch 4 hits / 46 dmg; Earth Boulder dodged by the bandit (enemies now read the earth heavy, #9); Earth Pillar pillar + launch 14 dmg; Earth Stomp TBD; Earth Wall wall | defeated (killed) in 10 s, +22 XP | all fields equal, one of each, moves + bends | all 14 lessons (was: heavy + charge never completed, #1) |
-| Fire | `fire_nation`, dragon, *A Spark Returns* (Kaida) | Fire Jabs 3 hits / 25 dmg; Fire Blast hit 17; Fire Burst hit 18; Flame Sweep hit | 95 → 9 in the slot pass, defeated (killed) 2 s later, +22 XP | all fields equal, one of each, bends; walk: TBD | all 14 lessons |
+| Fire | `fire_nation`, dragon, *A Spark Returns* (Kaida) | Fire Jabs 3 hits / 25 dmg; Fire Blast hit 17; Fire Burst hit 18; Flame Sweep hit 22 | 95 → 7 in the slot pass, defeated (killed) 2 s later, +22 XP | all fields equal, one of each, walks 6.2 m + bends | all 14 lessons |
 | Air | `air_temple`, sky bison, *The First Breath* (Pasang) | Air Combo 3 hits / 26 dmg (1 hit before #7); Air Blast hit 14; Air Push hit 8; Air Sweep hit 14 | defeated (fled) in 10 s, +11 XP | all fields equal, one of each, walks 6.9 m + bends | all 16 lessons (was: Strike Combo never completed, #7) |
 
 ## Log scan
@@ -177,13 +177,13 @@ flow_qa's own: `tests/unit/test_flow_qa.gd`, `tests/playtest/scenarios/flow_qa_*
 | `flow_qa_journey ELEMENT=water` | PASSED |
 | `flow_qa_journey ELEMENT=air` | PASSED (70 checks) |
 | `flow_qa_journey ELEMENT=earth` | TBD |
-| `flow_qa_journey ELEMENT=fire` | TBD |
+| `flow_qa_journey ELEMENT=fire` | PASSED (70 checks) |
 | `flow_qa_travel ELEMENT=fire` (book, settings, ferry, map fast travel) | PASSED |
-| `flow_qa_travel ELEMENT=fire PART=fly` (dragon) | TBD |
-| `flow_qa_travel ELEMENT=air PART=fly` (bison) | TBD |
+| `flow_qa_travel ELEMENT=fire PART=fly` (dragon) | PASSED |
+| `flow_qa_travel ELEMENT=air PART=fly` (bison) | PASSED |
 | `flow_qa_mobile MOBILE=1 RENDERER=mobile` | PASSED |
 
-Screenshots: `shots/flow_qa/` in the session scratchpad (main menu, phone element select, air
-quest giver, air combat in the world, earth charged boulder in the training yard, the tutorial's
-replace-journey question, the trapped UNSAVED CHANGES focus, the ferry, the dragon flight, the
-phone HUD with the tracker clear of the buttons).
+Screenshots: `shots/flow_qa/` in the session scratchpad (main menu, the bison over the cloud
+sea, air quest giver, air combat in the world, earth charged boulder in the training yard, the
+tutorial's replace-journey question, the trapped UNSAVED CHANGES focus, the ferry, the dragon
+flight, the phone HUD with the tracker clear of the buttons).
