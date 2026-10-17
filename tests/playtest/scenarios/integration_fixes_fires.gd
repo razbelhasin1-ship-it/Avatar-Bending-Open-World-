@@ -90,7 +90,7 @@ func _levelup() -> void:
 	await p.screenshot("integration_fixes_levelup_banner")
 	await p.wait_game(5.0)
 	# A quest technique reward goes into the next free slot and the HUD shows it at once.
-	var got := QuestRewards.unlock_first([&"water_surge", &"ice_wall", &"healing_waters"], "test")
+	var got := QuestRewards.unlock_first([&"water_surge", &"ice_wall", &"healing_waters"], "Born of the Tide")
 	await p.wait_game(0.3)
 	var slot4 := StringName(pl.get_ability_slot_info(3).get("id", &""))
 	p.check(got == &"healing_waters" and slot4 == &"healing_waters", "reward %s on slot 4 (%s)" % [got, slot4])
