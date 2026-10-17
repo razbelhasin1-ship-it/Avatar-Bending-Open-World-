@@ -46,6 +46,7 @@ func build_cell(cell: ContentCell) -> void:
 	var g0x := int(floor(cell.rect.position.x / VegetationScatter.GRID))
 	var g0z := int(floor(cell.rect.position.y / VegetationScatter.GRID))
 	var far_cfg := cfg.duplicate()
+	var keep := float(cfg.get("far_density", 1.0))
 	for bj in blocks:
 		for bi in blocks:
 			var cx := cell.rect.position.x + (bi + 0.5) * BLOCK
@@ -57,6 +58,9 @@ func build_cell(cell: ContentCell) -> void:
 					var gx := g0x + bi * per_block + i
 					var gz := g0z + bj * per_block + j
 					if not VegetationScatter.far_keeps(gx, gz):
+						continue
+					# phones thin the impostor forests further (VegetationSettings far_density)
+					if keep < 1.0 and ContentHash.unit2(211, gx, gz) >= keep:
 						continue
 					for it: VegetationScatter.Item in VegetationScatter.evaluate(gx, gz, far_cfg, cell.exclusions, 1):
 						if not VegetationLibrary.SPECIES[it.species].get("far", false):

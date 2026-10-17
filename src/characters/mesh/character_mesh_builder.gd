@@ -35,6 +35,21 @@ static func cache_size() -> int:
 	return _cache.size()
 
 
+## The same mesh with automatic LOD index buffers (meshoptimizer through ImporterMesh): the
+## renderer draws distant characters with 1/2 .. 1/100 of the triangles, picked per instance by
+## screen-space error (Viewport.mesh_lod_threshold: 4 px on phones, 1 px on High). Vertex arrays,
+## skinning and materials are unchanged (perf_polish; ~25 ms once per cached variant).
+static func with_lods(mesh: ArrayMesh) -> ArrayMesh:
+	if mesh == null or mesh.get_surface_count() == 0:
+		return mesh
+	var im := ImporterMesh.new()
+	for s in mesh.get_surface_count():
+		im.add_surface(Mesh.PRIMITIVE_TRIANGLES, mesh.surface_get_arrays(s), [], {}, mesh.surface_get_material(s))
+	im.generate_lods(25.0, 60.0, [])
+	var out := im.get_mesh()
+	return out if out != null and out.get_surface_count() == mesh.get_surface_count() else mesh
+
+
 ## Builds (or fetches from cache) the character for a resolved spec.
 static func build(spec: Dictionary) -> Dictionary:
 	var key: String = spec.get("cache_key", "")
@@ -70,6 +85,7 @@ static func build(spec: Dictionary) -> Dictionary:
 	var mesh := ArrayMesh.new()
 	outl.commit(mesh, body_material())
 	flat.commit(mesh, flat_material())
+	mesh = with_lods(mesh)
 	var result := {"def": d, "mesh": mesh, "springs": springs, "vertex_count": outl.vertex_count() + flat.vertex_count()}
 	if key != "":
 		_cache[key] = result

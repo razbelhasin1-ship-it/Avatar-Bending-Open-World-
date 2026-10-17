@@ -7,6 +7,7 @@ extends RefCounted
 ## | tree_range     | 72  | 132 | 210 | 330 | full trees end, far impostors begin (0.6 x Settings.vegetation_distance_m) |
 ## | tree_lod0      | 32  | 45  | 60  | 90  | LOD0 (+ ink outline) -> LOD1 (by detail level) |
 ## | far_range      | 450 | 780 | 1200 | 1600 | impostor forests end (0.3 x view distance) |
+## | far_density    | 0.55| 1.0 | 1.0 | 1.0 | share of the far impostors kept (perf_polish, phones) |
 ## | small_range    | 60  | 110 | 175 | 275 | shrubs, rocks, logs end (0.5 x vegetation distance) |
 ## | grass_range    | 30  | 45  | 60  | 85  | ground cover end (by vegetation level) |
 ## | shadow_range   | 40  | 70  | 110 | 160 | vegetation casts shadows within (and Settings shadows on) |
@@ -32,6 +33,9 @@ static func current() -> Dictionary:
 		"small_density": dens,
 		"grass_density": dens,
 		"shadows": int(Settings.get_value("graphics", "shadows")) > 0,
+		# Share of the far impostor trees kept (perf_polish: phones keep 55 %; the impostor
+		# forests were up to a third of the primitives at the Ba Sing Se spawn).
+		"far_density": 0.55 if veg == 0 else 1.0,
 	}
 
 

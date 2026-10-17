@@ -109,9 +109,13 @@ func color(role: StringName) -> Color:
 
 ## Shared material of a kit slot: &"solid" (toon + ink outline), &"glow" (emissive, brighter at
 ## night), &"cloth" (two-sided, wind), &"ice" (glossy toon). Main thread only (first call).
-static func material(slot: StringName) -> Material:
-	if _materials.has(slot):
-		return _materials[slot]
+## `outline` false gives the same look without the ink outline pass (perf_polish): the outline
+## shader fades to nothing by 60 m, but its inverted-hull pass still draws (and shadows) every
+## triangle again, so distant LODs (settlement LOD1 / silhouettes) use this variant.
+static func material(slot: StringName, outline: bool = true) -> Material:
+	var key := slot if outline or slot == &"glow" or slot == &"cloth" else StringName(String(slot) + "|flat")
+	if _materials.has(key):
+		return _materials[key]
 	WorldShaderGlobals.ensure()
 	var m: Material
 	match slot:
@@ -124,11 +128,13 @@ static func material(slot: StringName) -> Material:
 			c.shader = CLOTH_SHADER
 			m = c
 		&"ice":
-			m = ToonMaterials.make(Color.WHITE, {"vertex_color": true, "outline": true, "outline_width": 0.9, "rim": 0.7,
+			m = ToonMaterials.make(Color.WHITE, {"vertex_color": true, "outline": outline, "outline_width": 0.9, "rim": 0.7,
 				"specular": 0.6, "shade_tint": Color(0.55, 0.72, 1.0)})
 		_:
-			m = ToonMaterials.make(Color.WHITE, SOLID_SHADER_OPTS)
-	_materials[slot] = m
+			var opts := SOLID_SHADER_OPTS.duplicate()
+			opts["outline"] = outline
+			m = ToonMaterials.make(Color.WHITE, opts)
+	_materials[key] = m
 	return m
 
 
@@ -136,3 +142,4 @@ static func material(slot: StringName) -> Material:
 static func prepare_materials() -> void:
 	for s: StringName in [&"solid", &"glow", &"cloth", &"ice"]:
 		material(s)
+		material(s, false)

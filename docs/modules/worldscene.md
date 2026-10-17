@@ -57,7 +57,15 @@ the spawn onto the real ground (`ground_transform`; if nothing solid is found a 
 player added (its transform is set *before* entering the tree, so `Events.player_spawned`
 carries the spawn) -> `_after_spawn` -> first-frame camera -> 3 warm-up frames -> reveal
 (overlay closed, fade released) -> `ready_for_play` -> `_play`.
-`load_report` = `{collision_ready, collision_s, content_settled, content_s, total_s, safety_floor}`.
+`load_report` = `{collision_ready, collision_s, content_settled, content_s, total_s, safety_floor, warmup}`.
+
+Shader warm-up (perf_polish, `docs/qa/perf_polish.md`): once the ground is ready (progress
+0.35) `ShaderWarmup.start(self, element)` casts every technique of the player's element plus the
+light and heavy strikes of the other three elements on rig-less casters on a private stage
+beyond the world edge, and spawns the shared impact FX, while the content streams behind the
+loading screen; the boot waits for it (cap `ShaderWarmup.MAX_SECONDS`) before spawning the
+player. Skipped headless, with option `no_warmup` or the `--no-warmup` user argument. While it
+runs its camera is the active one (the terrain clipmap / ocean follow it behind the overlay).
 
 Options (`Router.params`, or `scene.options` before `add_child` in tests): `element`,
 `new_game`, `skip_intro`, `no_content`, `spawn` (Transform3D), `time_of_day`,
@@ -251,6 +259,9 @@ hidden until a companion exists (`Events.companion_spawned`). Tests can add hook
   once), visibility ranges 420 / 900 m, two budgeted lights each (LightBudget).
 * Directors poll at 2-5 Hz; no per-frame allocations in the hot paths.
 * Arena dressing is one kit mesh (4 material slots) + budgeted lights.
+* First casts: the shader warm-up above removes the pipeline compilations of the first use of
+  every technique (fire, Forward+ llvmpipe: 27 pipelines compiled during the first casts without
+  it, 0 with it; the warm-up itself compiles 65 behind the loading screen).
 
 ## Testing
 

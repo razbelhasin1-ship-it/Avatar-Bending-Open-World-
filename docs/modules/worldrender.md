@@ -173,7 +173,8 @@ headless runs) the shader differences the heightmap per pixel — same result, m
 ## Water (`WaterSystem`, `water.gdshader`)
 
 * **Ocean**: one radial disc mesh (1.2 m rings near the centre growing ×1.075 to 30 km, 96
-  segments, ~21k triangles, one draw call) following the camera. Vertex: 4 Gerstner waves along
+  segments, ~21k triangles, one draw call; 64 segments / ~15k on phones — `detail_level() == 0`,
+  perf_polish) following the camera. Vertex: 4 Gerstner waves along
   the wind (`water_common.gdshaderinc`), faded with distance and in the shallows. Fragment:
   water column from the heightmap (and the scene depth for objects standing in water), depth
   colour, refraction of the bed, fresnel reflection of the current sky colours, sharp sun

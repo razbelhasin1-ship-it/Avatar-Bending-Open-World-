@@ -37,6 +37,18 @@ uniform float mark_soft : hint_range(0.0, 0.05) = 0.004;
 instance uniform vec4 status_color : source_color, instance_index(0) = vec4(0.6, 0.85, 1.0, 1.0);
 instance uniform float status_amount : hint_range(0.0, 1.0), instance_index(1) = 0.0;
 instance uniform float hit_flash : hint_range(0.0, 1.0), instance_index(2) = 0.0;
+// Screen-door fade while the creature stands between the camera and the player (perf_polish
+// OccluderFader): 0 = solid (the default, never set otherwise), 1 = gone.
+instance uniform float occlusion_fade : hint_range(0.0, 1.0), instance_index(3) = 0.0;
+
+float creature_bayer4(vec2 fc) {
+	int i = (int(mod(fc.y, 4.0)) * 4) + int(mod(fc.x, 4.0));
+	const float m[16] = float[16](0.0, 8.0, 2.0, 10.0, 12.0, 4.0, 14.0, 6.0, 3.0, 11.0, 1.0, 9.0, 15.0, 7.0, 13.0, 5.0);
+	return (m[i] + 0.5) / 16.0;
+}
+
+// First statement of a fragment(): drops the faded share of the pixels.
+#define CREATURE_OCCLUSION_DISCARD if (occlusion_fade > 0.001 && creature_bayer4(FRAGCOORD.xy) < occlusion_fade) { discard; }
 
 // Returns the band masks (dorsal, ventral, lateral) at a UV.
 vec3 creature_mark_mask(vec2 uv) {
