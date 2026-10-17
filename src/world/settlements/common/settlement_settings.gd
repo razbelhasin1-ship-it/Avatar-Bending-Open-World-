@@ -15,6 +15,7 @@ extends RefCounted
 ## | lod0_tight       | yes  | no     | no   | no    | LOD0 ends at the cell half diagonal + 6 m (96.5 m / 74 m)   |
 ## | quad_lod0        | yes  | no     | no   | no    | LOD0 as 4 quadrants: full detail within 52 m, kit LOD 1 beyond |
 ## | mesh_lods        | yes  | no     | no   | no    | automatic mesh LODs (MeshLods) on every settlement mesh      |
+## | fade_margin      | 0    | 12     | 12   | 12    | m each side of a LOD hand-over cross-faded (fade self)       |
 ## LOD1 and LOD2 never draw the ink outline pass (it fades out by 60 m: invisible, but it doubled
 ## their triangles and draw calls), see docs/qa/perf_polish.md.
 
@@ -61,6 +62,10 @@ static func current() -> Dictionary:
 		# Phones: automatic LOD index buffers on the settlement meshes (MeshLods, built on the
 		# workers): the renderer picks coarser versions by screen-space error (4 px on phones).
 		"mesh_lods": detail == 0,
+		# Cross-fade band (m, each side) of the LOD0 -> LOD1 -> silhouette hand-overs: the engine's
+		# visibility-range fade (GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF) instead of a pop.
+		# Desktop only: in the band both LODs draw, blended, which phones should not pay for.
+		"fade_margin": 0.0 if detail == 0 else 12.0,
 		# Vegetation level: garden plant ranges follow it (cells are rebuilt when it changes).
 		"vegetation": int(Settings.get_value("graphics", "vegetation")),
 	}

@@ -53,9 +53,12 @@ func build_cell(cell: ContentCell) -> void:
 		var r := build_sub(sub, origin, cell.seed)
 		if r.surfaces.is_empty():
 			continue
-		# no ink outline pass (it fades out by 60 m; LOD2 starts at >= 300 m), perf_polish
+		# no ink outline pass (it fades out by 60 m; LOD2 starts at >= 300 m); desktop cross-fades
+		# with the near provider's LOD1 (same AABB, same margin) and dissolves at the far end
+		var fm := float(cfg.get("fade_margin", 0.0))
 		r.add_to_payload(p, Transform3D.IDENTITY, {"vis_begin": float(cfg["lod1_end"]), "vis_end": float(cfg["far_end"]),
-			"margin": 0.0, "shadow": false, "collision": false, "lights": false,
+			"margin": fm, "fade": GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF if fm > 0.0 else GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED,
+			"shadow": false, "collision": false, "lights": false,
 			"tag": StringName("%s_%d_%d" % [id, sub.x, sub.y]), "outline": false, "lods": bool(cfg.get("mesh_lods", false))})
 	cell.payload = p
 

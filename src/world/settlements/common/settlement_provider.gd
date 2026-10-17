@@ -93,8 +93,14 @@ func build_cell(cell: ContentCell) -> void:
 		var res := build_lods(cell.coord, origin, cell.seed)
 		r0 = res[0]
 		r1 = res[1]
-		r0.add_to_payload(p, Transform3D.IDENTITY, {"vis_end": l0, "margin": 0.0, "shadow": shadows,
+		# Desktop: the hand-overs cross-fade over cfg.fade_margin m each side (engine fade, no
+		# hysteresis with a fade mode, so the margin band never leaves a gap - perf_polish).
+		var fm := float(cfg.get("fade_margin", 0.0))
+		var fade := GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF if fm > 0.0 else GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
+		r0.add_to_payload(p, Transform3D.IDENTITY, {"vis_end": l0, "margin": fm, "fade": fade, "shadow": shadows,
 			"collision": false, "lights": false, "tag": StringName(tag + "_lod0")})
+		lod1_opts["margin"] = fm
+		lod1_opts["fade"] = fade
 		r1.add_to_payload(p, Transform3D.IDENTITY, lod1_opts)
 	p.data["collision"] = {"boxes": r0.boxes, "faces": r0.faces}
 	# night glow sprites sit exactly on the LOD0 lamps and lit windows (light records)

@@ -62,6 +62,8 @@ var occluders: OccluderFader = null
 var lock_side := 0.0
 ## 0..1 how much of the close-quarters framing is applied (smoothed).
 var lock_close := 0.0
+## Close-quarters lock framing on (the perf_polish_camera playtest compares with it off).
+var close_framing := true
 
 var _override: Node3D = null
 var _pivot := Vector3.ZERO
@@ -247,7 +249,7 @@ func _process(delta: float) -> void:
 			# player model seen from straight behind. Swing the view off the axis (to the side the
 			# camera already leans to, kept until the target backs off past 5.5 m: no flip-flop),
 			# pull back and lift a little, and aim between the two, so both stay readable.
-			var close_w := 1.0 - smoothstep(LOCK_CLOSE_NEAR, LOCK_CLOSE_FAR, sep)
+			var close_w := 1.0 - smoothstep(LOCK_CLOSE_NEAR, LOCK_CLOSE_FAR, sep) if close_framing else 0.0
 			if close_w > 0.01 and lock_side == 0.0:
 				lock_side = 1.0 if angle_difference(want_yaw, yaw) >= -0.05 else -1.0
 			elif close_w <= 0.01 and sep > LOCK_CLOSE_FAR + 0.7:

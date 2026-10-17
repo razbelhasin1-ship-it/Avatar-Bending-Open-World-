@@ -147,9 +147,14 @@ func _run() -> void:
 		_step_bodies()
 		if Time.get_ticks_msec() - _t0 > int(MAX_SECONDS * 1000.0):
 			break
-	# Every effect drew at least once; two more rendered frames for the ones spawned last.
+	# Every effect drew at least once; two more rendered frames for the ones spawned last (the
+	# headless server draws nothing and never posts frame_post_draw: forced runs in the tests).
+	var drawn := DisplayServer.get_name() != "headless"
 	for i in 2:
-		await RenderingServer.frame_post_draw
+		if drawn:
+			await RenderingServer.frame_post_draw
+		else:
+			await get_tree().process_frame
 		if not is_inside_tree():
 			return
 	report["abilities"] = entries.size()

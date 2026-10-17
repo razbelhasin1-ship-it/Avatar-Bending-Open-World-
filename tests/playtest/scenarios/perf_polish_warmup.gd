@@ -63,11 +63,13 @@ func run(pt: Playtest) -> void:
 			casts.append(await _cast(d))
 		var worst := 0.0
 		var draw := 0
+		var total := 0
 		for c: Dictionary in casts:
 			worst = maxf(worst, float(c["max_ms"]))
 			draw += int(c["compiles_draw"])
-		p.note("round %d (%s): worst frame %.0f ms, draw-time pipeline compilations %d" % [r + 1, "first casts" if r == 0 else "warm", worst, draw])
-		rounds.append({"casts": casts, "worst_ms": worst, "compiles_draw": draw})
+			total += int(c["compiles"])
+		p.note("round %d (%s): worst frame %.0f ms, pipelines compiled %d (draw-time %d)" % [r + 1, "first casts" if r == 0 else "warm", worst, total, draw])
+		rounds.append({"casts": casts, "worst_ms": worst, "compiles": total, "compiles_draw": draw})
 		if r == 0:
 			await p.screenshot("warmup_%s_%s" % [ElementDefs.id_of(e), "on" if warm else "off"])
 	report["rounds"] = rounds
@@ -79,6 +81,9 @@ func run(pt: Playtest) -> void:
 	if warm:
 		var first: Dictionary = rounds[0]
 		p.check(int(first["compiles_draw"]) <= 2, "after the warm-up the first casts compile (almost) no pipelines at draw time (%d)" % first["compiles_draw"])
+		# with ubershaders the engine never waits at draw time; the specialised pipelines are still
+		# compiled (in the background, and on phones that costs frames): the warm-up must cover them
+		p.check(int(first["compiles"]) <= 3, "after the warm-up the first casts compile (almost) no pipelines at all (%d)" % first["compiles"])
 	rec.queue_free()
 
 
