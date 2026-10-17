@@ -321,9 +321,23 @@ func _fly() -> void:
 	p.note("%s flight: %.0f m from the take-off point, %.0f m above the ground" % [c.species,
 			Vector2(c.global_position.x - take_off.x, c.global_position.z - take_off.z).length(),
 			c.global_position.y - WorldData.get_height(c.global_position.x, c.global_position.z)])
+	# Descend and steer back over the flat take-off ground (a flyer refuses to land on a steep
+	# slope: "Can't land here"); the camera yaw steers like on foot.
 	Input.action_press(&"descend")
-	ok = await _ticks_until(func() -> bool: return c.flight.phase != CompanionFlight.Phase.FLY, 25.0)
+	var t := 0.0
+	while t < 40.0 and c.flight.phase == CompanionFlight.Phase.FLY:
+		var to := Vector2(take_off.x - c.global_position.x, take_off.z - c.global_position.z)
+		if to.length() > 6.0:
+			pl.camera_rig.set_yaw(atan2(-to.x, -to.y))
+			Input.action_press(&"move_forward")
+		else:
+			Input.action_release(&"move_forward")
+		await p.wait_game(0.1)
+		t += 0.1
+	Input.action_release(&"move_forward")
 	Input.action_release(&"descend")
+	p.note("%s descent: %.1f s, %.0f m from the take-off point" % [c.species, t,
+			Vector2(c.global_position.x - take_off.x, c.global_position.z - take_off.z).length()])
 	ok = await _ticks_until(func() -> bool: return c.flight.phase == CompanionFlight.Phase.NONE and not c.is_flying(), 12.0)
 	p.check(ok, "descend lands (%s)" % c.flight.phase_name())
 	await p.wait_game(0.5)
