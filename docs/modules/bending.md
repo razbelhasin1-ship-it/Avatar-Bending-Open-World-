@@ -247,3 +247,12 @@ should be added to `ShaderWarmup._common_fx()`.
   it is not learned; `request(&"signature")` then fails with `&"locked"` (was `&"empty"` with no id).
   `load_equipped()` frees a technique slot holding a signature (older saves: lessons / rewards
   used to auto-equip signatures into technique slots).
+
+## Wave 4 (flow_qa, docs/qa/flow_qa.md)
+
+* `TrainingDummy` readout (`_show`): a damage-only hit (`HitInfo.Reaction.NONE`, e.g. a fire
+  jab's burn chip) shows just the damage. The training grounds' dummies printed "2  None".
+  Regression: `tests/unit/test_flow_qa.gd::test_training_dummy_readout_names_only_real_reactions`.
+* The release contract (`charging`, `released`, `charge`; heavies also `tapped`) is shared by
+  `ChargeAbility`, Earth Boulder and Lightning; the tutorial lessons and the enemy brain read
+  it by duck typing instead of `is ChargeAbility` (docs/modules/bending_earth.md, enemies.md).

@@ -290,6 +290,25 @@ func test_confirm_dialog_traps_focus_on_its_answers() -> void:
 	await frames(1)
 
 
+## The training grounds' dummies named the reaction of a damage-only hit: "2  None".
+func test_training_dummy_readout_names_only_real_reactions() -> void:
+	var d := TrainingDummy.new()
+	add_child(d)
+	await frames(1)
+	var chip := HitInfo.new()
+	chip.damage = 2.0
+	chip.reaction = HitInfo.Reaction.NONE
+	d.receive_hit(chip)
+	expect(d._label.text == "2", "damage-only hit: just the damage ('%s')" % d._label.text)
+	var push := HitInfo.new()
+	push.damage = 9.0
+	push.reaction = HitInfo.Reaction.KNOCKBACK
+	d.receive_hit(push)
+	expect(d._label.text.begins_with("9  Knockback") and d._label.text.contains("x2 combo"), "a real reaction is named ('%s')" % d._label.text.replace("\n", " / "))
+	d.queue_free()
+	await frames(1)
+
+
 ## Enemy AI reads the same release contract as the tutorial: a player charging Earth Boulder
 ## never made a rogue earthbender raise its cover wall (the brain only knew ChargeAbility),
 ## while a charging Fire Blast did.
