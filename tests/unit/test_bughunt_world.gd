@@ -208,6 +208,42 @@ func test_air_temple_stairs_are_not_walled_off() -> void:
 		print("  (narrowed, still passable: %s)" % "; ".join(narrowed))
 
 
+## Found by the walk audit at the Water Tribe's land gates (the ends of the Middle Tier, east and
+## west): the tier's edge parapet (1.3 m, NwtPlanner._edge_radial) ran straight through both
+## gate passages, and outside the east gate a 1.7 m ditch with a bank steeper than a player can
+## climb crossed its outer half. Neither gate could be walked through.
+func test_water_tribe_land_gates_are_open() -> void:
+	if not WorldData.has_world_data():
+		return
+	Settlements.reset()
+	var plan := Settlements.plan(&"northern_water_tribe")
+	var walls: Array = plan.pieces.filter(func(pc: Dictionary) -> bool: return pc["kind"] == &"tier_wall")
+	var bridges: Array = plan.pieces.filter(func(pc: Dictionary) -> bool: return pc["kind"] == &"canal_bridge")
+	var gates: Array = plan.pieces.filter(func(pc: Dictionary) -> bool: return pc["kind"] == &"land_gate")
+	expect_eq(gates.size(), 2, "the east and west land gates")
+	var bad: Array[String] = []
+	for g: Dictionary in gates:
+		var gxf := Transform3D(Basis(Vector3.UP, float(g["yaw"])), g["pos"])
+		var floor_y: float = (g["pos"] as Vector3).y
+		# the passage runs along local Z (-Z = out of the city): from 12 m in to 14 m out
+		for k in 27:
+			var z := 12.0 - k
+			for x: float in [-4.0, 0.0, 4.0]:
+				var p := gxf * Vector3(x, 0, z)
+				for up: float in [0.4, 1.6]:
+					if _in_wall(walls, Vector3(p.x, floor_y + up, p.z)) and bad.size() < 6:
+						bad.append("wall across the %s gate at %.0f m (x %.0f, +%.1f m)" % ["east" if p.x > -300.0 else "west", -z, x, up])
+				var ground := WorldData.get_height(p.x, p.z)
+				var on_bridge := false
+				for b: Dictionary in bridges:
+					var lp := Transform3D(Basis(Vector3.UP, float(b["yaw"])), b["pos"]).affine_inverse() * p
+					var bs: Dictionary = b["spec"]
+					on_bridge = on_bridge or (absf(lp.x) < float(bs.get("width", 5.0)) * 0.5 and absf(lp.z) < (float(bs.get("span", 9.0)) + 4.4) * 0.5)
+				if ground < floor_y - 0.7 and not on_bridge and bad.size() < 6:
+					bad.append("ground %.1f m under the %s gate floor at %.0f m out (x %.0f), no bridge" % [floor_y - ground, "east" if p.x > -300.0 else "west", -z, x])
+	expect(bad.is_empty(), "both gates can be walked through: %s" % "; ".join(bad))
+
+
 # --- content streaming pools --------------------------------------------------------------------------
 
 ## A few instanced boxes per 32 m cell (a stand-in for vegetation / settlement multimeshes).

@@ -102,6 +102,22 @@ func _landmarks() -> void:
 		var y := P.h(&"middle")
 		plan.add(&"land_gate", Vector3(gp.x, y, gp.z), yaw, {"W": 14.0, "h": 10.0, "depth": 10.0}, 2, "land_gate", 20.0)
 		plan.reserve(gp.x, gp.z, 16.0)
+		# a dip in the ground just outside the gate (the east gate: a 1.7 m ditch across its outer
+		# half, its inner bank steeper than a player can climb - nobody walked in, wave 4 bug
+		# hunt): a low bridge from the gate floor over it
+		var dip := 0.0
+		var dip_end := 0.0
+		for t in 17:
+			var q := Vector2(gp.x, gp.z) + tang * float(t)
+			var dh := y - WorldData.get_height(q.x, q.y)
+			dip = maxf(dip, dh)
+			if dh > 0.4:
+				dip_end = float(t)
+		if dip > 0.8:
+			var span := dip_end + 2.0
+			var bc := Vector2(gp.x, gp.z) + tang * (span * 0.5 - 1.0)
+			plan.add(&"canal_bridge", Vector3(bc.x, y, bc.y), yaw, {"span": span, "width": 10.0, "hump": 0.3, "v": 0}, 1, "", span * 0.5 + 2.5)
+			plan.data.get_or_add("gate_bridges", []).append(Vector3(bc.x, y, bc.y))
 		var mt := L.tier(&"middle")
 		var r0 := float(mt["r_inner"]) + 1.0
 		var r1 := float(mt["r_outer"]) - 3.0

@@ -193,6 +193,13 @@ ELEMENT=air tools/playtest.sh settlements_wa_world out 960x540
   `_sample_faces` keeps the default face over the gap (+ the conservative window). Every stair's
   9 m walkway is clear now (`test_bughunt_world.gd::test_air_temple_stairs_are_not_walled_off`,
   all four ramps walked to the sanctum in the audit).
+* **Water Tribe land gates impassable** (walk audit: the real player stopped in both gateways):
+  `NwtPlanner._edge_radial` ran the Middle Tier's 1.3 m edge parapet along the arc-end cut
+  straight through both gatehouse passages; it now leaves the gatehouse's own gap
+  (`GATE_GAP` 16 m either side). Outside the east gate a 1.7 m ditch crosses the passage's
+  outer half with a ~42 degree inner bank: `NwtDistricts` puts a low `canal_bridge` (10 m wide)
+  over any dip > 0.8 m within 16 m outside a gate (`plan.data["gate_bridges"]`). Both gates
+  walked through in the re-run (`test_water_tribe_land_gates_are_open`).
 
 ## Known issues / next steps
 

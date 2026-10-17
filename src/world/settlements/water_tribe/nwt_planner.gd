@@ -13,6 +13,7 @@ const WALL_DEPTH := 5.6       # ... and its body reaches FACE_IN + 3 behind it
 const RAMP_HALF := 7.9        # tier walls stop this far from a ramp axis (stair cheek faces)
 const FALL_HALF := 7.6        # ... and from a canal fall axis
 const MOUTH_HALF := 7.0       # quay wall gap at a harbour canal mouth
+const GATE_GAP := 16.0        # edge walls stop this far (radially) from a land gate (its own walls)
 ## Canal walls stand this far inside the canal edge: the carved bank meets the water ~0.8 m
 ## outside it and coarse terrain LODs would show the slope above the waterline at the wall foot.
 const CANAL_INSET := 0.5
@@ -310,7 +311,32 @@ func _wall_towers(rb: float, b0: float, b1: float, y_low: float, y_top: float) -
 
 ## Edge wall along a radial line at bearing be (tier arc end), from r0 to r1 at tier height y.
 ## The far side (side = +1: larger bearings) is sampled: the wall faces the lower side.
+## Not across a land gate: the gatehouses (NwtDistricts) stand on these cuts, and the low parapet
+## used to run straight through their passage - nobody could walk through the east / west gates
+## (wave 4 bug hunt). The gap matches the gatehouse's own wall gap (+-GATE_GAP).
 func _edge_radial(be: float, side: float, r0: float, r1: float, y: float) -> void:
+	var runs: Array = [[r0, r1]]
+	for g: Dictionary in L.record.get("gates", []):
+		var gp: Vector3 = g["position"]
+		var pr := L.polar(gp.x, gp.z)
+		if absf(RingLayout.bdiff(pr.y, be)) > 2.0:
+			continue
+		var cut: Array = []
+		for run: Array in runs:
+			if float(run[1]) <= pr.x - GATE_GAP or float(run[0]) >= pr.x + GATE_GAP:
+				cut.append(run)
+				continue
+			if pr.x - GATE_GAP > float(run[0]):
+				cut.append([float(run[0]), pr.x - GATE_GAP])
+			if pr.x + GATE_GAP < float(run[1]):
+				cut.append([pr.x + GATE_GAP, float(run[1])])
+		runs = cut
+	for run: Array in runs:
+		if float(run[1]) - float(run[0]) > 1.0:
+			_edge_radial_run(be, side, float(run[0]), float(run[1]), y)
+
+
+func _edge_radial_run(be: float, side: float, r0: float, r1: float, y: float) -> void:
 	var step := WALL_CHORD
 	var n := maxi(int(ceil((r1 - r0) / step)), 1)
 	var tangent := Vector2(cos(deg_to_rad(be)), sin(deg_to_rad(be))) * side
