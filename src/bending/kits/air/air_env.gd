@@ -28,6 +28,7 @@ const WIND_REACTIVE := &"wind_reactive"
 static var extinguished := 0
 static var bodies_pushed := 0
 static var blows := 0
+static var snow_scoured := 0
 
 static var _renderer_ref: WeakRef = null
 static var _last_snow_frame := -100
@@ -202,6 +203,7 @@ static func _scour_snow(from: Node, g: Vector3, power: float, radius: float) -> 
 	var snow: Object = r.get("snow")
 	if snow.has_method("add_crater"):
 		snow.call("add_crater", g, 5.0 + 7.0 * power * clampf(radius / 3.0, 0.5, 1.6), &"snow")
+		snow_scoured += 1
 
 
 static func _ground_y(from: Node, p: Vector3) -> float:

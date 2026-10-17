@@ -34,7 +34,7 @@ func _begin_dive() -> void:
 	charging = false
 	released = true
 	ctx.move_mode = BendingContext.Move.DRIVE
-	ctx.move_velocity = ctx.aim_flat() * 4.0
+	ctx.move_velocity = _dive_steer()
 	ctx.face_dir = ctx.aim_flat()
 	ctx.face_rate = 1200.0
 	ctx.gravity_scale = 0.0
@@ -48,6 +48,23 @@ func _begin_dive() -> void:
 	sound(&"dash", ctx.origin(), 0.0)
 
 
+## Horizontal drift of the dive: homes onto a locked / aimed target within
+## dive_reach m (lands on it), else a slight drift along the aim.
+func _dive_steer() -> Vector3:
+	var flat := ctx.aim_flat() * 4.0
+	var t := ctx.aim_target()
+	if t == null or not is_instance_valid(t):
+		return flat
+	var to := t.global_position - ctx.origin()
+	var h := maxf(-to.y, 0.5)
+	to.y = 0.0
+	if to.length() > float(param("dive_reach", 8.0)):
+		return flat
+	# Arrive with the fall: the remaining fall time at dive speed.
+	var eta := maxf(h / float(param("dive_speed", 24.0)), 0.12)
+	return (to / eta).limit_length(float(param("dive_steer", 16.0)))
+
+
 func _dive_tick(delta: float) -> void:
 	if _landed:
 		if time >= clip_end:
@@ -58,6 +75,7 @@ func _dive_tick(delta: float) -> void:
 		finish()
 		return
 	body.velocity.y = move_toward(body.velocity.y, -float(param("dive_speed", 24.0)), 90.0 * delta)
+	ctx.move_velocity = _dive_steer()
 	var trail := Transform3D(Basis.looking_at(Vector3.UP, Vector3.FORWARD), ctx.origin() + Vector3.UP * 1.2)
 	if int(time * 30.0) % 3 == 0:
 		AirFx.gust(ctx.caster, trail, 2.4, 0.45, 0.2, {"opacity": 0.55, "tail": 0.9})

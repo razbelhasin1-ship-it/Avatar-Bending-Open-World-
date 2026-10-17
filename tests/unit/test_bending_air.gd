@@ -535,6 +535,41 @@ func test_aerial_hang_time_and_gale_drop() -> void:
 	var hits := _hits(d, &"air_blast")
 	expect(hits.size() == 1 and int((hits[0][0] as HitInfo).reaction) == R.KNOCKDOWN, "the slam knocked down the dummy below (%d)" % hits.size())
 	expect(_hits(d2).is_empty(), "out of the slam ring: untouched")
+	# Locked on: the dive homes onto a target out of the ring (5.5 m away).
+	var d3 := _dummy(Vector3(5.5, 0, 0))
+	await _settle()
+	p.teleport(Transform3D(Basis.IDENTITY, Vector3(0, 6, 0)))
+	await PlayerSim.step(p, 2)
+	p.targeting.lock(d3)
+	await PlayerSim.step(p, 1)
+	await PlayerSim.tap(p, &"attack_heavy", 2)
+	await PlayerSim.step_until(p, func() -> bool: return not p.controller.is_busy(), 200)
+	var miss := Vector2(p.global_position.x - 5.5, p.global_position.z).length()
+	expect(miss < 2.5, "the locked dive lands by its target (%.2f m off)" % miss)
+	expect(_hits(d3, &"air_blast").size() == 1, "and slams it")
+
+
+func test_air_enemy_archetype_and_loadout() -> void:
+	EnemyArchetypes.register(&"air_sparring_test", AirKit.enemy_archetype())
+	var a := EnemyArchetypes.get_archetype(&"air_sparring_test")
+	expect_eq(int(a["element"]), E.AIR, "air archetype")
+	var e := EnemyBase.create(&"air_sparring_test", {"seed": 7, "rewards": false})
+	add_child(e)
+	e.global_position = Vector3(0, 0, -6)
+	await _settle()
+	expect(e.controller != null, "bender role: a BendingController")
+	AirKit.equip_enemy(e.controller)
+	for slot: StringName in AirKit.ENEMY_LOADOUT:
+		var d := e.controller.get_slot_def(slot)
+		expect(d != null and String(d.id) == "enemy_%s" % AirKit.ENEMY_LOADOUT[slot], "%s holds the enemy-tuned %s" % [slot, AirKit.ENEMY_LOADOUT[slot]])
+		if d != null:
+			expect(AbilityRegistry.get_def(d.id) == null, "%s stays unregistered (no tree / unlock leak)" % d.id)
+	var light := e.controller.get_slot_def(&"light")
+	expect(light != null and (light.params["steps"] as Array).size() == 2, "enemy combo trimmed to 2 steps")
+	for at: Dictionary in a["attacks"]:
+		var slot: StringName = (at.get("bending", {}) as Dictionary).get("slot", &"")
+		expect(e.controller.get_slot_def(slot) != null, "attack %s maps to a filled slot (%s)" % [at["id"], slot])
+	e.queue_free()
 
 
 func test_air_dash_budget_and_perfect_dodge_counter() -> void:
