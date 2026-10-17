@@ -91,10 +91,13 @@ static func complete_lesson(npc_id: StringName, id: StringName) -> void:
 	var trainer := String(d.unlock.get("trainer", String(npc_id)))
 	GameState.set_flag("trained_%s_%s" % [trainer, id], true)
 	GameState.set_flag("trained_%s_%s" % [npc_id, id], true)
-	GameState.unlock_ability(id, true)
+	# Techniques go into a free slot; a signature has its own slot (R) and must never fill
+	# a technique slot (the controller would leave that slot dead).
+	GameState.unlock_ability(id, d.slot == AbilityDef.Slot.TECHNIQUE)
 	QuestRewards.reload_player_techniques()
 	GameState.incr_stat("lessons_learned")
-	Events.notify.emit("New technique: %s  ·  taught by %s" % [d.display_name, NpcRegistry.display_name(npc_id)], &"unlock")
+	Events.notify.emit("New technique: %s  ·  taught by %s%s" % [d.display_name, NpcRegistry.display_name(npc_id),
+		QuestRewards.slot_hint(id)], &"unlock")
 
 
 static func spar_archetype(nation: StringName) -> StringName:

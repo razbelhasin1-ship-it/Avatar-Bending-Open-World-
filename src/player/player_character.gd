@@ -70,7 +70,29 @@ func _ready() -> void:
 	if not ElementDefs.is_valid(element):
 		element = GameState.element if GameState.has_element() else ElementDefs.Element.WATER
 	_build()
+	# Techniques learned / equipped anywhere (quest rewards, trainers, the skill tree, scripts)
+	# are usable at once: the controller re-reads GameState and the HUD / touch buttons, which
+	# poll get_ability_slot_info(), follow on the next frame.
+	Events.abilities_equipped_changed.connect(_queue_loadout_reload)
+	Events.ability_unlocked.connect(func(_id: StringName) -> void: _queue_loadout_reload())
 	Events.player_spawned.emit(self)
+
+
+var _reload_queued := false
+
+
+func _queue_loadout_reload() -> void:
+	if _reload_queued:
+		return
+	_reload_queued = true
+	_reload_loadout.call_deferred()
+
+
+func _reload_loadout() -> void:
+	_reload_queued = false
+	# Dev arenas run an element that is not the save's: their slots are set directly.
+	if controller != null and GameState.element == element:
+		controller.load_equipped()
 
 
 func _build() -> void:
@@ -337,6 +359,11 @@ func get_resource(resource: StringName) -> Vector2:
 
 func get_ability_slot_info(i: int) -> Dictionary:
 	return controller.get_slot_info(i) if controller else {}
+
+
+## HUD contract (optional): the element's signature while it is still locked ({} once learned).
+func get_locked_signature_info() -> Dictionary:
+	return controller.locked_signature_info() if controller else {}
 
 
 func get_lock_target() -> Node3D:

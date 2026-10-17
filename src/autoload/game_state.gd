@@ -104,8 +104,9 @@ func add_xp(amount: int, reason: String = "") -> void:
 		xp -= xp_for_level(level)
 		level += 1
 		skill_points += 1
+		# One presentation per level-up: the progression LevelUpBanner (world), or the HUD's
+		# toast where no banner exists (HUD._on_level_up). No toast from here.
 		Events.player_level_up.emit(level)
-		Events.notify.emit("Level %d reached — new skill point" % level, &"unlock")
 
 
 func is_unlocked(ability_id: StringName) -> bool:

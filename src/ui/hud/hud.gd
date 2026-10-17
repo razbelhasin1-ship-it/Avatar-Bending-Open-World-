@@ -197,7 +197,9 @@ func _connect_events() -> void:
 	Events.ability_failed.connect(_on_ability_failed)
 	Events.ability_used.connect(_on_ability_used)
 	Events.hit_landed.connect(damage_numbers.on_hit_landed)
-	Events.player_damaged.connect(func(_a: float, _h: HitInfo) -> void: _hit_flash = 1.0)
+	# burn ticks (meta "dot") only tint the edges a little; real blows flash fully
+	Events.player_damaged.connect(func(_a: float, h: HitInfo) -> void:
+		_hit_flash = maxf(_hit_flash, 0.3 if h != null and h.has_meta(&"dot") else 1.0))
 	Events.player_resource_changed.connect(set_resource)
 	Events.target_locked.connect(func(t: Node3D) -> void: lock_on.set_target(t))
 	Events.target_unlocked.connect(func() -> void: lock_on.set_target(null))
@@ -205,7 +207,7 @@ func _connect_events() -> void:
 	Events.quest_updated.connect(_on_quest_changed)
 	Events.objective_completed.connect(func(q: StringName, _o: StringName) -> void: _on_quest_changed(q))
 	Events.quest_completed.connect(_on_quest_completed)
-	Events.player_level_up.connect(func(l: int) -> void: vitals.set_level(l))
+	Events.player_level_up.connect(_on_level_up)
 	Events.companion_spawned.connect(func(_c: Node3D) -> void: _set_companion_from_state())
 	Events.dialogue_started.connect(func(_n: Node) -> void: set_combat_hud_visible(false))
 	Events.dialogue_ended.connect(func(_n: Node) -> void: set_combat_hud_visible(true))
@@ -277,6 +279,9 @@ func _poll_player(force: bool = false) -> void:
 		for i in 5:
 			var d: Variant = player.call("get_ability_slot_info", i)
 			abilities.slot(i).set_info(d if d is Dictionary else {})
+	if player.has_method("get_locked_signature_info"):
+		var lk: Variant = player.call("get_locked_signature_info")
+		abilities.signature.set_locked(lk if lk is Dictionary else {})
 	if player.has_method("get_lock_target"):
 		var t: Variant = player.call("get_lock_target")
 		lock_on.set_target(t as Node3D if is_instance_valid(t) else null)
@@ -360,11 +365,47 @@ func _on_region_entered(region_id: StringName) -> void:
 		title_card.show_region(region_id)
 
 
-func _on_ability_failed(ability_id: StringName, _reason: StringName) -> void:
+func _on_ability_failed(ability_id: StringName, reason: StringName) -> void:
+	if reason == &"locked":
+		# The signature is not learned yet: say what it is and how to get it (at most every 4 s).
+		abilities.signature.flash_fail()
+		UiFx.sound(UiFx.ERROR)
+		var now := Time.get_ticks_msec()
+		if now - _locked_hint_ms > 4000:
+			_locked_hint_ms = now
+			notify(HudAbilitySlot.locked_hint(abilities.signature.locked), &"warning")
+		return
 	var s := abilities.find_slot(ability_id)
 	if s:
 		s.flash_fail()
 	UiFx.sound(UiFx.ERROR)
+
+
+var _locked_hint_ms := -100000
+
+
+## Level-up: the vitals seal updates; the announcement itself belongs to the progression
+## LevelUpBanner (group &"level_up_banner", installed in the world). Only where no banner
+## exists (dev arenas) the HUD shows one toast - several level-ups at once become one.
+func _on_level_up(level: int) -> void:
+	vitals.set_level(level)
+	if GameState.is_tutorial or not is_inside_tree():
+		return
+	if get_tree().get_first_node_in_group(&"level_up_banner") != null:
+		return
+	var first := _level_toast_pending < 0
+	_level_toast_pending = maxi(_level_toast_pending, level)
+	if first:
+		_flush_level_toast.call_deferred()
+
+
+var _level_toast_pending := -1
+
+
+func _flush_level_toast() -> void:
+	if _level_toast_pending > 0:
+		notify("Level %d reached  ·  +1 skill point" % _level_toast_pending, &"unlock")
+	_level_toast_pending = -1
 
 
 func _on_ability_used(ability_id: StringName) -> void:

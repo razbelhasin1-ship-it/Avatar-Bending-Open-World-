@@ -287,8 +287,9 @@ func _update_visibility() -> void:
 	for id: StringName in COMBAT:
 		var b: TouchButton = buttons[id]
 		var show := combat or (id == &"jump" and mode == &"mounted")
-		# Empty technique / signature slots are not buttons (nothing to press yet).
-		if b.slot != null and b.slot.is_empty():
+		# Empty technique slots are not buttons (nothing to press yet). A locked signature shows
+		# as a padlocked button: a tap explains how to learn it (HUD toast).
+		if b.slot != null and b.slot.is_empty() and not b.slot.is_locked():
 			show = false
 		_show_button(b, show)
 	for id: StringName in [&"pause", &"lock", &"call", &"map", &"journal"]:
@@ -329,6 +330,9 @@ func _poll_player() -> void:
 			var b: TouchButton = buttons[&"signature"] if i == 4 else buttons[StringName("tech_%d" % i)]
 			var d: Variant = player.call("get_ability_slot_info", i)
 			b.slot.set_info(d if d is Dictionary else {})
+	if player.has_method("get_locked_signature_info"):
+		var lk: Variant = player.call("get_locked_signature_info")
+		(buttons[&"signature"] as TouchButton).slot.set_locked(lk if lk is Dictionary else {})
 	if player.has_method("get_resource"):
 		var f: Variant = player.call("get_resource", &"focus")
 		if f is Vector2:

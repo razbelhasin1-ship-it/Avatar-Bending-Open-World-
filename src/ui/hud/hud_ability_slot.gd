@@ -75,6 +75,38 @@ func is_empty() -> bool:
 	return StringName(info.get("id", &"")) == &""
 
 
+## Signature only: the not-yet-learned signature ({id, name, icon, element, level}; {} = none).
+## An empty signature slot with this set draws the technique dimmed under a padlock with the
+## level it opens at, so a new player sees what R will become.
+var locked: Dictionary = {}
+var _locked_icon: Texture2D
+
+
+func set_locked(d: Dictionary) -> void:
+	if d.hash() == locked.hash():
+		return
+	locked = d
+	_locked_icon = null
+	if not d.is_empty():
+		var icon_v: Variant = d.get("icon", null)
+		if icon_v is Texture2D:
+			_locked_icon = icon_v
+		elif icon_v is String or icon_v is StringName:
+			_locked_icon = UiTheme.texture(String(icon_v))
+	queue_redraw()
+
+
+func is_locked() -> bool:
+	return is_empty() and not locked.is_empty()
+
+
+## Toast text for a press of a locked signature.
+static func locked_hint(d: Dictionary) -> String:
+	if d.is_empty():
+		return "No signature technique yet"
+	return "%s is locked  ·  learn it in Bending Skills (level %d)" % [String(d.get("name", "Signature")), int(d.get("level", 1))]
+
+
 ## Red flash + shake (failed cast: on cooldown, insufficient chi, ...).
 func flash_fail() -> void:
 	_flash = 1.0
@@ -137,6 +169,8 @@ func _draw() -> void:
 			sb.border_color = Color(UiTheme.PARCHMENT, 0.2)
 		draw_style_box(sb, r)
 	if empty:
+		if signature and not locked.is_empty():
+			_draw_locked(c)
 		return
 	# icon
 	var isz := size.x * (0.6 if signature else 0.62)
@@ -182,3 +216,23 @@ func _draw() -> void:
 		else:
 			var gr := r.grow((1.0 - _glint) * 7.0)
 			draw_rect(gr, g, false, 2.5)
+
+
+## Locked signature: the technique's icon faint, a padlock over it and "LV n" underneath.
+func _draw_locked(c: Vector2) -> void:
+	var isz := size.x * 0.52
+	if _locked_icon:
+		draw_texture_rect(_locked_icon, Rect2(c - Vector2(isz, isz) * 0.5 - Vector2(0, 6), Vector2(isz, isz)), false,
+				Color(UiTheme.PARCHMENT, 0.22))
+	var lock := UiTheme.icon("icon_padlock")
+	if lock:
+		var lsz := size.x * 0.34
+		draw_texture_rect(lock, Rect2(c - Vector2(lsz, lsz) * 0.5 - Vector2(0, 4), Vector2(lsz, lsz)), false,
+				Color(UiTheme.GOLD_HI, 0.9).lerp(UiTheme.DANGER, _flash))
+	var f := UiTheme.title_font(700)
+	var txt := "LV %d" % int(locked.get("level", 1))
+	var fs := 18
+	var ts := f.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs)
+	var at := c + Vector2(-ts.x * 0.5, size.y * 0.28)
+	draw_string_outline(f, at, txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, 4, Color(0, 0, 0, 0.8))
+	draw_string(f, at, txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(UiTheme.PARCHMENT, 0.85))

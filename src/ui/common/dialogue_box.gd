@@ -142,8 +142,11 @@ func open() -> void:
 	if is_open:
 		return
 	is_open = true
+	# A close() fade still running (a trainer menu or shop line right after a conversation)
+	# must not hide the box 0.15 s after it reopened.
+	_kill_fade()
 	visible = true
-	UiFx.fade_in(self, 0.18)
+	_fade = UiFx.fade_in(self, 0.18)
 	UiFx.sound(UiFx.OPEN)
 
 
@@ -152,10 +155,20 @@ func close() -> void:
 		return
 	is_open = false
 	_clear_choices()
-	var t := create_tween()
-	t.tween_property(self, "modulate:a", 0.0, 0.15)
-	t.tween_callback(func() -> void: visible = false)
+	_kill_fade()
+	_fade = create_tween()
+	_fade.tween_property(self, "modulate:a", 0.0, 0.15)
+	_fade.tween_callback(func() -> void: visible = false)
 	closed.emit()
+
+
+var _fade: Tween = null
+
+
+func _kill_fade() -> void:
+	if _fade != null and _fade.is_valid():
+		_fade.kill()
+	_fade = null
 
 
 ## Shows a line and waits for the player to advance. opts: {"element": int, "color": Color}.

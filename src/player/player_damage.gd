@@ -59,10 +59,14 @@ static func receive(p: PlayerCharacter, hit: HitInfo) -> int:
 	p.resources.mark_combat()
 	p.resources.since_damaged = 0.0
 	p.visual.enter_combat(8.0)
-	p.visual.flash(Color(1, 1, 1), 0.16)
+	var tick := is_tick(hit)
+	p.visual.flash(Color(1, 1, 1), 0.08 if tick else 0.16)
 	_status(p, hit)
 	Events.player_damaged.emit(dmg, hit)
-	BendingFeedback.shake(0.3 if hit.is_heavy else 0.16, 0.15)
+	# Damage-over-time ticks (burn) and sustained multi-hit pulses never shake the camera:
+	# only real blows do (a burning player would otherwise shake once a second).
+	if not tick:
+		BendingFeedback.shake(0.3 if hit.is_heavy else 0.16, 0.15)
 	if p.health.is_dead():
 		p.die(hit)
 		return Combat.Result.KILLED
@@ -74,6 +78,12 @@ static func receive(p: PlayerCharacter, hit: HitInfo) -> int:
 		reaction = R.FLINCH
 	react(p, hit, reaction)
 	return Combat.Result.HIT
+
+
+## True for damage-over-time ticks (FireStatus burn: meta &"dot") and sustained multi-hit
+## pulses (meta &"no_hitstop"): they hurt, flash softly, but add no camera shake.
+static func is_tick(hit: HitInfo) -> bool:
+	return hit != null and (hit.has_meta(&"dot") or hit.has_meta(&"no_hitstop"))
 
 
 static func react(p: PlayerCharacter, hit: HitInfo, reaction: int) -> void:

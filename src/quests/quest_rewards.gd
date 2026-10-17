@@ -35,7 +35,7 @@ static func grant(rewards: Dictionary, reason: String = "") -> PackedStringArray
 	if not techs.is_empty():
 		var got := unlock_first(techs, reason, false)
 		if got != &"":
-			parts.append("%s learned" % technique_name(got))
+			parts.append("%s learned%s" % [technique_name(got), slot_hint(got).replace("  ·  ", " · ")])
 		else:
 			parts.append("+1 skill point")
 	return parts
@@ -65,11 +65,25 @@ static func unlock_first(candidates: Variant, reason: String = "", toast: bool =
 		if toast:
 			Events.notify.emit("Your training deepens  ·  +1 skill point", &"unlock")
 		return &""
-	GameState.unlock_ability(id, true)
+	var d := AbilityRegistry.get_def(id)
+	# Techniques fill a free slot; the signature has its own button and never takes one.
+	GameState.unlock_ability(id, d != null and d.slot == AbilityDef.Slot.TECHNIQUE)
 	reload_player_techniques()
 	if toast:
-		Events.notify.emit("New technique: %s%s" % [technique_name(id), ("  ·  " + reason) if reason != "" else ""], &"unlock")
+		Events.notify.emit("New technique: %s%s%s" % [technique_name(id), ("  ·  " + reason) if reason != "" else "", slot_hint(id)], &"unlock")
 	return id
+
+
+## Where a freshly learned technique ended up, for the toast: "  ·  slot 3", "  ·  R" (the
+## signature), or "  ·  equip it in Bending Skills" when every slot was taken.
+static func slot_hint(id: StringName) -> String:
+	var d := AbilityRegistry.get_def(id)
+	if d == null:
+		return ""
+	if d.slot == AbilityDef.Slot.SIGNATURE:
+		return "  ·  signature (R)"
+	var i := GameState.equipped_abilities.find(id)
+	return "  ·  slot %d" % (i + 1) if i != -1 else "  ·  equip it in Bending Skills"
 
 
 static func technique_name(id: StringName) -> String:

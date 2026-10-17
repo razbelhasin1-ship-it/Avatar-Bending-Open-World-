@@ -35,6 +35,8 @@ func _ready() -> void:
 	theme = UiTheme.get_theme()
 	_build()
 	visible = false
+	# The HUD skips its own level-up toast while a banner is in the scene (one flow).
+	add_to_group(&"level_up_banner")
 	Events.player_level_up.connect(_on_level_up)
 
 

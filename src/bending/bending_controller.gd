@@ -41,6 +41,8 @@ var clock := 0.0
 var light_step := -1
 var light_chain_until := -1.0
 var last_failure: StringName = &""
+## Player only: the element's signature while it is not learned yet (HUD lock hint).
+var locked_signature: AbilityDef = null
 
 var _rig_connected: HumanoidRig = null
 
@@ -79,21 +81,33 @@ func load_core_kit() -> void:
 
 
 ## Player: fills technique slots from GameState.equipped_abilities (+ signature
-## from the unlocked set).
+## from the unlocked set). While the element's signature is not learned yet it is kept
+## as `locked_signature`: the HUD shows it locked and pressing R reports &"locked".
 func load_equipped() -> void:
 	for i in TECHNIQUE_SLOTS.size():
 		var id: StringName = GameState.equipped_abilities[i] if i < GameState.equipped_abilities.size() else &""
 		var d := AbilityRegistry.get_def(id) if id != &"" else null
+		if d != null and d.slot == AbilityDef.Slot.SIGNATURE:
+			# Older saves: a signature auto-equipped into a technique slot (a lesson / reward
+			# used to do that) leaves the slot dead - free it again.
+			GameState.equipped_abilities[i] = &""
+			d = null
 		if d != null and d.element == element and d.slot == AbilityDef.Slot.TECHNIQUE:
 			loadout[TECHNIQUE_SLOTS[i]] = d
 		else:
 			loadout.erase(TECHNIQUE_SLOTS[i])
 	loadout.erase(&"signature")
+	locked_signature = null
 	for id: StringName in GameState.unlocked_abilities:
 		var d := AbilityRegistry.get_def(id)
 		if d != null and d.element == element and d.slot == AbilityDef.Slot.SIGNATURE:
 			loadout[&"signature"] = d
 			break
+	if not loadout.has(&"signature"):
+		for d in AbilityRegistry.for_element(element):
+			if d.slot == AbilityDef.Slot.SIGNATURE and not d.script_path.is_empty():
+				locked_signature = d
+				break
 
 
 ## Assigns a def to a slot directly (enemies, tests). null clears.
@@ -121,6 +135,8 @@ func _physics_process(delta: float) -> void:
 func request(slot_name: StringName) -> StringName:
 	var d: AbilityDef = loadout.get(slot_name, null)
 	if d == null:
+		if slot_name == &"signature" and locked_signature != null:
+			return _fail(locked_signature.id, &"locked")
 		return _fail(&"", &"empty")
 	var kind := _kind_of(d)
 	# Toggle-style abilities (Air Scooter) take a second press of their own slot
@@ -335,3 +351,12 @@ func get_slot_info(i: int) -> Dictionary:
 	return {"id": d.id, "name": d.display_name, "icon": d.icon, "element": d.element,
 			"cooldown_ratio": cooldown_ratio(d.id), "cooldown_left": cooldown_left(d.id),
 			"available": available, "cost": d.chi_cost if d.slot != AbilityDef.Slot.SIGNATURE else d.focus_cost}
+
+
+## The signature the player has not learned yet, for the HUD's lock hint (empty once it is
+## learned, and for non-player casters): {id, name, icon, element, level}.
+func locked_signature_info() -> Dictionary:
+	if loadout.has(&"signature") or locked_signature == null:
+		return {}
+	var ls := locked_signature
+	return {"id": ls.id, "name": ls.display_name, "icon": ls.icon, "element": ls.element, "level": int(ls.unlock.get("level", 1))}

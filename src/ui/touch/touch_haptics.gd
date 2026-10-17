@@ -42,6 +42,9 @@ func on_hit_landed(hit: HitInfo, target: Node, result: int) -> void:
 
 ## Events.player_damaged handler.
 func on_player_damaged(_amount: float, hit: HitInfo) -> void:
+	if hit != null and hit.has_meta(&"dot"):
+		pulse(14, 0.2)   # burn tick: a faint buzz, not a blow
+		return
 	var heavy := hit != null and (hit.is_heavy or int(hit.reaction) >= int(HitInfo.Reaction.KNOCKBACK))
 	pulse(60 if heavy else 42, 0.85 if heavy else 0.6)
 

@@ -89,7 +89,6 @@ func run_tree(npc: NpcCharacter, tree: Dictionary) -> void:
 	current = npc
 	transcript.clear()
 	var pl := Quests.get_player()
-	await _settle_box()
 	_begin(npc, pl)
 	var deferred: Array = []
 	var key := String(tree.get("start", "start"))
@@ -143,7 +142,6 @@ func ask(npc: NpcCharacter, text: String, options: Array) -> int:
 		return options.size() - 1
 	busy = true
 	var pl := Quests.get_player()
-	await _settle_box()
 	_begin(npc, pl)
 	var speaker := npc.display_name() if npc != null else ""
 	var i := await _ask(npc, speaker, text, options)
@@ -158,7 +156,6 @@ func say_lines(npc: NpcCharacter, lines: Array) -> void:
 		return
 	busy = true
 	var pl := Quests.get_player()
-	await _settle_box()
 	_begin(npc, pl)
 	for l: Variant in lines:
 		if not _alive():
@@ -166,16 +163,6 @@ func say_lines(npc: NpcCharacter, lines: Array) -> void:
 		await _say(npc, npc.display_name() if npc != null else "", DialogueTree.format_line(String(l)))
 	_end(npc, pl)
 	busy = false
-
-
-## Waits out the box's closing fade: DialogueBox hides itself 0.15 s after close(), so opening it
-## again inside that window (a trainer menu or a shop line right after a tree) would leave it open
-## but invisible.
-func _settle_box() -> void:
-	var frames := 0
-	while _box != null and is_instance_valid(_box) and _box.visible and not _box.is_open and frames < 40:
-		frames += 1
-		await get_tree().process_frame
 
 
 func _alive() -> bool:
