@@ -103,7 +103,10 @@ const QUESTS := [
 			{"id": &"caves", "text": "The caves sing when the weather turns.", "objectives": [
 				{"id": &"caves", "type": &"discover", "poi": &"at_whistling_caves", "text": "Find the Whistling Wind Caves"},
 				{"id": &"tablet", "type": &"interact", "key": &"cave_tablet", "text": "Read the monks' tablet at the cave mouth",
-					"props": [{"at": {"poi": &"at_whistling_caves", "offset": Vector3(2.5, 0, 2.5)}, "kind": &"tablet", "prompt": "Read the tablet"}]}]},
+					# the cave mouth is on the floor of the falls pool: the tablet rests on the
+					# boulders over it (the prop drops onto the first surface under the point), not
+					# 3 m under water out of a swimmer's reach (wave 4 bug hunt)
+					"props": [{"at": {"poi": &"at_whistling_caves", "offset": Vector3(2.5, 6.0, 2.5)}, "kind": &"tablet", "prompt": "Read the tablet"}]}]},
 			{"id": &"return", "text": "'The wind that leaves returns as rain.'", "objectives": [
 				{"id": &"return", "type": &"talk_to", "npc": &"at_dorje", "text": "Tell Abbot Dorje what the tablet says"}]},
 		],

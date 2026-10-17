@@ -508,6 +508,9 @@ plaza on the mobile preset; empty-looking markets (customers added).
   `taken[objective].has(i)` with an int, a save returns the lists as floats and `[1.0].has(1)` is
   false. `GameState.from_dict` turns `taken` back into ints with the other quest records.
   Regression: `test_bughunt_world.gd::test_taken_quest_props_stay_taken_after_a_reload`.
+* The Whistling Caves' tablet (`at_whistling_caves`) was dropped onto the floor of the falls pool
+  at the cave mouth, 3 m under water and out of a swimmer's reach; its prop target is raised 6 m
+  so it rests on the boulders over the mouth (quest audit `PART=quests`, regression playtest).
 * Checked clean, kept as guards: no dialogue dead ends (every non-chain quest is offered by a
   present NPC's conversation once available, every challenge objective's NPC offers the challenge,
   every NPC an objective needs is present while it is due) - `test_no_dialogue_dead_ends_in_any_quest`.

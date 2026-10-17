@@ -26,7 +26,8 @@ runner's SCRIPT ERROR log check - except the settings / dialogue guards for refu
 | 10 | The same vanished NPC looked up by a chatting partner (`NpcBrain._partner`): `live_npc` ran `is NpcCharacter` on the freed instance - "Left operand of 'is' is a previously freed instance" (twice in the Ba Sing Se walk) | confirmed (walk audit) | validity before `is` (`src/npc/npc_director.gd:140`); same order where a mount / companion can be freed: `src/ui/touch/touch_overlay.gd:555`, `src/ui/hud/hud.gd:290` |
 | 11 | Released content cells left their instance buffer, mesh and material in the pooled MultiMeshInstance3D until reuse (up to 26 732 instances of long-gone cells held after one flight) | confirmed (flight) | emptied before pooling (`src/world/content/world_content.gd:619-627`) |
 | 12 | Farmer Dao (giver and turn-in of Lost in the Millet) could not be found: every Agrarian Zone hamlet put its elder's anchor 3 m off the hamlet centre, where the first farmhouse stands - he spawned inside its collision and was pushed out 2 m under the ground (crowd workers / children likewise inside other farmhouses) | confirmed (quest audit) | the elder stands in front of the first farmhouse, crowd anchors inside a farmhouse are dropped (`src/world/settlements/earth_kingdom/bss_farmland.gd:43-70, 207, 250`) |
-| 13 | Merge conflict found by the full suite: flow_qa ended a projectile whose caster was freed, bughunt_gameplay let it fly on and land sourceless - `test_projectile_outlives_its_caster` failed after the merge | confirmed (integration) | the shot flies on and lands sourceless; only a missing context ends it (`src/bending/bending_projectile.gd:158`); flow_qa's test asserts only that it ends quietly (`tests/unit/test_flow_qa.gd`) |
+| 13 | The Whistling Caves' tablet ("at the cave mouth") lay 3 m under the Hundred Winds falls pool among the boulders - the cave mouth POI is on the pool floor: a swimmer got no closer than 3.7 m (out of the 2.6 m reach), only one boulder was close enough | confirmed (quest audit + rendered regression) | the prop rests on the boulders over the mouth (`data/quests/quests_air.gd:106-109`: offset y 6, the prop drops onto the first surface below) |
+| 14 | Merge conflict found by the full suite: flow_qa ended a projectile whose caster was freed, bughunt_gameplay let it fly on and land sourceless - `test_projectile_outlives_its_caster` failed after the merge | confirmed (integration) | the shot flies on and lands sourceless; only a missing context ends it (`src/bending/bending_projectile.gd:158`); flow_qa's test asserts only that it ends quietly (`tests/unit/test_flow_qa.gd`) |
 
 Refuted suspicions and checks that came out clean are listed under **Checked, clean**; what is
 left open is under **Remains**.
@@ -210,7 +211,19 @@ a farmhouse (a worker's spot 5 m in front of one house falling inside the next, 
 spot near the centre) - quest-giver anchors keep their indices.
 Test: `test_no_one_stands_inside_a_farmhouse`; playtest `regressions PART=dao`.
 
-### 13. Merge conflict between flow_qa and bughunt_gameplay
+### 13. The Whistling Caves tablet under water
+
+The cave POI (`at_whistling_caves`, "underground") opens on the floor of the Hundred Winds falls
+pool (level 494.6, floor 491.5): the quest's tablet "at the cave mouth" (POI + (2.5, 0, 2.5))
+was dropped onto the pool floor, 3 m under the surface between the landmark's boulders. The
+quest audit found no floor to stand on near it; the rendered regression swam to it and got no
+closer than 3.7 m (the prop's reach is 2.2 + 0.4 m, horizontal) - only from one boulder was it
+readable. The prop target is raised 6 m: `QuestProps` drops a prop onto the first surface under
+its point, so the tablet now rests on the boulders over the mouth, 1.2 m above the water (re-audit:
+on a floor, not in water, not inside anything, taken by interact).
+Playtest: `regressions PART=tablet`.
+
+### 14. Merge conflict between flow_qa and bughunt_gameplay
 
 Not a world bug, but it broke the integrated build: flow_qa made `BendingProjectile.step` end a
 shot whose caster was freed; bughunt_gameplay made the shot fly on and land without a source.
@@ -243,12 +256,8 @@ Every quest stage with props / go_to targets / named talk and escort NPCs: 55 ch
 * All `go_to` objectives complete from safe ground inside their radius; all props spawn and are
   taken by interact, every collect / interact objective completes from its props.
 * **Farmer Dao**: 2 m under the ground inside his farmhouse - **fix 12**.
-* **Whistling Caves tablet** (`at_whistling_caves`): the cave mouth POI lies on the floor of the
-  Hundred Winds falls pool, so the tablet "at the cave mouth" is 3 m under the surface between
-  the landmark's boulders; the audit found no dry spot within 2 m. Not a soft-lock: the
-  interaction range is horizontal, a player wading on the boulders above it or swimming over it
-  reads it (`regressions PART=tablet`: read from 2.5 m above, 2.0 m away). Odd placement, left
-  (see Remains).
+* **Whistling Caves tablet** (`at_whistling_caves`): 3 m under the falls pool, no floor to read
+  it from, out of a swimmer's reach - **fix 13** (re-audit: on the boulders, taken).
 * **Novice's Glider** prop overlaps a terrace wall's collision a little; it spawns, shows and is
   taken normally.
 
@@ -317,9 +326,9 @@ Every quest stage with props / go_to targets / named talk and escort NPCs: 55 ch
 * **Air Temple landing gate record**: `bearing` 0 while the gate stands at -29 (on the -30 ramp).
   Nothing in gameplay reads it (the map uses the position).
 * **Sunflare Isle Pier** arrival faces an obstacle (walks fine sideways) - cosmetic.
-* **The Whistling Caves' tablet** lies 3 m under the falls pool at the cave mouth (the cave POI
-  sits on the pool floor). Readable from the boulders above or swimming; moving the POI or the
-  prop onto the shore is a world-data / quest-content decision.
+* **The Whistling Wind Caves' mouth is under water** (the POI sits on the falls pool floor, the
+  first metres of the tunnel count as pool water): entering the cave means diving through the
+  pool. Probably intended ("below the eastern cliffs"); a world-data decision.
 
 ---
 

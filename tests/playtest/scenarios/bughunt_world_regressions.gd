@@ -120,9 +120,10 @@ func _gorge() -> void:
 	await p.screenshot("regress_04_gorge_walked")
 
 
-## The Whistling Caves' tablet lies at the cave mouth on the floor of the Hundred Winds falls pool,
-## 3 m under the surface (the quest audit found no dry spot to read it from): a swimmer above it
-## reads it with interact (the interaction range is horizontal).
+## The Whistling Caves' cave mouth lies on the floor of the Hundred Winds falls pool; the tablet
+## "at the cave mouth" was 3 m under water among the boulders - out of a swimmer's reach (3.7 m at
+## the closest) and only readable from one boulder. It rests on the boulders over the mouth now:
+## a player wading or swimming up to it reads it with interact.
 func _tablet() -> void:
 	var q := &"at_whistling_caves"
 	Quests.reset_quest(q)
@@ -132,6 +133,7 @@ func _tablet() -> void:
 	var mouth: Vector3 = poi["position"]
 	var tab := mouth + Vector3(2.5, 0, 2.5)
 	var level := WorldData.get_water_height(tab.x, tab.z)
+	tab.y = level
 	if not p.check(await _travel(Transform3D(Basis(), Vector3(tab.x, level + 0.3, tab.z + 3.0))), "travelled to the falls pool"):
 		return
 	await p.wait_game(1.5)
@@ -140,16 +142,35 @@ func _tablet() -> void:
 		props.refresh()
 	await p.wait_game(0.5)
 	p.note("at the pool over the cave mouth: y %.1f, level %.1f, %s" % [pl.global_position.y, level, "swimming" if pl.motor.swimming else "wading on the rocks"])
-	pl.camera_rig.set_yaw(0.0)
-	Input.action_press(&"move_forward")
-	await p.wait_game(0.8)
+	# swim / wade over to it like a player (steer at it until within 1.2 m; against the boulders,
+	# jump: a swimmer climbs out onto them)
+	var last := pl.global_position
+	for i in 80:
+		var d := Vector2(tab.x - pl.global_position.x, tab.z - pl.global_position.z)
+		if d.length() < 1.2:
+			break
+		pl.camera_rig.set_yaw(atan2(-d.x, -d.y))
+		Input.action_press(&"move_forward")
+		await p.wait_game(0.1)
+		if i % 8 == 7:
+			if pl.global_position.distance_to(last) < 0.4:
+				await p.tap(&"jump")
+			last = pl.global_position
 	Input.action_release(&"move_forward")
-	await p.wait_game(0.3)
+	await p.wait_game(0.4)
 	await p.screenshot("regress_05_tablet_from_the_surface")
 	await p.tap(&"interact")
 	await p.wait_game(1.0)
+	var tablet: Node3D = null
+	if props:
+		for n in props.live_props():
+			if (n as QuestProps.QuestPropNode) and (n as QuestProps.QuestPropNode).quest_id == q:
+				tablet = n
 	p.check(QuestProps.is_taken(q, &"tablet", 0) or not Quests.is_objective_active(q, &"tablet"),
-		"the swimmer read the tablet (%.1f m above it, %.1f m away)" % [pl.global_position.y - tab.y, Vector2(pl.global_position.x - tab.x, pl.global_position.z - tab.z).length()])
+		"read the tablet (player %.1f m from the cave mouth, %s)" % [Vector2(pl.global_position.x - tab.x, pl.global_position.z - tab.z).length(),
+		"swimming" if pl.motor.swimming else "wading / standing"])
+	if tablet == null:
+		p.note("the tablet prop was taken (gone)")
 	Quests.reset_quest(q)
 
 
