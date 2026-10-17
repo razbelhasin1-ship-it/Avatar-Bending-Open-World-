@@ -284,3 +284,13 @@ Air 6 / 6 / 6, Earth 5 / 5 / 5, Fire 5 / 5 / 6 / 6, Water 6 / 6 / 6.
   ground within 10 m) the player slips into the water beside the seat (and swims) instead of being
   teleported to WorldData's nearest safe ground, which can be hundreds of metres (or a far port)
   away.
+
+## Wave 4 (bughunt_world, docs/qa/bughunt_world.md)
+
+* **Climbing out of water** (`PlayerMotor.try_swim_exit`, `CLIMB_OUT_MAX` = 2.3 m): jump against a
+  wall while swimming first tries the old low check (standing room 1.8 m over the swimmer, i.e.
+  ledges up to ~0.5 m above the water), then a pull-up onto ledges up to 2.3 m above the surface.
+  Before, every walled canal (the Water Tribe's walkways sit 1.8 m over the water + a 0.3 m curb)
+  was a trap: no climb-out anywhere along it and no bending while swimming. Regression:
+  `tests/unit/test_bughunt_world.gd::test_swimmer_climbs_out_of_a_canal`; playtest
+  `bughunt_world_regressions` PART=canal (the real ring canal).

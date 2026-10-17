@@ -287,3 +287,18 @@ changes as long as the formats stay the same.
   must construct them (Omashu stays reachable through its rock causeway meanwhile).
 * No rivers yet (valleys, lakes, waterfalls and canals only); wetness marks drainage lines.
 * Height quantisation is 1/32 m; on very gentle slopes normals show sub-degree stepping.
+
+## Wave 4 (bughunt_world, docs/qa/bughunt_world.md)
+
+* **Lake water = the drawn water.** `get_water_height` tested unfrozen lakes by their bounding
+  `radius` (and `ground < level`), while `WaterSystem` draws the lake polygon grown by 8 % + 3 m.
+  Ground below a lake's level inside the circle but outside the drawn water counted as deep water:
+  below the Thundering Steps falls the outlet gorge (15-18 m under the pool level) "was" water, and
+  so were dry hollows beside Moonmirror, Jade Basin, Ember Tarn, Cloud Tarn and Sky Cirque - the
+  player swam there and the motor pulled the swimmer up towards the pool level, into the air. Lakes
+  now test `WorldRecords.lake_surface_polygon(lake)` (cached per lake as `surface_polygon` /
+  `surface_radius` at load; the bucket index covers the larger of the two radii). The water mesh
+  uses the same helper, so gameplay and rendering cannot drift apart again. Regressions:
+  `tests/unit/test_bughunt_world.gd::test_lake_water_only_where_it_is_drawn`,
+  `test_player_below_a_falls_pool_walks_instead_of_swimming`; playtest
+  `bughunt_world_regressions` PART=gorge.

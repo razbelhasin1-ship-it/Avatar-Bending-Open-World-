@@ -131,7 +131,11 @@ otherwise wait forever.
   (inventory, stats, practice, quest stage / log / objective progress, companion bond) back
   into ints; free-form `world_flags` keep what JSON gives (read them with `int()` / `float()`).
 * **SaveSystem** — atomic JSON slots in `user://saves`; calls `write_save_state()` on group
-  `&"persist"` before saving; `save_game/load_game/has_save/latest_slot/get_save_info`.
+  `&"persist"` before saving; `save_game/load_game/has_save/latest_slot/get_save_info`. A write is
+  read back before it replaces the slot; the previous save is kept as `slot_N.json.bak` and a
+  damaged / missing slot is read from its complete `.tmp` or `.bak` instead. `GameState.from_dict`
+  falls back to defaults for damaged or wrongly typed fields (a NaN is saved as JSON null).
+  `Settings.save_path` (default `user://settings.cfg`) lets tests use a scratch settings file.
 * **Audio** — `play_sfx(name, pos)`, `play_2d`, `play_ui`, `play_music(track)`,
   `set_ambience(name)`. Missing files are skipped silently. Names are listed below.
 * **WorldData** — terrain height/normal, biome, surface, region, water, snow depth, water

@@ -348,3 +348,9 @@ renderers.
   builders cover them with retaining walls.
 * Waterfalls (`WorldData.get_waterfalls()`) are not rendered yet.
 * The snow trail resolution is chosen when the node enters the tree.
+
+## Wave 4 (bughunt_world, docs/qa/bughunt_world.md)
+
+* `WaterSystem.build_inland_water` builds the lake meshes from `WorldRecords.lake_surface_polygon`,
+  the same outline `WorldData.get_water_height` now tests (gameplay water = drawn water; before, a
+  lake's bounding circle made dry ground beside lakes and below falls pools "deep water").

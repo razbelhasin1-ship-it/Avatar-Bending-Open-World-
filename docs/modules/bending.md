@@ -275,3 +275,12 @@ should be added to `ShaderWarmup._common_fx()`.
 * `BendingHits` opts `meta` (Dictionary) is set on every HitInfo of a sphere / cone / sweep:
   sustained pulses pass `{&"no_hitstop": true}` (and `&"no_focus"`) like the Air Tornado's.
 * Air Tornado drops captives freed mid-spin without casting the freed object (an error every frame).
+
+## Wave 4 merge (bughunt_world, docs/qa/bughunt_world.md)
+
+* flow_qa ended a `BendingProjectile` whose caster was freed; bughunt_gameplay made
+  `BendingContext.make_hit` / `forward` safe for a freed caster and expects the shot to still land.
+  Merged together the two contradicted each other (`test_projectile_outlives_its_caster` failed in
+  the full suite). The projectile now flies on and lands without a source (callbacks check
+  `ctx.is_valid()`); it only ends early when it has no context at all. flow_qa's test asserts the
+  quiet finish (no script error), not "no hit".

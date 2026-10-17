@@ -487,3 +487,21 @@ plaza on the mobile preset; empty-looking markets (customers added).
   no voiced lines (text barks and dialogue only); shops do not pause the game.
 * No dedicated frame-time measurement for the crowds; the strict per-preset caps (10 / 18 / 28 /
   40 NPCs, 4 / 7 / 10 / 14 in the full tier, one spawn per frame) bound the cost.
+
+## Wave 4 (bughunt_world, docs/qa/bughunt_world.md)
+
+* `NpcDirector.remove_records` (a settlement cell released behind the player) read `_live` into a
+  typed `NpcCharacter`; an NPC that faded out (`vanish`) has freed itself before the next `_update`
+  prunes the table, so the read raised "Trying to assign invalid previously freed instance" (seen
+  on every fast travel of the world audit), the loop aborted and the rest of the cell's crowd
+  records stayed registered. Untyped read + prune (`live_npcs()` likewise). Regression:
+  `test_bughunt_world.gd::test_releasing_a_cell_with_a_vanished_npc`.
+* `Quests.abandon` takes back what the quest handed out and the player still holds
+  (`_take_back_handouts`: `on_start` give_item actions, items from its props). Abandon + restart
+  used to leave another unsellable letter / incense in the bag each time, and gathered prop items
+  stayed while the props came back. Regression:
+  `test_bughunt_world.gd::test_abandoning_a_quest_takes_back_its_handouts`.
+* Checked clean, kept as guards: no dialogue dead ends (every non-chain quest is offered by a
+  present NPC's conversation once available, every challenge objective's NPC offers the challenge,
+  every NPC an objective needs is present while it is due) - `test_no_dialogue_dead_ends_in_any_quest`.
+* The known issue above about `get_water_height` testing lakes by radius is fixed (worlddata).
