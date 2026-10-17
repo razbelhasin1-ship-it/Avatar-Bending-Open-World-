@@ -35,4 +35,42 @@ Every log was scanned for `ERROR` / `WARNING` / `SCRIPT ERROR`. Bugs were fixed 
 | 11 | `SCRIPT ERROR` in `BendingContext.make_hit` ("previously freed") when a projectile outlives its caster (seen when the training grounds were torn down while a gust flew; also a despawned enemy's bolt) | Every hit is built from `ctx.caster`; nothing stopped a projectile whose caster was freed | `BendingProjectile.step()` ends the projectile when its caster is gone | `test_projectile_outliving_its_caster_ends_quietly` |
 | 12 | (tooling) A playtest scenario with a parse error made the runner idle until its 15–30 min timeout | `Playtest._ready` called `new()` on a script that loaded but could not be instantiated | `tests/playtest/playtest.gd` fails at once ("cannot load scenario … (parse error?)") | — |
 
-<!-- RESULTS -->
+## The brief's testing checklist
+
+Evidence = the playtest / test that checks it (logs and screenshots under the run's `--out`
+folder; the best shots are listed at the end). "Journey" = `flow_qa_journey ELEMENT=<el>`.
+
+| # | Item | Result | Evidence |
+| --- | --- | --- | --- |
+| 1 | Launches without fatal errors | PASS | Every playtest boots the real `boot.tscn` / main menu (menus run boots `scenes/boot.tscn`); logs scanned for `ERROR` / `WARNING` / `SCRIPT ERROR` / `Failed to load` (see *Log scan*). The only engine errors are the container's missing audio device at start-up and the exit-time leak summary |
+| 2 | All four main-menu buttons work | PASS (bug #3 fixed) | `flow_qa_menus`: four options read ENTER THE WORLD / TUTORIAL / SETTINGS / EXIT GAME; 01 → element select (and Back during its fade-in returns to the menu); 02 → tutorial-mode select → PRACTISE AS FIREBENDER → training grounds (nothing can be saved there, pause SAVE GAME disabled) → RETURN TO MAIN MENU clean; 03 opens the settings overlay; ui_up wraps to 04 EXIT GAME which quits. Phone: every step by tap (`flow_qa_mobile`) |
+| 3 | Graphics settings modify real settings | PASS | Main menu, Low preset by `ui_left` on the preset row: viewport SSAA 1 → 0, mesh LOD threshold 1 → 4, positional shadow atlas 4096 → 1024, the menu scene's glow off and sun shadow mode 2 → 0, render scale 70 % applied to the viewport; CANCEL restores every value. In the world (`flow_qa_travel`): sun shadow distance 220 → 60 m, glow off, terrain clipmap 22 levels / 4000 m → 16 / 1500 m, vegetation density 1.0 → 0.25, mesh LOD 1 → 4; Back → UNSAVED CHANGES → DISCARD restores the world |
+| 4 | Element selection assigns the element | PASS | Journey ×4: "chosen element assigned to the journey"; the controller bends that element ("player bends earth" …); tutorial select reads "PRACTISE AS FIREBENDER" and the training grounds run as that element |
+| 5 | Each element starts in its home region | PASS | Journey: water → `water_tribe`, earth → `earth_kingdom`, fire → `fire_nation`, air → `air_temple` (GameState region at the spawn + region banner in the shots) |
+| 6 | The right companion appears | PASS | Journey: polar bear dog / badgermole / dragon / sky bison, beside the player at the spawn (3.4–7.5 m) |
+| 7 | All four bending configurations perform their starter abilities | PASS (bug #7 fixed for Air) | Journey, locked on a `bandit_brawler`: every filled slot (light, heavy, techniques 1–3) cast through its key and reported (cast / hits / results / damage / constructs) — see *Per element*. The locked signature refuses with a hint (`[&"earthquake", &"locked"]` …) |
+| 8 | Attacks apply gameplay effects | PASS | Same report: every cast hit, was blocked / dodged by the bandit, or raised a construct (Ice Wall, Earth Pillar, Earth Wall); bandit health 95 → 25–62 during the slot pass |
+| 9 | Enemies respond and can be defeated | PASS | The bandit went ALERT → CHASE → STRAFE → ATTACK (telegraphed 1–4 attacks), STAGGER / KNOCKDOWN / GETUP on hits, FLEE when low; defeated in 10–18 s by play (killed, or surrendered / fled: `defeated` how), +11 – +22 XP |
+| 10 | Block / dodge / movement / camera consistent | PASS | Journey: block against a second bandit's attack returns BLOCKED, dodge moves 3.0–5.7 m and hands control back (LOCOMOTION), mouse-look events turn the camera 0.78–1.05 rad, the camera stays with the player; movement after every menu / book / pause round trip (5.6 m) |
+| 11 | No permanent stuck states (fuzz) | PASS | `test_input_fuzz_never_leaves_the_player_stuck`: 45 s of seeded random input per element next to an attacking bandit — longest locking state 0.85–1.35 s (ACTION), longest busy controller 1.2–2.2 s, back in LOCOMOTION and walking afterwards. A conversation the random `interact` opens holds the player until answered (by design) and is answered like a player would |
+| 12 | Snow footprints in the Water Tribe | PASS | Journey water: SnowTrails stamps 239 → 264 while walking on snow, the trail lies under the walked path (`water_08_footprints.png`) |
+| 13 | Companions follow / navigate | PASS | Journey: after a 3.5 s sprint the companion catches up (ground distance ≤ 12 m: dog 8.9, badgermole 9.6, bison / dragon land first); it survives save → menu → continue with its health |
+| 14 | Tutorial playable for every element | PASS (bugs #1, #7 fixed) | `worldscene_tutorial ELEMENT=` earth / fire / air / water: every lesson completed by play (14; air 16 with air jump + glide), completion screen, ENTER THE WORLD asks before replacing a saved journey (bug #5) and starts a fresh journey; nothing saved by the tutorial |
+| 15 | Save / load keeps everything | PASS (bug #4 fixed) | Journey: pause → SAVE GAME → RETURN TO MAIN MENU → CONTINUE: position (0.00 m), element, level / XP / points, unlocked abilities + loadout and the live slots, quests (by value), inventory (ints), discovered POIs, hour (± the minutes that pass), companion species + health |
+| 16 | Menu ↔ game transitions keep input working | PASS (bugs #3, #6 fixed) | No action held after leaving the world; mouse visible, tree unpaused, time scale 1 on the menu; movement and bending answer after CONTINUE, after the Journey Book, after pause → settings → resume; the menu answers taps after a phone round trip |
+| 17 | No duplicate critical objects after transitions | PASS | Census after RETURN TO MAIN MENU: 0 players / companions / world scenes / journey books, one current camera, one of every autoload; after CONTINUE exactly one player, companion, world scene, journey book, level-up banner and current camera |
+| 18 | No missing resources / scripts | PASS | `tools/check.sh` parses every script; a static scan of every `res://` literal in `src/` and `scenes/` found none missing, and no sound name is missing from the audio bank; no `Failed to load` / `Cannot open` in any playtest log |
+
+## Extra flows
+
+| Flow | Result | Evidence |
+| --- | --- | --- |
+| Opening quest giver → first objective, every element | PASS | Journey: Anaaya (water) / Lin (earth) / Kaida (fire) / Pasang (air) stand by the spawn; `interact` opens the conversation, the lines advance by key, the opening quest's first objective completes (stage 0 → 1), control comes back (`*_03b_quest_giver.png`, `*_03c_objective.png`) |
+| Fast travel from the map | PASS | `flow_qa_travel` + `flow_qa_confirms`: M opens the map, the reticle (pad / keys) rests on the home city, Enter asks FAST TRAVEL with TRAVEL focused, Enter travels; the book closes, arrival toast, 0.0 m from the travel point |
+| Ferry trip | PASS | `flow_qa_travel ELEMENT=fire`: at Crimson Harbor's landing the ferry prompt shows, the ferry master offers destinations, the ferry casts off, the trip ends on the Full Moon Bay quay with the player in control |
+| Mounting and flying (dragon, bison) | TBD | `flow_qa_travel PART=fly` (fire = dragon, air = bison) |
+| Journey Book open / close | PASS | K opens skills (pauses), J journal, M map, Esc closes and resumes; movement answers after |
+| Pause → settings → back | PASS (bug #6 fixed) | Back with a change asks UNSAVED CHANGES, right cycles APPLY → DISCARD → KEEP EDITING inside the dialog, DISCARD restores; back on the pause menu, RESUME, movement answers |
+| Phone pass (`MOBILE=1 RENDERER=mobile`, 1600×720, water) | PASS (bug #8 fixed) | Touch only: tap ENTER THE WORLD, tap the card, tap BEGIN, tap to skip the arrival, the stick runs 11 m, a drag turns the camera, Strike / first technique by tap, top-bar pause → RESUME → the stick still drives → pause → RETURN TO MAIN MENU → the menu answers taps; mobile preset, 32 s load on llvmpipe |
+
+<!-- PER-ELEMENT -->

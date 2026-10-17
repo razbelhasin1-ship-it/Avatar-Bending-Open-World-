@@ -668,13 +668,31 @@ func _save_menu_continue() -> void:
 	p.check(_held().is_empty(), "%s no held input after continue" % el)
 	# input works after the round trip: walk and strike
 	var at := pl.global_position
+	p.note("%s after continue: state %s, floor %s, swimming %s, input %s, camera yaw %.2f, companion %.1f m" % [el, pl.get_state_name(),
+			pl.motor.on_floor, pl.motor.swimming, pl.input.enabled, pl.camera_rig.yaw,
+			c2.global_position.distance_to(pl.global_position) if c2 else -1.0])
 	Input.action_press(&"move_forward")
-	await p.wait_game(1.0)
+	var peak := 0.0
+	var wish := Vector2.ZERO
+	for i in 60:
+		await p.get_tree().physics_frame
+		peak = maxf(peak, Vector2(pl.velocity.x, pl.velocity.z).length())
+		wish = pl.input.move_input
 	Input.action_release(&"move_forward")
+	var moved := pl.global_position.distance_to(at)
+	if moved < 1.5:
+		var ray := PhysicsRayQueryParameters3D.create(pl.global_position + Vector3.UP, pl.global_position + Vector3.UP - pl.camera_rig.global_basis.z * 2.0)
+		var ex: Array[RID] = [pl.get_rid()]
+		ray.exclude = ex
+		var hit := pl.get_world_3d().direct_space_state.intersect_ray(ray)
+		p.note("%s blocked after continue: peak speed %.2f, move input %s, state %s, ahead %s" % [el, peak, str(wish), pl.get_state_name(),
+				str(hit.get("collider")) + " at " + str(hit.get("position")) if not hit.is_empty() else "clear"])
+		await p.screenshot("%s_10b_blocked" % el)
 	var nu := used.size()
 	await _press(&"attack_light")
 	await p.wait_game(0.4)
-	p.check(pl.global_position.distance_to(at) > 1.5 and used.size() > nu, "%s movement and bending answer after continue (%.1f m)" % [el, pl.global_position.distance_to(at)])
+	p.check(moved > 1.5, "%s movement answers after continue (%.1f m, peak %.1f m/s)" % [el, moved, peak])
+	p.check(used.size() > nu, "%s bending answers after continue" % el)
 	await p.screenshot("%s_10_continued" % el)
 	await _ui(&"pause")
 	await p.wait_until(func() -> bool: return w.pause_menu.is_open, 5.0)
