@@ -612,7 +612,7 @@ func _threats() -> bool:
 		var kind := pc.controller.current_kind()
 		var close := e.flat_distance_to(pc) < 6.5
 		# The release contract (ChargeAbility, Earth Boulder, Lightning): `released` / `charging`.
-		var released := cur != null and cur.get(&"released") == true
+		var released: bool = cur != null and cur.get(&"released") == true
 		var slow := (kind == &"technique" and cur.time < 0.25) or (released and not _player_charge_seen)
 		if released:
 			_player_charge_seen = true
