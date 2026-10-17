@@ -301,6 +301,10 @@ func can_bend_airborne(slot: StringName) -> bool:
 		return profile.dodge_in_air
 	if element == ElementDefs.Element.AIR and (slot == &"light" or slot == &"heavy"):
 		return true
+	# Abilities that work in the air say so in their data (Jet Step: params.in_air).
+	var d := controller.get_slot_def(slot) if controller else null
+	if d != null and bool(d.params.get("in_air", false)):
+		return true
 	return false
 
 

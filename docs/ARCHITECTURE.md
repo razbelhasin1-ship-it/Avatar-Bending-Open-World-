@@ -213,8 +213,8 @@ Air: air_blast, air_sweep, air_dash, air_shield_loop, air_jump, air_tornado_loop
 air_impact. Earth: earth_raise, earth_launch, earth_impact, earth_wall_rise, earth_crumble,
 earth_stomp, earth_quake, earth_spikes, earth_armor, rock_debris. Fire: fire_ignite,
 fire_blast, fire_whoosh, fire_impact, fire_explosion, fire_loop, fire_charge_loop, fire_ring,
-fire_extinguish. Water: water_whip, water_splash, water_blast, water_shield_loop, water_surge,
-water_draw, ice_form, ice_shatter, ice_impact, water_wave, water_heal_loop.
+fire_extinguish, fire_lightning, fire_lightning_crackle, fire_lightning_loop. Water: water_whip,
+water_splash, water_blast, water_shield_loop, water_surge, water_draw, ice_form, ice_shatter, ice_impact, water_wave, water_heal_loop.
 Creatures: bison_call, bison_groan, dragon_roar, wing_flap_large, dog_bark, dog_growl,
 badgermole_snort, badgermole_dig, creature_step_heavy.
 Ambience loops: amb_arctic_wind, amb_blizzard, amb_city, amb_forest, amb_mountain_wind,

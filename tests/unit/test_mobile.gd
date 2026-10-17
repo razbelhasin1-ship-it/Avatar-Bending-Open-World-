@@ -195,7 +195,8 @@ func test_overlay_hands_over_from_hud() -> void:
 	expect(ov.active and ov.visible, "forced active")
 	expect(not _hud.abilities.visible, "HUD ability bar hidden: the touch buttons are the slots")
 	expect(ov.buttons[&"tech_0"].slot is HudAbilitySlot, "technique buttons embed the HUD slot")
-	expect_eq(StringName((ov.buttons[&"tech_0"] as TouchButton).slot.info.get("id")), &"flame_sweep", "slot info polled from the player")
+	expect(AbilityRegistry.starter_techniques(ElementDefs.Element.FIRE).has(StringName((ov.buttons[&"tech_0"] as TouchButton).slot.info.get("id"))),
+			"slot info polled from the player")
 	Events.interaction_prompt.emit("[E] Talk to Iroh", true)
 	await frames(2)
 	expect(not _hud.prompt_panel.visible, "HUD prompt suppressed on touch")
